@@ -1,5 +1,6 @@
 /** Activity feed vocabulary and presentation (pure, client-safe). */
 import { formatDateTime, formatIsoDateLong, isValidIsoDate } from "@/lib/dates";
+import { formatRupiah } from "@/lib/money";
 
 export const ACTIVITY_ACTIONS = [
   "wedding.created",
@@ -16,11 +17,21 @@ export const ACTIVITY_ACTIONS = [
   "partner.invitation_declined",
   "partner.joined",
   "partner.removed",
+  "budget.initialized",
+  "budget.settings_updated",
+  "budget.category_created",
+  "budget.category_updated",
+  "budget.category_deleted",
+  "expense.created",
+  "expense.updated",
+  "expense.deleted",
+  "payment.recorded",
+  "payment.deleted",
 ] as const;
 
 export type ActivityAction = (typeof ACTIVITY_ACTIONS)[number];
 
-/** Flat, non-secret context. Never tokens, passwords or full email addresses. */
+/** Flat, non-secret context. Never tokens, passwords or full email addresses. Amounts as digit strings. */
 export type ActivityMetadata = Record<string, string | number | boolean | null>;
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -37,10 +48,21 @@ function readNumber(meta: Record<string, unknown>, key: string): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+function readMoney(meta: Record<string, unknown>, key: string): string {
+  const value = readText(meta, key);
+  return /^\d{1,19}$/.test(value) ? formatRupiah(BigInt(value)) : "";
+}
+
+function quoted(value: string, fallback: string): string {
+  return value ? `“${value}”` : fallback;
+}
+
 export function describeActivity(entry: { action: string; actorName: string; metadata: unknown }): string {
   const actor = entry.actorName.trim() || "Seseorang";
   const meta = asRecord(entry.metadata);
   const title = readText(meta, "title");
+  const name = readText(meta, "name");
+  const money = readMoney(meta, "amount");
   const task = title ? `tugas “${title}”` : "sebuah tugas";
 
   switch (entry.action) {
@@ -79,10 +101,28 @@ export function describeActivity(entry: { action: string; actorName: string; met
       return `${actor} menolak undangan workspace`;
     case "partner.joined":
       return `${actor} bergabung ke workspace`;
-    case "partner.removed": {
-      const name = readText(meta, "name");
+    case "partner.removed":
       return name ? `${actor} mengeluarkan ${name} dari workspace` : `${actor} mengeluarkan pasangan dari workspace`;
-    }
+    case "budget.initialized":
+      return `${actor} menyiapkan kategori budget`;
+    case "budget.settings_updated":
+      return money ? `${actor} mengatur target budget menjadi ${money}` : `${actor} memperbarui pengaturan budget`;
+    case "budget.category_created":
+      return `${actor} menambahkan kategori budget ${quoted(name, "baru")}`;
+    case "budget.category_updated":
+      return `${actor} mengubah kategori budget ${quoted(name, "")}`.trimEnd();
+    case "budget.category_deleted":
+      return `${actor} menghapus kategori budget ${quoted(name, "")}`.trimEnd();
+    case "expense.created":
+      return `${actor} menambahkan pengeluaran ${quoted(title, "baru")}${money ? ` senilai ${money}` : ""}`;
+    case "expense.updated":
+      return `${actor} mengubah pengeluaran ${quoted(title, "")}`.trimEnd();
+    case "expense.deleted":
+      return `${actor} menghapus pengeluaran ${quoted(title, "")}`.trimEnd();
+    case "payment.recorded":
+      return `${actor} mencatat pembayaran${money ? ` ${money}` : ""}${title ? ` untuk “${title}”` : ""}`;
+    case "payment.deleted":
+      return `${actor} menghapus pembayaran${money ? ` ${money}` : ""}${title ? ` untuk “${title}”` : ""}`;
     default:
       return `${actor} melakukan perubahan`;
   }

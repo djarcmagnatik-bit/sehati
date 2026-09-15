@@ -63,6 +63,14 @@ enum PartnerInvitationStatus {
   REVOKED
 }
 
+enum PaymentMethod {
+  BANK_TRANSFER
+  CASH
+  E_WALLET
+  CARD
+  OTHER
+}
+
 // ─── Phase 1: identity & workspace ───────────────────────────────────────────
 
 model User {
@@ -83,6 +91,8 @@ model User {
   sentPartnerInvitations     PartnerInvitation[]  @relation("InvitationInvitedBy")
   acceptedPartnerInvitations PartnerInvitation[]  @relation("InvitationAcceptedBy")
   activityLogs               ActivityLog[]
+  createdExpenses            Expense[]            @relation("ExpenseCreatedBy")
+  createdPayments            Payment[]            @relation("PaymentCreatedBy")
 
   @@map("users")
 }
@@ -181,11 +191,15 @@ model Wedding {
   /// Whole rupiah. CHECK (target_budget >= 0) is added in the migration SQL.
   targetBudget         BigInt?             @map("target_budget")
   currency             String              @default("IDR") @db.Char(3)
+  /// Warn when a category's committed spend reaches this % of its allocation. CHECK 1..100.
+  budgetWarningPercent Int                 @default(80) @map("budget_warning_percent")
   status               WeddingStatus       @default(PLANNING)
   coupleNote           String?             @map("couple_note") @db.VarChar(280)
   coupleNoteUpdatedAt  DateTime?           @map("couple_note_updated_at") @db.Timestamptz(3)
   /// Set once template tasks have been generated; guards against generating twice.
   checklistGeneratedAt DateTime?           @map("checklist_generated_at") @db.Timestamptz(3)
+  /// Set once default budget categories have been created.
+  budgetInitializedAt  DateTime?           @map("budget_initialized_at") @db.Timestamptz(3)
   createdById          String?             @map("created_by_id") @db.Uuid
   createdAt            DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt            DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -198,6 +212,9 @@ model Wedding {
   tasks              Task[]
   partnerInvitations PartnerInvitation[]
   activityLogs       ActivityLog[]
+  budgetCategories   BudgetCategory[]
+  expenses           Expense[]
+  payments           Payment[]
 
   @@index([weddingDate])
   @@map("weddings")
@@ -367,4 +384,90 @@ model ActivityLog {
   @@index([weddingId, createdAt(sort: Desc)])
   @@index([userId])
   @@map("activity_logs")
+}
+
+// ─── Phase 4: budget, expenses & payments ────────────────────────────────────
+
+/// Admin-configurable default budget categories, copied into each new workspace.
+model BudgetCategoryTemplate {
+  id        String   @id @default(uuid()) @db.Uuid
+  code      String   @unique @db.VarChar(50)
+  name      String   @db.VarChar(100)
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("budget_category_templates")
+}
+
+/// A couple's own budget category (customizable per workspace).
+model BudgetCategory {
+  id              String   @id @default(uuid()) @db.Uuid
+  weddingId       String   @map("wedding_id") @db.Uuid
+  name            String   @db.VarChar(100)
+  /// Whole rupiah allocated to this category. CHECK (allocated_amount >= 0).
+  allocatedAmount BigInt   @default(0) @map("allocated_amount")
+  sortOrder       Int      @default(0) @map("sort_order")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  wedding  Wedding   @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  expenses Expense[]
+
+  @@unique([weddingId, name])
+  // Target of the composite FK that keeps an expense in its category's wedding.
+  @@unique([id, weddingId])
+  @@index([weddingId, sortOrder])
+  @@map("budget_categories")
+}
+
+/// An obligation (e.g. a vendor contract). Payments settle it over time; outstanding is always
+/// total_amount - SUM(payments.amount), computed from the rows, never stored.
+model Expense {
+  id          String    @id @default(uuid()) @db.Uuid
+  weddingId   String    @map("wedding_id") @db.Uuid
+  categoryId  String    @map("category_id") @db.Uuid
+  title       String    @db.VarChar(160)
+  /// Whole rupiah. CHECK (total_amount > 0).
+  totalAmount BigInt    @map("total_amount")
+  dueDate     DateTime? @map("due_date") @db.Date
+  notes       String?   @db.VarChar(2000)
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  wedding   Wedding        @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  category  BudgetCategory @relation(fields: [categoryId, weddingId], references: [id, weddingId], onDelete: NoAction)
+  createdBy User?          @relation("ExpenseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  payments  Payment[]
+
+  // Target of the composite FK that keeps a payment in its expense's wedding.
+  @@unique([id, weddingId])
+  @@index([weddingId, categoryId])
+  @@index([weddingId, dueDate])
+  @@map("expenses")
+}
+
+model Payment {
+  id          String        @id @default(uuid()) @db.Uuid
+  weddingId   String        @map("wedding_id") @db.Uuid
+  expenseId   String        @map("expense_id") @db.Uuid
+  /// Whole rupiah. CHECK (amount > 0).
+  amount      BigInt
+  paymentDate DateTime      @map("payment_date") @db.Date
+  method      PaymentMethod
+  reference   String?       @db.VarChar(120)
+  notes       String?       @db.VarChar(1000)
+  createdById String?       @map("created_by_id") @db.Uuid
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  wedding   Wedding @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  expense   Expense @relation(fields: [expenseId, weddingId], references: [id, weddingId], onDelete: NoAction)
+  createdBy User?   @relation("PaymentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([weddingId, paymentDate])
+  @@index([expenseId])
+  @@map("payments")
 }

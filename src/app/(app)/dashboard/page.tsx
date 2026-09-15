@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ActivityList } from "@/components/activity/activity-list";
+import { MoneyStat } from "@/components/budget/money-stat";
 import { DueBadge } from "@/components/checklist/due-badge";
 import { Alert } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
@@ -18,6 +19,7 @@ import {
 import { formatRupiah } from "@/lib/money";
 import { getRecentActivity } from "@/server/activity/activity-service";
 import { requireSession } from "@/server/auth/session-cookie";
+import { getBudgetOverview, getUpcomingPayments } from "@/server/budget/budget-service";
 import { getChecklistSummary, getUpcomingTasks } from "@/server/checklist/task-service";
 import { getActiveWeddingForUser } from "@/server/wedding/wedding-service";
 import { CoupleNoteForm } from "./couple-note-form";
@@ -74,11 +76,14 @@ export default async function DashboardPage({
   });
   const partnerJoined = wedding.members.some((member) => member.role === "PARTNER");
 
-  const [summary, upcomingTasks, recentActivity] = await Promise.all([
+  const [summary, upcomingTasks, recentActivity, budget, upcomingPayments] = await Promise.all([
     getChecklistSummary(session.user.id, wedding.id, todayIso),
     getUpcomingTasks(session.user.id, wedding.id, 5),
     getRecentActivity(session.user.id, wedding.id, 5),
+    getBudgetOverview(session.user.id, wedding.id),
+    getUpcomingPayments(session.user.id, wedding.id, 5),
   ]);
+  const budgetTotals = budget.totals;
 
   return (
     <div className="space-y-6">
@@ -162,6 +167,54 @@ export default async function DashboardPage({
           )}
         </Card>
 
+        <Card title="Ringkasan budget">
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
+            <MoneyStat label="Target" amount={budgetTotals.target} testId="budget-target" />
+            <MoneyStat label="Dialokasikan" amount={budgetTotals.allocated} testId="budget-allocated" />
+            <MoneyStat label="Komitmen" amount={budgetTotals.committed} testId="budget-committed" />
+            <MoneyStat label="Sudah dibayar" amount={budgetTotals.paid} testId="budget-paid" />
+            <MoneyStat label="Belum dibayar" amount={budgetTotals.unpaid} testId="budget-unpaid" />
+            <MoneyStat label="Sisa budget" amount={budgetTotals.remaining} testId="budget-remaining" emptyLabel="—" />
+          </dl>
+          {budgetTotals.warning === "over" ? (
+            <p className="mt-3 text-sm font-medium text-danger-600">⚠ Komitmen melebihi target budget</p>
+          ) : budgetTotals.warning === "near" ? (
+            <p className="mt-3 text-sm font-medium text-clay-700">⚠ Komitmen mendekati target budget</p>
+          ) : null}
+          <Link href="/budget" className={`mt-4 inline-block ${LINK_CLASS}`}>
+            Buka budget
+          </Link>
+        </Card>
+
+        <Card title="Pembayaran mendatang">
+          {upcomingPayments.length === 0 ? (
+            <p className="text-sm text-ink-700">Tidak ada tagihan yang belum lunas.</p>
+          ) : (
+            <ul className="divide-y divide-cream-200">
+              {upcomingPayments.map((expense) => (
+                <li key={expense.id} className="flex items-center justify-between gap-3 py-2.5">
+                  <div className="min-w-0">
+                    <Link
+                      href={`/budget/expenses/${expense.id}`}
+                      className="block truncate text-sm font-medium text-ink-900 underline-offset-4 hover:underline"
+                    >
+                      {expense.title}
+                    </Link>
+                    <p className="text-xs text-ink-500">Sisa {formatRupiah(expense.outstanding)}</p>
+                  </div>
+                  <span className="shrink-0">
+                    {expense.dueDateIso ? (
+                      <DueBadge dueDateIso={expense.dueDateIso} status="TODO" todayIso={todayIso} />
+                    ) : (
+                      <span className="text-xs text-ink-500">Tanpa jatuh tempo</span>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
         <Card title="Detail pernikahan">
           <dl className="divide-y divide-cream-200">
             <DetailRow label="Jenis acara" value={wedding.eventType?.name ?? "Belum dipilih"} />
@@ -172,10 +225,6 @@ export default async function DashboardPage({
             {wedding.receptionDate ? (
               <DetailRow label="Tanggal resepsi" value={formatIsoDateLong(dbDateToIso(wedding.receptionDate))} />
             ) : null}
-            <DetailRow
-              label="Target budget"
-              value={wedding.targetBudget !== null ? formatRupiah(wedding.targetBudget) : "Belum diatur"}
-            />
           </dl>
           <Link href="/settings/wedding" className={`mt-3 inline-block ${LINK_CLASS}`}>
             Ubah tanggal pernikahan

@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import type { WeddingMemberRole } from "@/generated/prisma/client";
+import type { Prisma, WeddingMemberRole } from "@/generated/prisma/client";
 import { getDb } from "@/server/db";
 
 /** Thrown for both "not found" and "not a member" so wedding existence is never revealed. */
@@ -45,4 +45,9 @@ export async function requireWeddingMember(
 
   if (!membership) throw new WeddingAccessError();
   return membership;
+}
+
+/** Relation filter for records reachable only through a wedding the user belongs to. */
+export function memberWeddingWhere(userId: string): Prisma.WeddingWhereInput {
+  return { deletedAt: null, members: { some: { userId } } };
 }

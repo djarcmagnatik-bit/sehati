@@ -4,6 +4,7 @@ import { dbDateToIso, isoToDbDate, todayIsoInTimeZone } from "@/lib/dates";
 import type { OnboardingData } from "@/lib/validation/onboarding";
 import { recordActivity } from "@/server/activity/activity-service";
 import { requireWeddingMember } from "@/server/authz/wedding-access";
+import { createBudgetCategoriesFromTemplates } from "@/server/budget/budget-service";
 import { generateTemplateTasks, recalculableTasksWhere } from "@/server/checklist/checklist-generation";
 import { getDb } from "@/server/db";
 
@@ -11,7 +12,10 @@ export type CreateWeddingResult =
   | { ok: true; weddingId: string }
   | { ok: false; reason: "already_has_wedding" | "invalid_event_type" | "invalid_marriage_process" };
 
-/** Creates the workspace, the OWNER membership and the template checklist in one transaction. */
+/**
+ * Creates the workspace, the OWNER membership, the template checklist and the default budget
+ * categories in one transaction.
+ */
 export async function createWeddingForUser(
   userId: string,
   data: OnboardingData,
@@ -55,6 +59,7 @@ export async function createWeddingForUser(
           targetBudget: data.targetBudget,
           currency: data.currency,
           checklistGeneratedAt: now,
+          budgetInitializedAt: now,
           createdById: userId,
           members: {
             create: { userId, role: "OWNER", displayName: data.displayName },
@@ -67,6 +72,7 @@ export async function createWeddingForUser(
         todayIso: todayIsoInTimeZone(now, wedding.timeZone),
         createdById: userId,
       });
+      await createBudgetCategoriesFromTemplates(tx, wedding.id);
 
       await recordActivity(tx, {
         weddingId: wedding.id,

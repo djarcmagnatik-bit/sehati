@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 
-// Only modules that exist are listed. Budget, Tamu, etc. are added in their phases.
+// Only modules that exist are listed. Tamu, Undangan, etc. are added in their phases.
 const NAV_ITEMS = [
   {
     href: "/dashboard",
@@ -17,6 +17,12 @@ const NAV_ITEMS = [
     match: "/checklist",
     label: "Checklist",
     icon: "M9 6h11M9 12h11M9 18h11M3.5 6l1.5 1.5L7.5 5M3.5 12l1.5 1.5 2.5-2.5M3.5 18l1.5 1.5 2.5-2.5",
+  },
+  {
+    href: "/budget",
+    match: "/budget",
+    label: "Budget",
+    icon: "M3 7.5A2.5 2.5 0 0 1 5.5 5h13A2.5 2.5 0 0 1 21 7.5V9h-4.5a3 3 0 0 0 0 6H21v1.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5v-9ZM16.5 12h.01",
   },
   {
     href: "/settings/security",

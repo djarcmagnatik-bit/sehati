@@ -37,7 +37,7 @@ test("partner invitation: two accounts plan the same wedding", async ({ page, br
   await expect(partnerPage).toHaveURL(/\/dashboard\?notice=partner_joined$/);
   await expect(partnerPage.getByRole("heading", { level: 1, name: "Putri & Fajar" })).toBeVisible();
   await expect(partnerPage.getByText("Pemilik workspace")).toBeVisible();
-  await expect(partnerPage.getByText(/Rp\s100\.000\.000/)).toBeVisible();
+  await expect(partnerPage.getByTestId("budget-target")).toHaveText(/Rp\s100\.000\.000/);
 
   // Partner completes a task.
   await partnerPage.goto("/checklist?q=Daftar+nikah+ke+KUA");

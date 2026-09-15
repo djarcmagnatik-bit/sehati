@@ -11,7 +11,16 @@ export type ActivityEntryInput = {
   userId: string | null;
   actorName: string;
   action: ActivityAction;
-  entityType: "wedding" | "task" | "checklist" | "partner_invitation" | "wedding_member";
+  entityType:
+    | "wedding"
+    | "task"
+    | "checklist"
+    | "partner_invitation"
+    | "wedding_member"
+    | "budget"
+    | "budget_category"
+    | "expense"
+    | "payment";
   entityId?: string | null;
   metadata?: ActivityMetadata;
 };

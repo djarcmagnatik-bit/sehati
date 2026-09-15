@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@/generated/prisma/client";
+import { BUDGET_CATEGORY_TEMPLATES } from "./budget-templates";
 import { TASK_CATEGORIES, TASK_TEMPLATES } from "./task-templates";
 
 type ReferenceRow = { code: string; name: string; description: string; sortOrder: number };
@@ -26,7 +27,8 @@ export const MARRIAGE_PROCESSES: ReferenceRow[] = [
 
 /**
  * Idempotent seed keyed by `code`.
- * - Event types, marriage processes and task categories: names/order are refreshed, `isActive` is kept.
+ * - Event types, marriage processes, task categories and budget category templates: names/order are
+ *   refreshed, `isActive` is kept.
  * - Task templates: created when missing, never overwritten (admins may have edited them).
  */
 export async function upsertReferenceData(db: PrismaClient): Promise<void> {
@@ -46,6 +48,13 @@ export async function upsertReferenceData(db: PrismaClient): Promise<void> {
   }
   for (const row of TASK_CATEGORIES) {
     await db.taskCategory.upsert({
+      where: { code: row.code },
+      update: { name: row.name, sortOrder: row.sortOrder },
+      create: row,
+    });
+  }
+  for (const row of BUDGET_CATEGORY_TEMPLATES) {
+    await db.budgetCategoryTemplate.upsert({
       where: { code: row.code },
       update: { name: row.name, sortOrder: row.sortOrder },
       create: row,

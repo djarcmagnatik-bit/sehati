@@ -13,7 +13,13 @@ Wedding planning workspace for couples (Indonesia-first). Built phase by phase f
   7-day expiry, must match the invited email), max two members per workspace, remove partner,
   and an activity log (dashboard + `/activity`) written in the same transaction as each change.
 
-Nothing beyond Phase 3 is implemented yet.
+- Phase 4 (Budget): per-workspace budget categories (from admin-configurable templates) with
+  allocations, target + configurable warning threshold, expenses (obligations) separate from payment
+  transactions, totals always computed from rows (`outstanding = total - SUM(payments)`), overpayment
+  rejected under a row lock, composite FKs + CHECK constraints for money integrity, dashboard budget
+  summary and upcoming payments.
+
+Nothing beyond Phase 4 is implemented yet.
 
 ## Stack
 
