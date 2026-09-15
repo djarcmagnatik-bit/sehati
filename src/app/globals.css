@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+/* Warm, romantic but not pink: cream ground, clay (terracotta) accent, sage secondary. */
+@theme {
+  --color-cream-50: #fdfbf8;
+  --color-cream-100: #f7f1e9;
+  --color-cream-200: #ebe1d3;
+  --color-cream-300: #dccdb9;
+
+  --color-ink-900: #2a211d;
+  --color-ink-700: #4b3f39;
+  --color-ink-500: #6b5e56;
+
+  --color-clay-50: #fbf2ed;
+  --color-clay-100: #f4ddd1;
+  --color-clay-300: #dfa58c;
+  --color-clay-600: #9d4f37;
+  --color-clay-700: #7f3d2a;
+
+  --color-sage-50: #f1f4ee;
+  --color-sage-100: #e2e9dc;
+  --color-sage-700: #4c5c43;
+
+  --color-danger-50: #fdf1f0;
+  --color-danger-600: #b3261e;
+  --color-success-50: #eef6ef;
+  --color-success-700: #2e6b3b;
+}
+
+@theme inline {
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-cream-50);
+    color: var(--color-ink-900);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-clay-600);
+    outline-offset: 2px;
+  }
+}
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -4rem;
+  z-index: 50;
+  border-radius: 9999px;
+  background: var(--color-ink-900);
+  color: white;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+}
+
+.skip-link:focus {
+  top: 1rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

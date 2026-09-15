@@ -1,0 +1,313 @@
+// Conventions:
+// - Tables/columns are snake_case in PostgreSQL (@@map / @map).
+// - Primary keys are UUIDs; sequential IDs are never exposed.
+// - Money is stored as BIGINT whole rupiah (IDR has no minor unit in practice). Never float.
+// - Calendar dates (wedding date, task deadlines) are DATE columns, interpreted in weddings.time_zone.
+// - Every private planning entity belongs to a wedding (wedding_id), never directly to a user.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum WeddingMemberRole {
+  OWNER
+  PARTNER
+}
+
+enum WeddingStatus {
+  PLANNING
+  COMPLETED
+  ARCHIVED
+}
+
+enum CoupleDisplayFormat {
+  BRIDE_GROOM
+  GROOM_BRIDE
+  CUSTOM
+}
+
+/// Declaration order matters: PostgreSQL sorts enums by it (used for "priority desc").
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskSource {
+  TEMPLATE
+  CUSTOM
+}
+
+// ─── Phase 1: identity & workspace ───────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String   @db.VarChar(80)
+  /// Always stored trimmed + lowercased.
+  email        String   @unique @db.VarChar(254)
+  passwordHash String   @map("password_hash")
+  role         UserRole @default(USER)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  sessions            Session[]
+  passwordResetTokens PasswordResetToken[]
+  memberships         WeddingMember[]
+  createdWeddings     Wedding[]            @relation("WeddingCreatedBy")
+  createdTasks        Task[]               @relation("TaskCreatedBy")
+
+  @@map("users")
+}
+
+model Session {
+  id         String   @id @default(uuid()) @db.Uuid
+  /// SHA-256 of the random session token. The raw token only exists in the httpOnly cookie.
+  tokenHash  String   @unique @map("token_hash") @db.VarChar(64)
+  userId     String   @map("user_id") @db.Uuid
+  remember   Boolean  @default(false)
+  userAgent  String?  @map("user_agent") @db.VarChar(512)
+  ipAddress  String?  @map("ip_address") @db.VarChar(64)
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz(3)
+  lastSeenAt DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  /// SHA-256 of the emailed token.
+  tokenHash String    @unique @map("token_hash") @db.VarChar(64)
+  userId    String    @map("user_id") @db.Uuid
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+/// Fixed-window counters for rate limiting / brute-force protection (no Redis required).
+model RateLimitBucket {
+  key             String   @id @db.VarChar(191)
+  count           Int
+  windowStartedAt DateTime @map("window_started_at") @db.Timestamptz(3)
+
+  @@map("rate_limit_buckets")
+}
+
+/// Configurable wedding types (Akad saja, Akad + Resepsi, ...). Deactivate instead of deleting.
+model EventType {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique @db.VarChar(50)
+  name        String   @db.VarChar(100)
+  description String?  @db.VarChar(255)
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  weddings      Wedding[]
+  taskTemplates TaskTemplateEventType[]
+
+  @@map("event_types")
+}
+
+/// Configurable marriage process / jalur nikah (KUA, pencatatan sipil, ...).
+model MarriageProcess {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique @db.VarChar(50)
+  name        String   @db.VarChar(100)
+  description String?  @db.VarChar(255)
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  weddings      Wedding[]
+  taskTemplates TaskTemplateMarriageProcess[]
+
+  @@map("marriage_processes")
+}
+
+model Wedding {
+  id                   String              @id @default(uuid()) @db.Uuid
+  brideName            String              @map("bride_name") @db.VarChar(80)
+  groomName            String              @map("groom_name") @db.VarChar(80)
+  /// Name of the partner given during onboarding, before the partner account joins.
+  partnerName          String?             @map("partner_name") @db.VarChar(80)
+  coupleDisplayFormat  CoupleDisplayFormat @default(BRIDE_GROOM) @map("couple_display_format")
+  customDisplayName    String?             @map("custom_display_name") @db.VarChar(120)
+  weddingDate          DateTime            @map("wedding_date") @db.Date
+  engagementDate       DateTime?           @map("engagement_date") @db.Date
+  receptionDate        DateTime?           @map("reception_date") @db.Date
+  timeZone             String              @default("Asia/Jakarta") @map("time_zone") @db.VarChar(64)
+  eventTypeId          String?             @map("event_type_id") @db.Uuid
+  marriageProcessId    String?             @map("marriage_process_id") @db.Uuid
+  /// Whole rupiah. CHECK (target_budget >= 0) is added in the migration SQL.
+  targetBudget         BigInt?             @map("target_budget")
+  currency             String              @default("IDR") @db.Char(3)
+  status               WeddingStatus       @default(PLANNING)
+  coupleNote           String?             @map("couple_note") @db.VarChar(280)
+  coupleNoteUpdatedAt  DateTime?           @map("couple_note_updated_at") @db.Timestamptz(3)
+  /// Set once template tasks have been generated; guards against generating twice.
+  checklistGeneratedAt DateTime?           @map("checklist_generated_at") @db.Timestamptz(3)
+  createdById          String?             @map("created_by_id") @db.Uuid
+  createdAt            DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt            DateTime?           @map("deleted_at") @db.Timestamptz(3)
+
+  eventType       EventType?       @relation(fields: [eventTypeId], references: [id], onDelete: Restrict)
+  marriageProcess MarriageProcess? @relation(fields: [marriageProcessId], references: [id], onDelete: Restrict)
+  createdBy       User?            @relation("WeddingCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  members         WeddingMember[]
+  tasks           Task[]
+
+  @@index([weddingDate])
+  @@map("weddings")
+}
+
+/// Every private planning entity is scoped by wedding_id; access is granted through this table.
+model WeddingMember {
+  id          String            @id @default(uuid()) @db.Uuid
+  weddingId   String            @map("wedding_id") @db.Uuid
+  userId      String            @map("user_id") @db.Uuid
+  role        WeddingMemberRole
+  displayName String            @map("display_name") @db.VarChar(80)
+  joinedAt    DateTime          @default(now()) @map("joined_at") @db.Timestamptz(3)
+
+  wedding       Wedding @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignedTasks Task[]
+
+  @@unique([weddingId, userId])
+  @@index([userId])
+  @@map("wedding_members")
+}
+
+// ─── Phase 2: checklist ──────────────────────────────────────────────────────
+
+/// Admin-configurable task categories (Administrasi, Venue, Catering, ...).
+model TaskCategory {
+  id        String   @id @default(uuid()) @db.Uuid
+  code      String   @unique @db.VarChar(50)
+  name      String   @db.VarChar(100)
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  templates TaskTemplate[]
+  tasks     Task[]
+
+  @@map("task_categories")
+}
+
+/// Admin-configurable checklist templates. A template with no linked event types / marriage
+/// processes applies to all of them.
+model TaskTemplate {
+  id                 String       @id @default(uuid()) @db.Uuid
+  code               String       @unique @db.VarChar(80)
+  title              String       @db.VarChar(160)
+  description        String?      @db.VarChar(2000)
+  categoryId         String       @map("category_id") @db.Uuid
+  priority           TaskPriority @default(MEDIUM)
+  /// Days relative to the wedding date: -180 = 180 days before, 7 = a week after.
+  deadlineOffsetDays Int          @map("deadline_offset_days")
+  sortOrder          Int          @default(0) @map("sort_order")
+  isActive           Boolean      @default(true) @map("is_active")
+  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  category          TaskCategory                  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  eventTypes        TaskTemplateEventType[]
+  marriageProcesses TaskTemplateMarriageProcess[]
+  tasks             Task[]
+
+  @@index([isActive])
+  @@map("task_templates")
+}
+
+model TaskTemplateEventType {
+  templateId  String @map("template_id") @db.Uuid
+  eventTypeId String @map("event_type_id") @db.Uuid
+
+  template  TaskTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  eventType EventType    @relation(fields: [eventTypeId], references: [id], onDelete: Cascade)
+
+  @@id([templateId, eventTypeId])
+  @@index([eventTypeId])
+  @@map("task_template_event_types")
+}
+
+model TaskTemplateMarriageProcess {
+  templateId        String @map("template_id") @db.Uuid
+  marriageProcessId String @map("marriage_process_id") @db.Uuid
+
+  template        TaskTemplate    @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  marriageProcess MarriageProcess @relation(fields: [marriageProcessId], references: [id], onDelete: Cascade)
+
+  @@id([templateId, marriageProcessId])
+  @@index([marriageProcessId])
+  @@map("task_template_marriage_processes")
+}
+
+model Task {
+  id                 String       @id @default(uuid()) @db.Uuid
+  weddingId          String       @map("wedding_id") @db.Uuid
+  title              String       @db.VarChar(160)
+  description        String?      @db.VarChar(2000)
+  categoryId         String       @map("category_id") @db.Uuid
+  dueDate            DateTime?    @map("due_date") @db.Date
+  status             TaskStatus   @default(TODO)
+  priority           TaskPriority @default(MEDIUM)
+  assigneeMemberId   String?      @map("assignee_member_id") @db.Uuid
+  source             TaskSource
+  templateId         String?      @map("template_id") @db.Uuid
+  /// Offset copied from the template at generation time, so later template edits never
+  /// silently move existing deadlines.
+  templateOffsetDays Int?         @map("template_offset_days")
+  /// True once a person changes the deadline; recalculation never overwrites it.
+  dueDateManuallySet Boolean      @default(false) @map("due_date_manually_set")
+  completedAt        DateTime?    @map("completed_at") @db.Timestamptz(3)
+  createdById        String?      @map("created_by_id") @db.Uuid
+  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  wedding   Wedding        @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  category  TaskCategory   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  assignee  WeddingMember? @relation(fields: [assigneeMemberId], references: [id], onDelete: SetNull)
+  template  TaskTemplate?  @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  createdBy User?          @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  /// One task per template per wedding (NULL template_id = custom tasks, unconstrained).
+  @@unique([weddingId, templateId])
+  @@index([weddingId, status, dueDate])
+  @@index([weddingId, categoryId])
+  @@index([assigneeMemberId])
+  @@map("tasks")
+}

@@ -1,0 +1,200 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { DueBadge } from "@/components/checklist/due-badge";
+import { Card } from "@/components/ui/card";
+import { ProgressBar } from "@/components/ui/progress-bar";
+import { formatCoupleName } from "@/lib/couple";
+import {
+  dbDateToIso,
+  describeCountdown,
+  formatDateTime,
+  formatIsoDateLong,
+  getWeddingCountdown,
+  todayIsoInTimeZone,
+} from "@/lib/dates";
+import { formatRupiah } from "@/lib/money";
+import { requireSession } from "@/server/auth/session-cookie";
+import { getChecklistSummary, getUpcomingTasks } from "@/server/checklist/task-service";
+import { getActiveWeddingForUser } from "@/server/wedding/wedding-service";
+import { CoupleNoteForm } from "./couple-note-form";
+
+export const metadata: Metadata = { title: "Beranda" };
+
+const STATUS_LABEL = {
+  PLANNING: "Tahap perencanaan",
+  COMPLETED: "Selesai",
+  ARCHIVED: "Diarsipkan",
+} as const;
+
+const ROLE_LABEL = {
+  OWNER: "Pemilik workspace",
+  PARTNER: "Pasangan",
+} as const;
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 py-3">
+      <dt className="text-sm text-ink-500">{label}</dt>
+      <dd className="text-sm font-medium text-ink-900">{value}</dd>
+    </div>
+  );
+}
+
+export default async function DashboardPage() {
+  const session = await requireSession();
+  const membership = await getActiveWeddingForUser(session.user.id);
+  if (!membership) redirect("/onboarding");
+
+  const { wedding } = membership;
+  const now = new Date();
+  const weddingDateIso = dbDateToIso(wedding.weddingDate);
+  const todayIso = todayIsoInTimeZone(now, wedding.timeZone);
+  const countdown = getWeddingCountdown(weddingDateIso, now, wedding.timeZone);
+  const coupleName = formatCoupleName({
+    brideName: wedding.brideName,
+    groomName: wedding.groomName,
+    format: wedding.coupleDisplayFormat,
+    customDisplayName: wedding.customDisplayName,
+  });
+  const partnerJoined = wedding.members.some((member) => member.role === "PARTNER");
+
+  const [summary, upcomingTasks] = await Promise.all([
+    getChecklistSummary(session.user.id, wedding.id, todayIso),
+    getUpcomingTasks(session.user.id, wedding.id, 5),
+  ]);
+
+  return (
+    <div className="space-y-6">
+      <section
+        aria-labelledby="couple-heading"
+        className="rounded-3xl bg-gradient-to-br from-clay-50 via-cream-100 to-sage-50 p-6 ring-1 ring-cream-200 sm:p-8"
+      >
+        <p className="text-sm font-medium text-clay-700">Halo, {membership.displayName}</p>
+        <h1 id="couple-heading" className="mt-2 font-display text-3xl font-semibold text-balance sm:text-4xl">
+          {coupleName}
+        </h1>
+        <p className="mt-1 text-ink-700">
+          <time dateTime={weddingDateIso}>{formatIsoDateLong(weddingDateIso)}</time>
+        </p>
+        <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
+          {countdown.state === "upcoming" ? (
+            <p>
+              <span className="block font-display text-5xl font-semibold text-clay-700 sm:text-6xl">{countdown.days}</span>
+              <span className="text-ink-700">hari menuju hari bahagia</span>
+            </p>
+          ) : (
+            <p className="font-display text-2xl font-semibold text-clay-700">{describeCountdown(countdown)}</p>
+          )}
+          <span className="rounded-full bg-white/80 px-3 py-1 text-sm font-medium text-sage-700 ring-1 ring-sage-100">
+            {STATUS_LABEL[wedding.status]}
+          </span>
+        </div>
+      </section>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card title="Progres persiapan">
+          {summary.total === 0 ? (
+            <p className="text-sm text-ink-700">Belum ada tugas di checklist.</p>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <p className="font-display text-4xl font-semibold text-clay-700">{summary.percent}%</p>
+                <p className="text-sm text-ink-700">
+                  {summary.completed} dari {summary.total} tugas selesai
+                </p>
+              </div>
+              <ProgressBar percent={summary.percent} label="Progres persiapan" className="mt-3" />
+              {summary.overdue > 0 ? (
+                <p className="mt-3 text-sm font-medium text-danger-600">
+                  <span aria-hidden="true">⚠ </span>
+                  {summary.overdue} tugas terlambat
+                </p>
+              ) : null}
+            </>
+          )}
+          <Link
+            href="/checklist"
+            className="mt-4 inline-block text-sm font-semibold text-clay-700 underline-offset-4 hover:underline"
+          >
+            Buka checklist
+          </Link>
+        </Card>
+
+        <Card title="Tugas terdekat">
+          {upcomingTasks.length === 0 ? (
+            <p className="text-sm text-ink-700">Tidak ada tugas aktif dengan tenggat.</p>
+          ) : (
+            <ul className="divide-y divide-cream-200">
+              {upcomingTasks.map((task) => (
+                <li key={task.id} className="flex items-center justify-between gap-3 py-2.5">
+                  <Link
+                    href={`/checklist/${task.id}`}
+                    className="min-w-0 truncate text-sm font-medium text-ink-900 underline-offset-4 hover:underline"
+                  >
+                    {task.title}
+                  </Link>
+                  <span className="shrink-0">
+                    <DueBadge
+                      dueDateIso={task.dueDate ? dbDateToIso(task.dueDate) : null}
+                      status={task.status}
+                      todayIso={todayIso}
+                    />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        <Card title="Detail pernikahan">
+          <dl className="divide-y divide-cream-200">
+            <DetailRow label="Jenis acara" value={wedding.eventType?.name ?? "Belum dipilih"} />
+            <DetailRow label="Jalur pernikahan" value={wedding.marriageProcess?.name ?? "Belum dipilih"} />
+            {wedding.engagementDate ? (
+              <DetailRow label="Tanggal lamaran" value={formatIsoDateLong(dbDateToIso(wedding.engagementDate))} />
+            ) : null}
+            {wedding.receptionDate ? (
+              <DetailRow label="Tanggal resepsi" value={formatIsoDateLong(dbDateToIso(wedding.receptionDate))} />
+            ) : null}
+            <DetailRow
+              label="Target budget"
+              value={wedding.targetBudget !== null ? formatRupiah(wedding.targetBudget) : "Belum diatur"}
+            />
+          </dl>
+          <Link
+            href="/settings/wedding"
+            className="mt-3 inline-block text-sm font-semibold text-clay-700 underline-offset-4 hover:underline"
+          >
+            Ubah tanggal pernikahan
+          </Link>
+        </Card>
+
+        <Card title="Workspace berdua">
+          <ul className="space-y-3">
+            {wedding.members.map((member) => (
+              <li key={member.id} className="flex items-center justify-between gap-3">
+                <span className="font-medium">{member.displayName}</span>
+                <span className="text-sm text-ink-500">{ROLE_LABEL[member.role]}</span>
+              </li>
+            ))}
+          </ul>
+          {!partnerJoined ? (
+            <p className="mt-4 rounded-2xl bg-cream-100 px-4 py-3 text-sm text-ink-700">
+              {wedding.partnerName ?? "Pasangan kamu"} belum bergabung ke workspace ini.
+            </p>
+          ) : null}
+        </Card>
+      </div>
+
+      <Card title="Catatan untuk berdua" description="Pesan singkat yang bisa dilihat dan diubah kalian berdua.">
+        <CoupleNoteForm weddingId={wedding.id} note={wedding.coupleNote} />
+        {wedding.coupleNoteUpdatedAt ? (
+          <p className="mt-3 text-xs text-ink-500">
+            Terakhir diperbarui {formatDateTime(wedding.coupleNoteUpdatedAt, wedding.timeZone)}
+          </p>
+        ) : null}
+      </Card>
+    </div>
+  );
+}
