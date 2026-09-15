@@ -2,6 +2,7 @@ import "server-only";
 import { computeTemplateDueDate } from "@/lib/checklist";
 import { dbDateToIso, isoToDbDate, todayIsoInTimeZone } from "@/lib/dates";
 import type { OnboardingData } from "@/lib/validation/onboarding";
+import { recordActivity } from "@/server/activity/activity-service";
 import { requireWeddingMember } from "@/server/authz/wedding-access";
 import { generateTemplateTasks, recalculableTasksWhere } from "@/server/checklist/checklist-generation";
 import { getDb } from "@/server/db";
@@ -67,6 +68,15 @@ export async function createWeddingForUser(
         createdById: userId,
       });
 
+      await recordActivity(tx, {
+        weddingId: wedding.id,
+        userId,
+        actorName: data.displayName,
+        action: "wedding.created",
+        entityType: "wedding",
+        entityId: wedding.id,
+      });
+
       return { ok: true, weddingId: wedding.id } as const;
     },
     { timeout: 15_000 },
@@ -121,9 +131,19 @@ export function getActiveWeddingForUser(userId: string) {
 
 export async function updateCoupleNote(userId: string, weddingId: string, note: string | null): Promise<void> {
   const membership = await requireWeddingMember(userId, weddingId);
-  await getDb().wedding.update({
-    where: { id: membership.weddingId },
-    data: { coupleNote: note, coupleNoteUpdatedAt: new Date() },
+  await getDb().$transaction(async (tx) => {
+    await tx.wedding.update({
+      where: { id: membership.weddingId },
+      data: { coupleNote: note, coupleNoteUpdatedAt: new Date() },
+    });
+    await recordActivity(tx, {
+      weddingId: membership.weddingId,
+      userId,
+      actorName: membership.displayName,
+      action: "couple_note.updated",
+      entityType: "wedding",
+      entityId: membership.weddingId,
+    });
   });
 }
 
@@ -154,7 +174,7 @@ export async function changeWeddingDate(
     async (tx) => {
       const wedding = await tx.wedding.findUniqueOrThrow({
         where: { id: membership.weddingId },
-        select: { engagementDate: true, receptionDate: true, timeZone: true },
+        select: { weddingDate: true, engagementDate: true, receptionDate: true, timeZone: true },
       });
       if (wedding.engagementDate && dbDateToIso(wedding.engagementDate) > newWeddingDateIso) {
         return { ok: false, reason: "engagement_after_wedding" } as const;
@@ -167,21 +187,32 @@ export async function changeWeddingDate(
         where: { id: membership.weddingId },
         data: { weddingDate: isoToDbDate(newWeddingDateIso) },
       });
-      if (!recalculate) return { ok: true, recalculated: 0 } as const;
-
-      const todayIso = todayIsoInTimeZone(now, wedding.timeZone);
-      const where = recalculableTasksWhere(membership.weddingId);
-      const offsets = await tx.task.findMany({ where, distinct: ["templateOffsetDays"], select: { templateOffsetDays: true } });
 
       let recalculated = 0;
-      for (const { templateOffsetDays } of offsets) {
-        if (templateOffsetDays === null) continue;
-        const result = await tx.task.updateMany({
-          where: { ...where, templateOffsetDays },
-          data: { dueDate: isoToDbDate(computeTemplateDueDate(newWeddingDateIso, templateOffsetDays, todayIso)) },
-        });
-        recalculated += result.count;
+      if (recalculate) {
+        const todayIso = todayIsoInTimeZone(now, wedding.timeZone);
+        const where = recalculableTasksWhere(membership.weddingId);
+        const offsets = await tx.task.findMany({ where, distinct: ["templateOffsetDays"], select: { templateOffsetDays: true } });
+        for (const { templateOffsetDays } of offsets) {
+          if (templateOffsetDays === null) continue;
+          const result = await tx.task.updateMany({
+            where: { ...where, templateOffsetDays },
+            data: { dueDate: isoToDbDate(computeTemplateDueDate(newWeddingDateIso, templateOffsetDays, todayIso)) },
+          });
+          recalculated += result.count;
+        }
       }
+
+      await recordActivity(tx, {
+        weddingId: membership.weddingId,
+        userId,
+        actorName: membership.displayName,
+        action: "wedding.date_changed",
+        entityType: "wedding",
+        entityId: membership.weddingId,
+        metadata: { from: dbDateToIso(wedding.weddingDate), to: newWeddingDateIso, recalculated },
+      });
+
       return { ok: true, recalculated } as const;
     },
     { timeout: 15_000 },

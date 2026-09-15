@@ -56,6 +56,13 @@ enum TaskSource {
   CUSTOM
 }
 
+enum PartnerInvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  REVOKED
+}
+
 // ─── Phase 1: identity & workspace ───────────────────────────────────────────
 
 model User {
@@ -68,11 +75,14 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  sessions            Session[]
-  passwordResetTokens PasswordResetToken[]
-  memberships         WeddingMember[]
-  createdWeddings     Wedding[]            @relation("WeddingCreatedBy")
-  createdTasks        Task[]               @relation("TaskCreatedBy")
+  sessions                   Session[]
+  passwordResetTokens        PasswordResetToken[]
+  memberships                WeddingMember[]
+  createdWeddings            Wedding[]            @relation("WeddingCreatedBy")
+  createdTasks               Task[]               @relation("TaskCreatedBy")
+  sentPartnerInvitations     PartnerInvitation[]  @relation("InvitationInvitedBy")
+  acceptedPartnerInvitations PartnerInvitation[]  @relation("InvitationAcceptedBy")
+  activityLogs               ActivityLog[]
 
   @@map("users")
 }
@@ -181,11 +191,13 @@ model Wedding {
   updatedAt            DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt            DateTime?           @map("deleted_at") @db.Timestamptz(3)
 
-  eventType       EventType?       @relation(fields: [eventTypeId], references: [id], onDelete: Restrict)
-  marriageProcess MarriageProcess? @relation(fields: [marriageProcessId], references: [id], onDelete: Restrict)
-  createdBy       User?            @relation("WeddingCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  members         WeddingMember[]
-  tasks           Task[]
+  eventType          EventType?          @relation(fields: [eventTypeId], references: [id], onDelete: Restrict)
+  marriageProcess    MarriageProcess?    @relation(fields: [marriageProcessId], references: [id], onDelete: Restrict)
+  createdBy          User?               @relation("WeddingCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  members            WeddingMember[]
+  tasks              Task[]
+  partnerInvitations PartnerInvitation[]
+  activityLogs       ActivityLog[]
 
   @@index([weddingDate])
   @@map("weddings")
@@ -310,4 +322,49 @@ model Task {
   @@index([weddingId, categoryId])
   @@index([assigneeMemberId])
   @@map("tasks")
+}
+
+// ─── Phase 3: couple collaboration ───────────────────────────────────────────
+
+model PartnerInvitation {
+  id           String                  @id @default(uuid()) @db.Uuid
+  weddingId    String                  @map("wedding_id") @db.Uuid
+  /// Invitee email, trimmed + lowercased. The accepting account must use this email.
+  email        String                  @db.VarChar(254)
+  /// SHA-256 of the token in the invitation link. The raw token is never stored.
+  tokenHash    String                  @unique @map("token_hash") @db.VarChar(64)
+  status       PartnerInvitationStatus @default(PENDING)
+  invitedById  String?                 @map("invited_by_id") @db.Uuid
+  acceptedById String?                 @map("accepted_by_id") @db.Uuid
+  expiresAt    DateTime                @map("expires_at") @db.Timestamptz(3)
+  respondedAt  DateTime?               @map("responded_at") @db.Timestamptz(3)
+  createdAt    DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  wedding    Wedding @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  invitedBy  User?   @relation("InvitationInvitedBy", fields: [invitedById], references: [id], onDelete: SetNull)
+  acceptedBy User?   @relation("InvitationAcceptedBy", fields: [acceptedById], references: [id], onDelete: SetNull)
+
+  @@index([weddingId, status])
+  @@map("partner_invitations")
+}
+
+/// Collaborative activity feed. Metadata holds small, non-secret context only.
+model ActivityLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  weddingId  String   @map("wedding_id") @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid
+  /// Display name at the time of the action (kept if the member later leaves).
+  actorName  String   @map("actor_name") @db.VarChar(80)
+  action     String   @db.VarChar(64)
+  entityType String   @map("entity_type") @db.VarChar(40)
+  entityId   String?  @map("entity_id") @db.Uuid
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  wedding Wedding @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([weddingId, createdAt(sort: Desc)])
+  @@index([userId])
+  @@map("activity_logs")
 }

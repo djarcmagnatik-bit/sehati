@@ -10,6 +10,8 @@ export const RATE_LIMITS = {
   forgotPasswordPerIp: { limit: 20, windowSeconds: 60 * 60 },
   forgotPasswordPerEmail: { limit: 5, windowSeconds: 60 * 60 },
   resetPasswordPerIp: { limit: 20, windowSeconds: 60 * 60 },
+  partnerInvitePerUser: { limit: 10, windowSeconds: 60 * 60 },
+  invitationResponsePerUser: { limit: 20, windowSeconds: 60 * 60 },
 } as const satisfies Record<string, RateLimitRule>;
 
 /**

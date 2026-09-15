@@ -32,6 +32,8 @@ export async function registerAction(_prev: FormState, formData: FormData): Prom
     passwordConfirmation: readString(formData, "passwordConfirmation"),
   };
   const values = { name: input.name, email: input.email };
+  // e.g. back to a partner invitation after signing up.
+  const next = safeRedirectPath(readString(formData, "next"), "/onboarding");
 
   const parsed = registerSchema.safeParse(input);
   if (!parsed.success) {
@@ -60,7 +62,7 @@ export async function registerAction(_prev: FormState, formData: FormData): Prom
     return { status: "error", message: "Pendaftaran belum berhasil. Silakan coba lagi.", values };
   }
 
-  redirect("/onboarding");
+  redirect(next);
 }
 
 export async function loginAction(_prev: FormState, formData: FormData): Promise<FormState> {

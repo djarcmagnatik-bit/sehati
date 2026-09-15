@@ -9,7 +9,11 @@ Wedding planning workspace for couples (Indonesia-first). Built phase by phase f
   deadline generation, task CRUD with filters/search/sort/pagination, progress on the dashboard, and
   wedding-date change with opt-in deadline recalculation (manual deadlines are never overwritten).
 
-Nothing beyond Phase 2 is implemented yet.
+- Phase 3 (Couple collaboration): owner-only partner invitations (emailed + copyable single-use link,
+  7-day expiry, must match the invited email), max two members per workspace, remove partner,
+  and an activity log (dashboard + `/activity`) written in the same transaction as each change.
+
+Nothing beyond Phase 3 is implemented yet.
 
 ## Stack
 

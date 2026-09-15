@@ -7,6 +7,7 @@ import { cn } from "@/lib/cn";
 const ITEMS = [
   { href: "/settings/security", label: "Keamanan akun" },
   { href: "/settings/wedding", label: "Pernikahan" },
+  { href: "/settings/partner", label: "Pasangan" },
 ] as const;
 
 export function SettingsNav() {

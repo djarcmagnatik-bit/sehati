@@ -14,10 +14,9 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{ next?: string | string[]; reset?: string | string[] }>;
 }) {
-  if (await getCurrentSession()) redirect("/dashboard");
-
   const params = await searchParams;
   const next = typeof params.next === "string" ? safeRedirectPath(params.next) : null;
+  if (await getCurrentSession()) redirect(next ?? "/dashboard");
 
   return (
     <Card>
@@ -31,7 +30,10 @@ export default async function LoginPage({
       </div>
       <p className="mt-6 text-center text-sm text-ink-700">
         Belum punya akun?{" "}
-        <Link href="/register" className="font-semibold text-clay-700 underline-offset-4 hover:underline">
+        <Link
+          href={next ? `/register?next=${encodeURIComponent(next)}` : "/register"}
+          className="font-semibold text-clay-700 underline-offset-4 hover:underline"
+        >
           Daftar
         </Link>
       </p>

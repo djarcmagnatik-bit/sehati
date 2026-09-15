@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ActivityList } from "@/components/activity/activity-list";
 import { DueBadge } from "@/components/checklist/due-badge";
+import { Alert } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { formatCoupleName } from "@/lib/couple";
@@ -14,6 +16,7 @@ import {
   todayIsoInTimeZone,
 } from "@/lib/dates";
 import { formatRupiah } from "@/lib/money";
+import { getRecentActivity } from "@/server/activity/activity-service";
 import { requireSession } from "@/server/auth/session-cookie";
 import { getChecklistSummary, getUpcomingTasks } from "@/server/checklist/task-service";
 import { getActiveWeddingForUser } from "@/server/wedding/wedding-service";
@@ -32,6 +35,12 @@ const ROLE_LABEL = {
   PARTNER: "Pasangan",
 } as const;
 
+const NOTICES: Record<string, string> = {
+  partner_joined: "Kamu sudah bergabung ke workspace ini. Selamat merencanakan bersama!",
+};
+
+const LINK_CLASS = "text-sm font-semibold text-clay-700 underline-offset-4 hover:underline";
+
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 py-3">
@@ -41,12 +50,18 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ notice?: string | string[] }>;
+}) {
   const session = await requireSession();
   const membership = await getActiveWeddingForUser(session.user.id);
   if (!membership) redirect("/onboarding");
 
   const { wedding } = membership;
+  const params = await searchParams;
+  const notice = typeof params.notice === "string" ? NOTICES[params.notice] : undefined;
   const now = new Date();
   const weddingDateIso = dbDateToIso(wedding.weddingDate);
   const todayIso = todayIsoInTimeZone(now, wedding.timeZone);
@@ -59,13 +74,16 @@ export default async function DashboardPage() {
   });
   const partnerJoined = wedding.members.some((member) => member.role === "PARTNER");
 
-  const [summary, upcomingTasks] = await Promise.all([
+  const [summary, upcomingTasks, recentActivity] = await Promise.all([
     getChecklistSummary(session.user.id, wedding.id, todayIso),
     getUpcomingTasks(session.user.id, wedding.id, 5),
+    getRecentActivity(session.user.id, wedding.id, 5),
   ]);
 
   return (
     <div className="space-y-6">
+      {notice ? <Alert tone="success">{notice}</Alert> : null}
+
       <section
         aria-labelledby="couple-heading"
         className="rounded-3xl bg-gradient-to-br from-clay-50 via-cream-100 to-sage-50 p-6 ring-1 ring-cream-200 sm:p-8"
@@ -113,10 +131,7 @@ export default async function DashboardPage() {
               ) : null}
             </>
           )}
-          <Link
-            href="/checklist"
-            className="mt-4 inline-block text-sm font-semibold text-clay-700 underline-offset-4 hover:underline"
-          >
+          <Link href="/checklist" className={`mt-4 inline-block ${LINK_CLASS}`}>
             Buka checklist
           </Link>
         </Card>
@@ -162,10 +177,7 @@ export default async function DashboardPage() {
               value={wedding.targetBudget !== null ? formatRupiah(wedding.targetBudget) : "Belum diatur"}
             />
           </dl>
-          <Link
-            href="/settings/wedding"
-            className="mt-3 inline-block text-sm font-semibold text-clay-700 underline-offset-4 hover:underline"
-          >
+          <Link href="/settings/wedding" className={`mt-3 inline-block ${LINK_CLASS}`}>
             Ubah tanggal pernikahan
           </Link>
         </Card>
@@ -180,9 +192,14 @@ export default async function DashboardPage() {
             ))}
           </ul>
           {!partnerJoined ? (
-            <p className="mt-4 rounded-2xl bg-cream-100 px-4 py-3 text-sm text-ink-700">
-              {wedding.partnerName ?? "Pasangan kamu"} belum bergabung ke workspace ini.
-            </p>
+            <div className="mt-4 rounded-2xl bg-cream-100 px-4 py-3 text-sm text-ink-700">
+              <p>{wedding.partnerName ?? "Pasangan kamu"} belum bergabung ke workspace ini.</p>
+              {membership.role === "OWNER" ? (
+                <Link href="/settings/partner" className={`mt-2 inline-block ${LINK_CLASS}`}>
+                  Undang pasangan
+                </Link>
+              ) : null}
+            </div>
           ) : null}
         </Card>
       </div>
@@ -194,6 +211,17 @@ export default async function DashboardPage() {
             Terakhir diperbarui {formatDateTime(wedding.coupleNoteUpdatedAt, wedding.timeZone)}
           </p>
         ) : null}
+      </Card>
+
+      <Card title="Aktivitas terbaru">
+        {recentActivity.length === 0 ? (
+          <p className="text-sm text-ink-700">Belum ada aktivitas.</p>
+        ) : (
+          <ActivityList entries={recentActivity} now={now} timeZone={wedding.timeZone} />
+        )}
+        <Link href="/activity" className={`mt-3 inline-block ${LINK_CLASS}`}>
+          Lihat semua aktivitas
+        </Link>
       </Card>
     </div>
   );

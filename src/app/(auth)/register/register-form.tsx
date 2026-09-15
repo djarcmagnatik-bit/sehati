@@ -8,12 +8,13 @@ import { initialFormState } from "@/lib/form-state";
 import { PASSWORD_MIN_LENGTH } from "@/lib/validation/auth";
 import { registerAction } from "@/server/actions/auth-actions";
 
-export function RegisterForm() {
+export function RegisterForm({ next }: { next: string | null }) {
   const [state, formAction] = useActionState(registerAction, initialFormState);
 
   return (
     <form action={formAction} noValidate className="space-y-4">
       {state.status === "error" && state.message ? <Alert tone="error">{state.message}</Alert> : null}
+      {next ? <input type="hidden" name="next" value={next} /> : null}
       <TextField
         label="Nama"
         name="name"

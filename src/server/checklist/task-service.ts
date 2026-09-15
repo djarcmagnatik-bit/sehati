@@ -1,10 +1,12 @@
 import "server-only";
 import { z } from "zod";
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
+import type { ActivityAction } from "@/lib/activity";
 import { computeChecklistProgress, OPEN_TASK_STATUSES, type TaskStatusValue } from "@/lib/checklist";
 import { CHECKLIST_PAGE_SIZE, type ChecklistFilters, type ChecklistSort } from "@/lib/checklist-filters";
 import { isoToDbDate, todayIsoInTimeZone } from "@/lib/dates";
 import type { TaskInput, TaskUpdateInput } from "@/lib/validation/task";
+import { recordActivity } from "@/server/activity/activity-service";
 import { requireWeddingMember, WeddingAccessError } from "@/server/authz/wedding-access";
 import { getDb } from "@/server/db";
 import { generateTemplateTasks } from "./checklist-generation";
@@ -192,22 +194,33 @@ export async function createTask(userId: string, weddingId: string, input: TaskI
   const referenceError = await validateTaskReferences(db, membership.weddingId, input);
   if (referenceError) return { ok: false, reason: referenceError };
 
-  const task = await db.task.create({
-    data: {
+  return db.$transaction(async (tx) => {
+    const task = await tx.task.create({
+      data: {
+        weddingId: membership.weddingId,
+        title: input.title,
+        description: input.description,
+        categoryId: input.categoryId,
+        dueDate: input.dueDate ? isoToDbDate(input.dueDate) : null,
+        priority: input.priority,
+        assigneeMemberId: input.assigneeMemberId,
+        source: "CUSTOM",
+        dueDateManuallySet: input.dueDate !== null,
+        createdById: userId,
+      },
+      select: { id: true },
+    });
+    await recordActivity(tx, {
       weddingId: membership.weddingId,
-      title: input.title,
-      description: input.description,
-      categoryId: input.categoryId,
-      dueDate: input.dueDate ? isoToDbDate(input.dueDate) : null,
-      priority: input.priority,
-      assigneeMemberId: input.assigneeMemberId,
-      source: "CUSTOM",
-      dueDateManuallySet: input.dueDate !== null,
-      createdById: userId,
-    },
-    select: { id: true },
+      userId,
+      actorName: membership.displayName,
+      action: "task.created",
+      entityType: "task",
+      entityId: task.id,
+      metadata: { title: input.title },
+    });
+    return { ok: true, taskId: task.id } as const;
   });
-  return { ok: true, taskId: task.id };
 }
 
 export async function updateTask(
@@ -223,6 +236,7 @@ export async function updateTask(
     select: { id: true, weddingId: true, categoryId: true, dueDate: true, status: true, dueDateManuallySet: true, completedAt: true },
   });
   if (!task) throw new WeddingAccessError();
+  const membership = await requireWeddingMember(userId, task.weddingId);
 
   const referenceError = await validateTaskReferences(db, task.weddingId, input, task.categoryId);
   if (referenceError) return { ok: false, reason: referenceError };
@@ -230,20 +244,37 @@ export async function updateTask(
   const newDueDate = input.dueDate ? isoToDbDate(input.dueDate) : null;
   const dueDateChanged = (task.dueDate?.getTime() ?? null) !== (newDueDate?.getTime() ?? null);
   const completedAt = input.status === "COMPLETED" ? (task.status === "COMPLETED" ? task.completedAt : now) : null;
+  const action: ActivityAction =
+    input.status === "COMPLETED" && task.status !== "COMPLETED"
+      ? "task.completed"
+      : task.status === "COMPLETED" && (input.status === "TODO" || input.status === "IN_PROGRESS")
+        ? "task.reopened"
+        : "task.updated";
 
-  await db.task.update({
-    where: { id: task.id },
-    data: {
-      title: input.title,
-      description: input.description,
-      categoryId: input.categoryId,
-      dueDate: newDueDate,
-      priority: input.priority,
-      assigneeMemberId: input.assigneeMemberId,
-      status: input.status,
-      completedAt,
-      dueDateManuallySet: task.dueDateManuallySet || dueDateChanged,
-    },
+  await db.$transaction(async (tx) => {
+    await tx.task.update({
+      where: { id: task.id },
+      data: {
+        title: input.title,
+        description: input.description,
+        categoryId: input.categoryId,
+        dueDate: newDueDate,
+        priority: input.priority,
+        assigneeMemberId: input.assigneeMemberId,
+        status: input.status,
+        completedAt,
+        dueDateManuallySet: task.dueDateManuallySet || dueDateChanged,
+      },
+    });
+    await recordActivity(tx, {
+      weddingId: task.weddingId,
+      userId,
+      actorName: membership.displayName,
+      action,
+      entityType: "task",
+      entityId: task.id,
+      metadata: { title: input.title },
+    });
   });
   return { ok: true, taskId: task.id };
 }
@@ -251,17 +282,31 @@ export async function updateTask(
 export async function setTaskCompleted(userId: string, taskId: string, completed: boolean, now: Date = new Date()) {
   if (!uuidSchema.safeParse(taskId).success) throw new WeddingAccessError();
   const db = getDb();
-  const scope = { id: taskId, wedding: memberWedding(userId) };
-
-  const result = await db.task.updateMany({
-    where: completed ? { ...scope, status: { not: "COMPLETED" } } : { ...scope, status: "COMPLETED" },
-    data: completed ? { status: "COMPLETED", completedAt: now } : { status: "TODO", completedAt: null },
+  const task = await db.task.findFirst({
+    where: { id: taskId, wedding: memberWedding(userId) },
+    select: { id: true, weddingId: true, title: true, status: true },
   });
+  if (!task) throw new WeddingAccessError();
+  // Already in the requested state: nothing to do (and nothing to log).
+  if (completed === (task.status === "COMPLETED")) return;
 
-  // Nothing changed: either already in the requested state, or not accessible.
-  if (result.count === 0 && (await db.task.count({ where: scope })) === 0) {
-    throw new WeddingAccessError();
-  }
+  const membership = await requireWeddingMember(userId, task.weddingId);
+  await db.$transaction(async (tx) => {
+    const result = await tx.task.updateMany({
+      where: completed ? { id: task.id, status: { not: "COMPLETED" } } : { id: task.id, status: "COMPLETED" },
+      data: completed ? { status: "COMPLETED", completedAt: now } : { status: "TODO", completedAt: null },
+    });
+    if (result.count !== 1) return;
+    await recordActivity(tx, {
+      weddingId: task.weddingId,
+      userId,
+      actorName: membership.displayName,
+      action: completed ? "task.completed" : "task.reopened",
+      entityType: "task",
+      entityId: task.id,
+      metadata: { title: task.title },
+    });
+  });
 }
 
 export type DeleteTaskResult = { ok: true } | { ok: false; reason: "template_task" };
@@ -272,12 +317,24 @@ export async function deleteTask(userId: string, taskId: string): Promise<Delete
   const db = getDb();
   const task = await db.task.findFirst({
     where: { id: taskId, wedding: memberWedding(userId) },
-    select: { id: true, source: true },
+    select: { id: true, weddingId: true, title: true, source: true },
   });
   if (!task) throw new WeddingAccessError();
   if (task.source === "TEMPLATE") return { ok: false, reason: "template_task" };
+  const membership = await requireWeddingMember(userId, task.weddingId);
 
-  await db.task.delete({ where: { id: task.id } });
+  await db.$transaction(async (tx) => {
+    await tx.task.delete({ where: { id: task.id } });
+    await recordActivity(tx, {
+      weddingId: task.weddingId,
+      userId,
+      actorName: membership.displayName,
+      action: "task.deleted",
+      entityType: "task",
+      entityId: task.id,
+      metadata: { title: task.title },
+    });
+  });
   return { ok: true };
 }
 
@@ -306,6 +363,14 @@ export async function generateChecklistIfMissing(
       const created = await generateTemplateTasks(tx, wedding, {
         todayIso: todayIsoInTimeZone(now, wedding.timeZone),
         createdById: userId,
+      });
+      await recordActivity(tx, {
+        weddingId: wedding.id,
+        userId,
+        actorName: membership.displayName,
+        action: "checklist.generated",
+        entityType: "checklist",
+        metadata: { count: created },
       });
       return { ok: true, created } as const;
     },
