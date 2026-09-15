@@ -301,6 +301,8 @@ type ExpenseRow = {
   due_date: string | null;
   category_id: string;
   category_name: string;
+  vendor_id: string | null;
+  vendor_name: string | null;
 };
 
 function escapeLike(value: string): string {
@@ -325,6 +327,7 @@ async function queryExpenses(weddingId: string, filters: ExpenseFilters, limit: 
   const from = Prisma.sql`
     FROM expenses e
     JOIN budget_categories c ON c.id = e.category_id
+    LEFT JOIN vendors v ON v.id = e.vendor_id
     LEFT JOIN (
       SELECT expense_id, SUM(amount) AS paid FROM payments WHERE wedding_id = ${weddingId}::uuid GROUP BY expense_id
     ) p ON p.expense_id = e.id
@@ -336,7 +339,8 @@ async function queryExpenses(weddingId: string, filters: ExpenseFilters, limit: 
     db.$queryRaw<Array<{ count: number }>>`SELECT COUNT(*)::int AS count ${from}`,
     db.$queryRaw<ExpenseRow[]>`
       SELECT e.id::text AS id, e.title, e.total_amount::text AS total_amount, COALESCE(p.paid, 0)::text AS paid,
-             to_char(e.due_date, 'YYYY-MM-DD') AS due_date, c.id::text AS category_id, c.name AS category_name
+             to_char(e.due_date, 'YYYY-MM-DD') AS due_date, c.id::text AS category_id, c.name AS category_name,
+             v.id::text AS vendor_id, v.name AS vendor_name
       ${from}
       ORDER BY ${EXPENSE_ORDER[filters.sort]}
       LIMIT ${limit} OFFSET ${offset}
@@ -354,6 +358,7 @@ async function queryExpenses(weddingId: string, filters: ExpenseFilters, limit: 
       ...expensePaymentState(totalAmount, paid),
       dueDateIso: row.due_date,
       category: { id: row.category_id, name: row.category_name },
+      vendor: row.vendor_id && row.vendor_name ? { id: row.vendor_id, name: row.vendor_name } : null,
     };
   });
   return { total: countRows[0]?.count ?? 0, items };
@@ -394,9 +399,11 @@ export async function getExpenseForUser(userId: string, expenseId: string) {
       dueDate: true,
       notes: true,
       categoryId: true,
+      vendorId: true,
       createdAt: true,
       updatedAt: true,
       category: { select: { name: true } },
+      vendor: { select: { id: true, name: true } },
       createdBy: { select: { name: true } },
       payments: {
         orderBy: [{ paymentDate: "desc" }, { createdAt: "desc" }],
@@ -420,25 +427,34 @@ export async function getExpenseForUser(userId: string, expenseId: string) {
 
 export type ExpenseMutationResult =
   | { ok: true; expenseId: string }
-  | { ok: false; reason: "invalid_category" }
+  | { ok: false; reason: "invalid_category" | "invalid_vendor" }
   | { ok: false; reason: "total_below_paid"; paid: bigint };
 
-async function categoryBelongsToWedding(categoryId: string, weddingId: string): Promise<boolean> {
-  const category = await getDb().budgetCategory.findFirst({ where: { id: categoryId, weddingId }, select: { id: true } });
-  return category !== null;
+async function expenseReferencesError(
+  input: ExpenseInput,
+  weddingId: string,
+): Promise<"invalid_category" | "invalid_vendor" | null> {
+  const db = getDb();
+  const category = await db.budgetCategory.findFirst({ where: { id: input.categoryId, weddingId }, select: { id: true } });
+  if (!category) return "invalid_category";
+  if (input.vendorId) {
+    const vendor = await db.vendor.findFirst({ where: { id: input.vendorId, weddingId }, select: { id: true } });
+    if (!vendor) return "invalid_vendor";
+  }
+  return null;
 }
 
 export async function createExpense(userId: string, weddingId: string, input: ExpenseInput): Promise<ExpenseMutationResult> {
   const membership = await requireWeddingMember(userId, weddingId);
-  if (!(await categoryBelongsToWedding(input.categoryId, membership.weddingId))) {
-    return { ok: false, reason: "invalid_category" };
-  }
+  const referenceError = await expenseReferencesError(input, membership.weddingId);
+  if (referenceError) return { ok: false, reason: referenceError };
 
   return getDb().$transaction(async (tx) => {
     const expense = await tx.expense.create({
       data: {
         weddingId: membership.weddingId,
         categoryId: input.categoryId,
+        vendorId: input.vendorId,
         title: input.title,
         totalAmount: input.totalAmount,
         dueDate: input.dueDate ? isoToDbDate(input.dueDate) : null,
@@ -473,9 +489,8 @@ async function findExpenseScope(userId: string, expenseId: string) {
 
 export async function updateExpense(userId: string, expenseId: string, input: ExpenseInput): Promise<ExpenseMutationResult> {
   const { expense, membership } = await findExpenseScope(userId, expenseId);
-  if (!(await categoryBelongsToWedding(input.categoryId, expense.weddingId))) {
-    return { ok: false, reason: "invalid_category" };
-  }
+  const referenceError = await expenseReferencesError(input, expense.weddingId);
+  if (referenceError) return { ok: false, reason: referenceError };
 
   return getDb().$transaction(async (tx) => {
     await lockExpense(tx, expense.id);
@@ -486,6 +501,7 @@ export async function updateExpense(userId: string, expenseId: string, input: Ex
       where: { id: expense.id },
       data: {
         categoryId: input.categoryId,
+        vendorId: input.vendorId,
         title: input.title,
         totalAmount: input.totalAmount,
         dueDate: input.dueDate ? isoToDbDate(input.dueDate) : null,

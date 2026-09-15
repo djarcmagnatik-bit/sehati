@@ -25,6 +25,12 @@ const NAV_ITEMS = [
     icon: "M3 7.5A2.5 2.5 0 0 1 5.5 5h13A2.5 2.5 0 0 1 21 7.5V9h-4.5a3 3 0 0 0 0 6H21v1.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5v-9ZM16.5 12h.01",
   },
   {
+    href: "/vendors",
+    match: "/vendors",
+    label: "Vendor",
+    icon: "M4 9.5 5.5 4h13L20 9.5M4 9.5h16M4 9.5v10h16v-10M9.5 19.5v-5h5v5",
+  },
+  {
     href: "/settings/security",
     match: "/settings",
     label: "Akun",
@@ -57,7 +63,7 @@ export function DesktopNav() {
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "rounded-full px-4 py-2 text-sm font-medium",
+                  "rounded-full px-3 py-2 text-sm font-medium lg:px-4",
                   active ? "bg-clay-50 text-clay-700" : "text-ink-700 hover:bg-cream-100",
                 )}
               >

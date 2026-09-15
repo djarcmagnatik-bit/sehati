@@ -20,6 +20,7 @@ describe("expenseInputSchema", () => {
     expect(expenseInputSchema.parse(valid)).toEqual({
       title: "ABC Catering",
       categoryId: valid.categoryId,
+      vendorId: null,
       totalAmount: 30_000_000n,
       dueDate: null,
       notes: null,

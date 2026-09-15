@@ -21,6 +21,7 @@ import { getRecentActivity } from "@/server/activity/activity-service";
 import { requireSession } from "@/server/auth/session-cookie";
 import { getBudgetOverview, getUpcomingPayments } from "@/server/budget/budget-service";
 import { getChecklistSummary, getUpcomingTasks } from "@/server/checklist/task-service";
+import { getVendorSummary } from "@/server/vendors/vendor-service";
 import { getActiveWeddingForUser } from "@/server/wedding/wedding-service";
 import { CoupleNoteForm } from "./couple-note-form";
 
@@ -52,6 +53,17 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function CountStat({ label, value, testId }: { label: string; value: number; testId: string }) {
+  return (
+    <div>
+      <dt className="text-xs text-ink-500">{label}</dt>
+      <dd data-testid={testId} className="mt-0.5 font-semibold text-ink-900">
+        {value}
+      </dd>
+    </div>
+  );
+}
+
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -76,12 +88,13 @@ export default async function DashboardPage({
   });
   const partnerJoined = wedding.members.some((member) => member.role === "PARTNER");
 
-  const [summary, upcomingTasks, recentActivity, budget, upcomingPayments] = await Promise.all([
+  const [summary, upcomingTasks, recentActivity, budget, upcomingPayments, vendors] = await Promise.all([
     getChecklistSummary(session.user.id, wedding.id, todayIso),
     getUpcomingTasks(session.user.id, wedding.id, 5),
     getRecentActivity(session.user.id, wedding.id, 5),
     getBudgetOverview(session.user.id, wedding.id),
     getUpcomingPayments(session.user.id, wedding.id, 5),
+    getVendorSummary(session.user.id, wedding.id),
   ]);
   const budgetTotals = budget.totals;
 
@@ -200,7 +213,9 @@ export default async function DashboardPage({
                     >
                       {expense.title}
                     </Link>
-                    <p className="text-xs text-ink-500">Sisa {formatRupiah(expense.outstanding)}</p>
+                    <p className="text-xs text-ink-500">
+                      {expense.vendor ? `${expense.vendor.name} · ` : ""}Sisa {formatRupiah(expense.outstanding)}
+                    </p>
                   </div>
                   <span className="shrink-0">
                     {expense.dueDateIso ? (
@@ -215,19 +230,15 @@ export default async function DashboardPage({
           )}
         </Card>
 
-        <Card title="Detail pernikahan">
-          <dl className="divide-y divide-cream-200">
-            <DetailRow label="Jenis acara" value={wedding.eventType?.name ?? "Belum dipilih"} />
-            <DetailRow label="Jalur pernikahan" value={wedding.marriageProcess?.name ?? "Belum dipilih"} />
-            {wedding.engagementDate ? (
-              <DetailRow label="Tanggal lamaran" value={formatIsoDateLong(dbDateToIso(wedding.engagementDate))} />
-            ) : null}
-            {wedding.receptionDate ? (
-              <DetailRow label="Tanggal resepsi" value={formatIsoDateLong(dbDateToIso(wedding.receptionDate))} />
-            ) : null}
+        <Card title="Vendor">
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
+            <CountStat label="Dibooking" value={vendors.booked} testId="dashboard-vendors-booked" />
+            <CountStat label="Kandidat dalam riset" value={vendors.researching} testId="dashboard-vendors-researching" />
+            <CountStat label="Menunggu DP" value={vendors.needingDp} testId="dashboard-vendors-needing-dp" />
+            <MoneyStat label="Sisa pembayaran vendor" amount={vendors.outstanding} testId="dashboard-vendors-outstanding" />
           </dl>
-          <Link href="/settings/wedding" className={`mt-3 inline-block ${LINK_CLASS}`}>
-            Ubah tanggal pernikahan
+          <Link href="/vendors" className={`mt-4 inline-block ${LINK_CLASS}`}>
+            Buka vendor
           </Link>
         </Card>
 
@@ -250,6 +261,22 @@ export default async function DashboardPage({
               ) : null}
             </div>
           ) : null}
+        </Card>
+
+        <Card title="Detail pernikahan">
+          <dl className="divide-y divide-cream-200">
+            <DetailRow label="Jenis acara" value={wedding.eventType?.name ?? "Belum dipilih"} />
+            <DetailRow label="Jalur pernikahan" value={wedding.marriageProcess?.name ?? "Belum dipilih"} />
+            {wedding.engagementDate ? (
+              <DetailRow label="Tanggal lamaran" value={formatIsoDateLong(dbDateToIso(wedding.engagementDate))} />
+            ) : null}
+            {wedding.receptionDate ? (
+              <DetailRow label="Tanggal resepsi" value={formatIsoDateLong(dbDateToIso(wedding.receptionDate))} />
+            ) : null}
+          </dl>
+          <Link href="/settings/wedding" className={`mt-3 inline-block ${LINK_CLASS}`}>
+            Ubah tanggal pernikahan
+          </Link>
         </Card>
       </div>
 

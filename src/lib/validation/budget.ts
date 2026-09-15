@@ -1,49 +1,9 @@
 import { z } from "zod";
 import { PAYMENT_METHODS } from "@/lib/budget";
 import { isValidIsoDate } from "@/lib/dates";
-import { parseRupiah } from "@/lib/money";
+import { optionalMoney, requiredMoney } from "./money";
 
 const emptyToNull = (value: string | undefined) => (value ? value : null);
-
-function requiredMoney(label: string) {
-  return z
-    .string()
-    .trim()
-    .max(30, `${label} terlalu panjang`)
-    .transform((value, ctx): bigint => {
-      if (!value) {
-        ctx.addIssue({ code: "custom", message: `${label} wajib diisi` });
-        return z.NEVER;
-      }
-      const amount = parseRupiah(value);
-      if (amount === null) {
-        ctx.addIssue({ code: "custom", message: `${label} tidak valid. Contoh: 10.000.000` });
-        return z.NEVER;
-      }
-      if (amount === 0n) {
-        ctx.addIssue({ code: "custom", message: `${label} harus lebih dari 0` });
-        return z.NEVER;
-      }
-      return amount;
-    });
-}
-
-function optionalMoney(label: string) {
-  return z
-    .string()
-    .trim()
-    .max(30, `${label} terlalu panjang`)
-    .optional()
-    .transform((value, ctx): bigint | null => {
-      if (!value) return null;
-      const amount = parseRupiah(value);
-      if (amount === null) {
-        ctx.addIssue({ code: "custom", message: `${label} tidak valid. Contoh: 10.000.000` });
-        return z.NEVER;
-      }
-      return amount;
-    });
-}
 
 export const budgetSettingsSchema = z.object({
   targetBudget: optionalMoney("Target budget"),
@@ -63,6 +23,12 @@ export const budgetCategorySchema = z.object({
 export const expenseInputSchema = z.object({
   title: z.string().trim().min(1, "Nama pengeluaran wajib diisi").max(160, "Nama pengeluaran maksimal 160 karakter"),
   categoryId: z.uuid("Pilih kategori"),
+  vendorId: z
+    .string()
+    .trim()
+    .optional()
+    .transform(emptyToNull)
+    .refine((value) => value === null || z.uuid().safeParse(value).success, "Vendor tidak valid"),
   totalAmount: requiredMoney("Total biaya"),
   dueDate: z
     .string()

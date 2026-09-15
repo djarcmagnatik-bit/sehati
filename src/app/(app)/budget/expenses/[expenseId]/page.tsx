@@ -15,6 +15,7 @@ import { formatRupiah, formatRupiahDigits } from "@/lib/money";
 import { deleteExpenseAction, deletePaymentAction } from "@/server/actions/budget-actions";
 import { requireSession } from "@/server/auth/session-cookie";
 import { getBudgetCategoryOptions, getExpenseForUser } from "@/server/budget/budget-service";
+import { getVendorOptions } from "@/server/vendors/vendor-service";
 
 export const metadata: Metadata = { title: "Detail pengeluaran" };
 
@@ -40,7 +41,10 @@ export default async function ExpenseDetailPage({
 
   const { notice: noticeKey } = await searchParams;
   const notice = typeof noticeKey === "string" ? NOTICES[noticeKey] : undefined;
-  const categories = await getBudgetCategoryOptions(session.user.id, expense.weddingId);
+  const [categories, vendors] = await Promise.all([
+    getBudgetCategoryOptions(session.user.id, expense.weddingId),
+    getVendorOptions(session.user.id, expense.weddingId),
+  ]);
   const todayIso = todayIsoInTimeZone(new Date());
   const paidPercent = percentOf(expense.paid, expense.totalAmount) ?? 0;
 
@@ -59,6 +63,17 @@ export default async function ExpenseDetailPage({
               {expense.category.name}
               {expense.dueDate ? ` · Jatuh tempo ${formatIsoDateLong(dbDateToIso(expense.dueDate))}` : ""}
             </p>
+            {expense.vendor ? (
+              <p className="mt-1 text-sm text-ink-700">
+                Vendor:{" "}
+                <Link
+                  href={`/vendors/${expense.vendor.id}`}
+                  className="font-semibold text-clay-700 underline-offset-4 hover:underline"
+                >
+                  {expense.vendor.name}
+                </Link>
+              </p>
+            ) : null}
           </div>
           <PaymentStatusBadge status={expense.status} />
         </div>
@@ -113,9 +128,11 @@ export default async function ExpenseDetailPage({
           mode="edit"
           expenseId={expense.id}
           categories={categories}
+          vendors={vendors.map(({ id, name }) => ({ id, name }))}
           defaults={{
             title: expense.title,
             categoryId: expense.categoryId,
+            vendorId: expense.vendorId ?? "",
             totalAmount: formatRupiahDigits(expense.totalAmount),
             dueDate: expense.dueDate ? dbDateToIso(expense.dueDate) : "",
             notes: expense.notes ?? "",

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { todayIsoInTimeZone } from "@/lib/dates";
-import type { FormState } from "@/lib/form-state";
+import type { FieldErrors, FormState } from "@/lib/form-state";
 import { logger } from "@/lib/logger";
 import { formatRupiah } from "@/lib/money";
 import {
@@ -26,6 +26,7 @@ import {
   updateBudgetCategory,
   updateBudgetSettings,
   updateExpense,
+  type ExpenseMutationResult,
 } from "@/server/budget/budget-service";
 import { readString } from "./form-data";
 
@@ -39,6 +40,7 @@ function readFields(formData: FormData, keys: readonly string[]): Record<string,
 
 function revalidateBudget() {
   revalidatePath("/budget", "layout");
+  revalidatePath("/vendors", "layout");
   revalidatePath("/dashboard");
 }
 
@@ -130,7 +132,18 @@ export async function deleteBudgetCategoryAction(formData: FormData): Promise<vo
   redirect("/budget?notice=category_deleted");
 }
 
-const EXPENSE_FIELDS = ["title", "categoryId", "totalAmount", "dueDate", "notes"] as const;
+const EXPENSE_FIELDS = ["title", "categoryId", "vendorId", "totalAmount", "dueDate", "notes"] as const;
+
+function expenseErrorFields(result: Extract<ExpenseMutationResult, { ok: false }>): FieldErrors {
+  switch (result.reason) {
+    case "invalid_category":
+      return { categoryId: ["Kategori tidak tersedia"] };
+    case "invalid_vendor":
+      return { vendorId: ["Vendor tidak tersedia"] };
+    case "total_below_paid":
+      return { totalAmount: [`Total tidak boleh lebih kecil dari yang sudah dibayar (${formatRupiah(result.paid)})`] };
+  }
+}
 
 export async function createExpenseAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const session = await requireSession();
@@ -142,9 +155,7 @@ export async function createExpenseAction(_prev: FormState, formData: FormData):
   let expenseId: string;
   try {
     const result = await createExpense(session.user.id, readString(formData, "weddingId"), parsed.data);
-    if (!result.ok) {
-      return { status: "error", message: INVALID_INPUT, fieldErrors: { categoryId: ["Kategori tidak tersedia"] }, values };
-    }
+    if (!result.ok) return { status: "error", message: INVALID_INPUT, fieldErrors: expenseErrorFields(result), values };
     expenseId = result.expenseId;
   } catch (error) {
     return failure(error, "expense.create_failed", values);
@@ -163,13 +174,7 @@ export async function updateExpenseAction(_prev: FormState, formData: FormData):
   }
   try {
     const result = await updateExpense(session.user.id, expenseId, parsed.data);
-    if (!result.ok) {
-      const fieldErrors =
-        result.reason === "invalid_category"
-          ? { categoryId: ["Kategori tidak tersedia"] }
-          : { totalAmount: [`Total tidak boleh lebih kecil dari yang sudah dibayar (${formatRupiah(result.paid)})`] };
-      return { status: "error", message: INVALID_INPUT, fieldErrors, values };
-    }
+    if (!result.ok) return { status: "error", message: INVALID_INPUT, fieldErrors: expenseErrorFields(result), values };
   } catch (error) {
     return failure(error, "expense.update_failed", values);
   }

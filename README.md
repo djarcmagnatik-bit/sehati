@@ -19,7 +19,13 @@ Wedding planning workspace for couples (Indonesia-first). Built phase by phase f
   rejected under a row lock, composite FKs + CHECK constraints for money integrity, dashboard budget
   summary and upcoming payments.
 
-Nothing beyond Phase 4 is implemented yet.
+- Phase 5 (Vendors): vendor research (candidates with contacts, estimate, package, rating, pros/cons,
+  status), side-by-side comparison (2–4), booking a candidate into a vendor without losing research
+  data (row-locked, exactly once), direct vendor creation, contract → linked budget expense, vendor money
+  derived from linked expenses/payments, composite FKs keeping vendors/expenses/research in one wedding,
+  safe contact links (wa.me, tel:, instagram, http/https only), dashboard vendor summary.
+
+Nothing beyond Phase 5 is implemented yet.
 
 ## Stack
 

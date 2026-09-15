@@ -71,6 +71,15 @@ enum PaymentMethod {
   OTHER
 }
 
+enum VendorResearchStatus {
+  RESEARCHING
+  CONTACTED
+  MEETING
+  SHORTLISTED
+  REJECTED
+  SELECTED
+}
+
 // ─── Phase 1: identity & workspace ───────────────────────────────────────────
 
 model User {
@@ -93,6 +102,8 @@ model User {
   activityLogs               ActivityLog[]
   createdExpenses            Expense[]            @relation("ExpenseCreatedBy")
   createdPayments            Payment[]            @relation("PaymentCreatedBy")
+  createdVendorResearch      VendorResearch[]     @relation("VendorResearchCreatedBy")
+  createdVendors             Vendor[]             @relation("VendorCreatedBy")
 
   @@map("users")
 }
@@ -215,6 +226,8 @@ model Wedding {
   budgetCategories   BudgetCategory[]
   expenses           Expense[]
   payments           Payment[]
+  vendorResearch     VendorResearch[]
+  vendors            Vendor[]
 
   @@index([weddingDate])
   @@map("weddings")
@@ -428,6 +441,8 @@ model Expense {
   id          String    @id @default(uuid()) @db.Uuid
   weddingId   String    @map("wedding_id") @db.Uuid
   categoryId  String    @map("category_id") @db.Uuid
+  /// Optional booked vendor this obligation belongs to (same wedding, enforced by composite FK).
+  vendorId    String?   @map("vendor_id") @db.Uuid
   title       String    @db.VarChar(160)
   /// Whole rupiah. CHECK (total_amount > 0).
   totalAmount BigInt    @map("total_amount")
@@ -439,6 +454,7 @@ model Expense {
 
   wedding   Wedding        @relation(fields: [weddingId], references: [id], onDelete: Cascade)
   category  BudgetCategory @relation(fields: [categoryId, weddingId], references: [id, weddingId], onDelete: NoAction)
+  vendor    Vendor?        @relation(fields: [vendorId, weddingId], references: [id, weddingId], onDelete: NoAction)
   createdBy User?          @relation("ExpenseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   payments  Payment[]
 
@@ -446,6 +462,7 @@ model Expense {
   @@unique([id, weddingId])
   @@index([weddingId, categoryId])
   @@index([weddingId, dueDate])
+  @@index([vendorId])
   @@map("expenses")
 }
 
@@ -470,4 +487,94 @@ model Payment {
   @@index([weddingId, paymentDate])
   @@index([expenseId])
   @@map("payments")
+}
+
+// ─── Phase 5: vendors ────────────────────────────────────────────────────────
+
+/// Admin-configurable vendor categories. `budgetCategoryName` suggests the budget category for contracts.
+model VendorCategory {
+  id                 String   @id @default(uuid()) @db.Uuid
+  code               String   @unique @db.VarChar(50)
+  name               String   @db.VarChar(100)
+  budgetCategoryName String?  @map("budget_category_name") @db.VarChar(100)
+  sortOrder          Int      @default(0) @map("sort_order")
+  isActive           Boolean  @default(true) @map("is_active")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  research VendorResearch[]
+  vendors  Vendor[]
+
+  @@map("vendor_categories")
+}
+
+/// A prospective vendor under consideration. Kept (with all notes) after it is booked.
+model VendorResearch {
+  id             String               @id @default(uuid()) @db.Uuid
+  weddingId      String               @map("wedding_id") @db.Uuid
+  categoryId     String               @map("category_id") @db.Uuid
+  name           String               @db.VarChar(120)
+  contactPerson  String?              @map("contact_person") @db.VarChar(120)
+  whatsapp       String?              @db.VarChar(25)
+  phone          String?              @db.VarChar(25)
+  instagram      String?              @db.VarChar(30)
+  /// Normalized http(s) URL only.
+  website        String?              @db.VarChar(300)
+  /// Whole rupiah. CHECK (estimated_price >= 0).
+  estimatedPrice BigInt?              @map("estimated_price")
+  packageName    String?              @map("package_name") @db.VarChar(160)
+  location       String?              @db.VarChar(160)
+  /// CHECK (rating BETWEEN 1 AND 5).
+  rating         Int?
+  pros           String?              @db.VarChar(1000)
+  cons           String?              @db.VarChar(1000)
+  notes          String?              @db.VarChar(2000)
+  status         VendorResearchStatus @default(RESEARCHING)
+  createdById    String?              @map("created_by_id") @db.Uuid
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  wedding      Wedding        @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  category     VendorCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  createdBy    User?          @relation("VendorResearchCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  bookedVendor Vendor?
+
+  @@unique([id, weddingId])
+  @@index([weddingId, status])
+  @@index([weddingId, categoryId])
+  @@map("vendor_research")
+}
+
+/// A booked vendor. Its money (contract / paid / outstanding) is derived from linked expenses.
+model Vendor {
+  id            String    @id @default(uuid()) @db.Uuid
+  weddingId     String    @map("wedding_id") @db.Uuid
+  categoryId    String    @map("category_id") @db.Uuid
+  /// The research record this vendor was booked from (same wedding, enforced by composite FK).
+  researchId    String?   @unique @map("research_id") @db.Uuid
+  name          String    @db.VarChar(120)
+  contactPerson String?   @map("contact_person") @db.VarChar(120)
+  whatsapp      String?   @db.VarChar(25)
+  phone         String?   @db.VarChar(25)
+  instagram     String?   @db.VarChar(30)
+  website       String?   @db.VarChar(300)
+  packageName   String?   @map("package_name") @db.VarChar(160)
+  bookingDate   DateTime? @map("booking_date") @db.Date
+  /// Which event the vendor serves (free text until wedding events exist).
+  eventLabel    String?   @map("event_label") @db.VarChar(120)
+  notes         String?   @db.VarChar(2000)
+  createdById   String?   @map("created_by_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  wedding   Wedding         @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  category  VendorCategory  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  research  VendorResearch? @relation(fields: [researchId, weddingId], references: [id, weddingId], onDelete: NoAction)
+  createdBy User?           @relation("VendorCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  expenses  Expense[]
+
+  @@unique([id, weddingId])
+  @@unique([researchId, weddingId])
+  @@index([weddingId, categoryId])
+  @@map("vendors")
 }

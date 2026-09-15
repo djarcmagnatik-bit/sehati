@@ -1,6 +1,7 @@
 /** Activity feed vocabulary and presentation (pure, client-safe). */
 import { formatDateTime, formatIsoDateLong, isValidIsoDate } from "@/lib/dates";
 import { formatRupiah } from "@/lib/money";
+import { VENDOR_RESEARCH_STATUS_LABEL, type VendorResearchStatusValue } from "@/lib/vendors";
 
 export const ACTIVITY_ACTIONS = [
   "wedding.created",
@@ -27,6 +28,13 @@ export const ACTIVITY_ACTIONS = [
   "expense.deleted",
   "payment.recorded",
   "payment.deleted",
+  "vendor_research.created",
+  "vendor_research.updated",
+  "vendor_research.deleted",
+  "vendor.booked",
+  "vendor.created",
+  "vendor.updated",
+  "vendor.deleted",
 ] as const;
 
 export type ActivityAction = (typeof ACTIVITY_ACTIONS)[number];
@@ -123,6 +131,23 @@ export function describeActivity(entry: { action: string; actorName: string; met
       return `${actor} mencatat pembayaran${money ? ` ${money}` : ""}${title ? ` untuk “${title}”` : ""}`;
     case "payment.deleted":
       return `${actor} menghapus pembayaran${money ? ` ${money}` : ""}${title ? ` untuk “${title}”` : ""}`;
+    case "vendor_research.created":
+      return `${actor} menambahkan kandidat vendor ${quoted(name, "baru")}`;
+    case "vendor_research.updated": {
+      const status = readText(meta, "status") as VendorResearchStatusValue;
+      const label = VENDOR_RESEARCH_STATUS_LABEL[status];
+      return `${actor} memperbarui kandidat vendor ${quoted(name, "")}${label ? ` (${label})` : ""}`.replace("  ", " ");
+    }
+    case "vendor_research.deleted":
+      return `${actor} menghapus kandidat vendor ${quoted(name, "")}`.trimEnd();
+    case "vendor.booked":
+      return `${actor} memilih ${quoted(name, "kandidat")} sebagai vendor${money ? ` dengan kontrak ${money}` : ""}`;
+    case "vendor.created":
+      return `${actor} menambahkan vendor ${quoted(name, "baru")}${money ? ` dengan kontrak ${money}` : ""}`;
+    case "vendor.updated":
+      return `${actor} mengubah data vendor ${quoted(name, "")}`.trimEnd();
+    case "vendor.deleted":
+      return `${actor} menghapus vendor ${quoted(name, "")}`.trimEnd();
     default:
       return `${actor} melakukan perubahan`;
   }

@@ -38,7 +38,7 @@ async function categoryId(weddingId: string, name: string): Promise<string> {
 }
 
 function expenseInput(category: string, overrides: Partial<ExpenseInput> = {}): ExpenseInput {
-  return { title: "Pengeluaran", categoryId: category, totalAmount: 10n * M, dueDate: null, notes: null, ...overrides };
+  return { title: "Pengeluaran", categoryId: category, vendorId: null, totalAmount: 10n * M, dueDate: null, notes: null, ...overrides };
 }
 
 function paymentInput(amount: bigint, overrides: Partial<PaymentInput> = {}): PaymentInput {

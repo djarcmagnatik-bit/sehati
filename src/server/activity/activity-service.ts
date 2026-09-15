@@ -20,7 +20,9 @@ export type ActivityEntryInput = {
     | "budget"
     | "budget_category"
     | "expense"
-    | "payment";
+    | "payment"
+    | "vendor_research"
+    | "vendor";
   entityId?: string | null;
   metadata?: ActivityMetadata;
 };

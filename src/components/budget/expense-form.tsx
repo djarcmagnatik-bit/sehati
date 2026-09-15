@@ -15,13 +15,17 @@ import { MoneyField } from "./money-field";
 type ExpenseDefaults = {
   title: string;
   categoryId: string;
+  vendorId: string;
   totalAmount: string;
   dueDate: string;
   notes: string;
 };
 
-type Props = { categories: Array<{ id: string; name: string }> } & (
-  | { mode: "create"; weddingId: string; defaultCategoryId?: string }
+type Props = {
+  categories: Array<{ id: string; name: string }>;
+  vendors: Array<{ id: string; name: string }>;
+} & (
+  | { mode: "create"; weddingId: string; defaultCategoryId?: string; defaultVendorId?: string }
   | { mode: "edit"; expenseId: string; defaults: ExpenseDefaults }
 );
 
@@ -33,7 +37,14 @@ export function ExpenseForm(props: Props) {
   const defaults: ExpenseDefaults =
     props.mode === "edit"
       ? props.defaults
-      : { title: "", categoryId: props.defaultCategoryId ?? "", totalAmount: "", dueDate: "", notes: "" };
+      : {
+          title: "",
+          categoryId: props.defaultCategoryId ?? "",
+          vendorId: props.defaultVendorId ?? "",
+          totalAmount: "",
+          dueDate: "",
+          notes: "",
+        };
   const value = (key: keyof ExpenseDefaults) => state.values?.[key] ?? defaults[key];
 
   return (
@@ -62,6 +73,13 @@ export function ExpenseForm(props: Props) {
           defaultValue={value("categoryId")}
           options={[{ value: "", label: "Pilih kategori" }, ...props.categories.map((c) => ({ value: c.id, label: c.name }))]}
           errors={state.fieldErrors?.categoryId}
+        />
+        <SelectField
+          label="Vendor (opsional)"
+          name="vendorId"
+          defaultValue={value("vendorId")}
+          options={[{ value: "", label: "Tanpa vendor" }, ...props.vendors.map((v) => ({ value: v.id, label: v.name }))]}
+          errors={state.fieldErrors?.vendorId}
         />
         <MoneyField
           label="Total biaya"
