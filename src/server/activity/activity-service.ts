@@ -31,7 +31,8 @@ export type ActivityEntryInput = {
     | "wedding_event"
     | "love_story"
     | "gallery"
-    | "gift_account";
+    | "gift_account"
+    | "wish";
   entityId?: string | null;
   metadata?: ActivityMetadata;
 };

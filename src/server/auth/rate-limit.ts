@@ -14,6 +14,10 @@ export const RATE_LIMITS = {
   invitationResponsePerUser: { limit: 20, windowSeconds: 60 * 60 },
   guestImportPerUser: { limit: 30, windowSeconds: 60 * 60 },
   imageUploadPerUser: { limit: 60, windowSeconds: 60 * 60 },
+  // Public, unauthenticated submissions from the invitation page.
+  rsvpPerGuest: { limit: 20, windowSeconds: 60 * 60 },
+  rsvpPerIp: { limit: 40, windowSeconds: 60 * 60 },
+  wishPerIp: { limit: 15, windowSeconds: 60 * 60 },
 } as const satisfies Record<string, RateLimitRule>;
 
 /**

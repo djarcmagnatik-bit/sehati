@@ -399,6 +399,8 @@ export async function updateGuest(userId: string, guestId: string, input: GuestI
 export async function deleteGuest(userId: string, guestId: string): Promise<void> {
   const { guest, membership } = await findGuestScope(userId, guestId);
   await getDb().$transaction(async (tx) => {
+    // Wishes are public content and stay; only the link to the guest is removed.
+    await tx.wish.updateMany({ where: { guestId: guest.id }, data: { guestId: null } });
     await tx.guest.delete({ where: { id: guest.id } });
     await recordActivity(tx, {
       weddingId: guest.weddingId,

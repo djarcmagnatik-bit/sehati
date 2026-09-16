@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { pngFixture } from "../support/image-fixtures";
 import { futureIsoDate, registerAndOnboard } from "./helpers";
 

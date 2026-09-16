@@ -154,12 +154,13 @@ export type GuestGreeting = { invitationName: string; seatCount: number };
 export async function getInvitationForGuestToken(
   token: string,
   now: Date = new Date(),
-): Promise<{ invitation: PublicInvitation; guest: GuestGreeting } | null> {
+): Promise<{ invitation: PublicInvitation; guest: GuestGreeting; weddingId: string } | null> {
   if (!/^[A-Za-z0-9_-]{16,32}$/.test(token)) return null;
   const guest = await getDb().guest.findUnique({
     where: { invitationToken: token },
     select: {
       id: true,
+      weddingId: true,
       invitationName: true,
       seatCount: true,
       invitationStatus: true,
@@ -174,7 +175,11 @@ export async function getInvitationForGuestToken(
   if (!invitation) return null;
 
   await markInvitationOpened(guest.id, guest.invitationOpenedAt, now);
-  return { invitation, guest: { invitationName: guest.invitationName, seatCount: guest.seatCount } };
+  return {
+    invitation,
+    guest: { invitationName: guest.invitationName, seatCount: guest.seatCount },
+    weddingId: guest.weddingId,
+  };
 }
 
 /**

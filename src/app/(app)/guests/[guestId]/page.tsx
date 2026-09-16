@@ -14,6 +14,7 @@ import { deleteGuestAction } from "@/server/actions/guest-actions";
 import { requireSession } from "@/server/auth/session-cookie";
 import { getGuestForUser, getGuestGroupOptions } from "@/server/guests/guest-service";
 import { getInvitationForUser } from "@/server/invitation/invitation-service";
+import { listRsvpSubmissions } from "@/server/rsvp/rsvp-service";
 
 export const metadata: Metadata = { title: "Detail tamu" };
 
@@ -31,9 +32,10 @@ export default async function GuestDetailPage({
   if (!guest) notFound();
 
   const { notice } = await searchParams;
-  const [groups, invitation] = await Promise.all([
+  const [groups, invitation, rsvpHistory] = await Promise.all([
     getGuestGroupOptions(session.user.id, guest.weddingId),
     getInvitationForUser(session.user.id, guest.weddingId),
+    listRsvpSubmissions(session.user.id, guest.id),
   ]);
   const personalLink =
     invitation?.status === "PUBLISHED" ? absoluteUrl(getEnv().APP_URL, guestInvitationPath(guest.invitationToken)) : null;
@@ -92,6 +94,27 @@ export default async function GuestDetailPage({
           </p>
         )}
       </Card>
+
+      {rsvpHistory.length > 0 ? (
+        <Card title="Riwayat konfirmasi" description="Setiap jawaban tamu disimpan, jawaban terbaru ada di paling atas.">
+          <ol className="divide-y divide-cream-200">
+            {rsvpHistory.map((entry) => (
+              <li key={entry.id} className="py-3">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <RsvpBadge status={entry.rsvpStatus} attendingCount={entry.attendingCount} />
+                  <time dateTime={entry.createdAt.toISOString()} className="text-xs text-ink-500">
+                    {formatDateTime(entry.createdAt)}
+                  </time>
+                </div>
+                {entry.attendeeNames ? (
+                  <p className="mt-2 text-sm text-ink-700">Yang hadir: {entry.attendeeNames}</p>
+                ) : null}
+                {entry.message ? <p className="mt-1 text-sm whitespace-pre-line text-ink-700">“{entry.message}”</p> : null}
+              </li>
+            ))}
+          </ol>
+        </Card>
+      ) : null}
 
       <Card title="Ubah data tamu">
         <GuestForm

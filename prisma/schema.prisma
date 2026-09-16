@@ -108,6 +108,11 @@ enum InvitationSectionType {
   CLOSING
 }
 
+enum WishStatus {
+  VISIBLE
+  HIDDEN
+}
+
 enum GiftAccountType {
   BANK
   EWALLET
@@ -148,6 +153,7 @@ model User {
   createdGuestImports        GuestImportBatch[]   @relation("GuestImportCreatedBy")
   createdInvitations         Invitation[]         @relation("InvitationCreatedBy")
   uploadedMedia              MediaAsset[]         @relation("MediaUploadedBy")
+  moderatedWishes            Wish[]               @relation("WishModeratedBy")
 
   @@map("users")
 }
@@ -284,6 +290,8 @@ model Wedding {
   galleryImages      GalleryImage[]
   giftAccounts       GiftAccount[]
   mediaAssets        MediaAsset[]
+  rsvpSubmissions    RsvpSubmission[]
+  wishes             Wish[]
 
   @@index([weddingDate])
   @@map("weddings")
@@ -696,11 +704,14 @@ model Guest {
   createdAt          DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt          DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  wedding     Wedding           @relation(fields: [weddingId], references: [id], onDelete: Cascade)
-  group       GuestGroup?       @relation(fields: [groupId, weddingId], references: [id, weddingId], onDelete: NoAction)
-  importBatch GuestImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
-  createdBy   User?             @relation("GuestCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  wedding         Wedding           @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  group           GuestGroup?       @relation(fields: [groupId, weddingId], references: [id, weddingId], onDelete: NoAction)
+  importBatch     GuestImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  rsvpSubmissions RsvpSubmission[]
+  wishes          Wish[]
+  createdBy       User?             @relation("GuestCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
+  @@unique([id, weddingId])
   @@index([weddingId, groupId])
   @@index([weddingId, rsvpStatus])
   @@index([weddingId, invitationStatus])
@@ -906,4 +917,50 @@ model MediaAsset {
   @@unique([weddingId, checksum])
   @@index([weddingId, createdAt])
   @@map("media_assets")
+}
+
+/// Every RSVP a guest sends, kept as history: the guest row holds the latest answer, this holds all of them.
+model RsvpSubmission {
+  id             String          @id @default(uuid()) @db.Uuid
+  weddingId      String          @map("wedding_id") @db.Uuid
+  guestId        String          @map("guest_id") @db.Uuid
+  rsvpStatus     GuestRsvpStatus @map("rsvp_status")
+  /// CHECK: 0 <= attending_count, and <= the guest's seat_count at submission time.
+  attendingCount Int             @map("attending_count")
+  /// Names the guest typed for the people coming, free text.
+  attendeeNames  String?         @map("attendee_names") @db.VarChar(500)
+  message        String?         @db.VarChar(1000)
+  /// Coarse origin hint for abuse handling only; never shown to the couple.
+  ipHash         String?         @map("ip_hash") @db.Char(64)
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  guest   Guest   @relation(fields: [guestId, weddingId], references: [id, weddingId], onDelete: Cascade)
+  wedding Wedding @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+
+  @@index([weddingId, createdAt])
+  @@index([guestId, createdAt])
+  @@map("rsvp_submissions")
+}
+
+/// Public guestbook entry. Moderated by the couple: hide keeps it, delete removes it for good.
+model Wish {
+  id         String     @id @default(uuid()) @db.Uuid
+  weddingId  String     @map("wedding_id") @db.Uuid
+  /// Set when the wish arrives through a personalized guest link.
+  guestId    String?    @map("guest_id") @db.Uuid
+  name       String     @db.VarChar(80)
+  message    String     @db.VarChar(1000)
+  status     WishStatus @default(VISIBLE)
+  ipHash     String?    @map("ip_hash") @db.Char(64)
+  hiddenById String?    @map("hidden_by_id") @db.Uuid
+  hiddenAt   DateTime?  @map("hidden_at") @db.Timestamptz(3)
+  createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  wedding  Wedding @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  /// NoAction: deleting a guest keeps their wish (guest_id is cleared in the same transaction).
+  guest    Guest?  @relation(fields: [guestId, weddingId], references: [id, weddingId], onDelete: NoAction, onUpdate: NoAction)
+  hiddenBy User?   @relation("WishModeratedBy", fields: [hiddenById], references: [id], onDelete: SetNull)
+
+  @@index([weddingId, status, createdAt])
+  @@map("wishes")
 }

@@ -45,11 +45,19 @@ Wedding planning workspace for couples (Indonesia-first). Built phase by phase f
   `MEDIA_DRIVER` abstraction (local files for now), and served from `/media/{id}` — public only while
   they belong to a published invitation.
 
-RSVP submission and guest wishes are Phase 8; those two sections are present but inert, and the
-invitation editor says so. There is no image transcoding yet (no `sharp`): uploads are size- and
-dimension-checked and served as-is.
+- Phase 8 (RSVP & guestbook): guests answer from their own `/i/{token}` link — attendance, how many
+  people (never more than their seats, enforced in validation, in the service against the current
+  guest row, and by a CHECK constraint), the names coming, and a message. Every answer is appended to
+  `rsvp_submissions` instead of overwriting, so the couple sees the full history while the guest row
+  keeps the latest. Answers land immediately in the guest summary, the "Konfirmasi terbaru" card and
+  the activity log. The guestbook takes wishes from the public page or a personal link, rate limited
+  per IP, with moderation (hide keeps it for the couple, delete is permanent); a hidden wish
+  disappears from the public page, and a wish outlives the guest who sent it.
 
-Nothing beyond Phase 7 is implemented yet.
+There is no image transcoding yet (no `sharp`): uploads are size- and dimension-checked and served
+as-is. Background music is not implemented.
+
+Nothing beyond Phase 8 is implemented yet.
 
 ## Stack
 
@@ -87,7 +95,7 @@ Requirements: Node.js ≥ 24, pnpm 10, PostgreSQL 16.
 | `pnpm lint` / `typecheck` | ESLint / `tsc --noEmit` |
 | `pnpm test:unit` | Pure logic tests (no database) |
 | `pnpm test:integration` | Services against `DATABASE_URL_TEST` |
-| `pnpm test:e2e` | Playwright against a production build (`next start` on port 3100) using `DATABASE_URL_TEST` (`pnpm exec playwright install chromium` first) |
+| `pnpm test:e2e` | Playwright against a production build (`next start` on port 3100) using `DATABASE_URL_TEST` (`pnpm exec playwright install chromium` first). Rate-limit buckets in the test database are cleared before each test; app limits are unchanged |
 | `pnpm db:migrate` | Create a new migration during development |
 | `pnpm db:deploy` / `db:status` / `db:seed` | Apply migrations / status / seed reference data |
 

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 function futureIsoDate(days: number): string {
   const date = new Date();

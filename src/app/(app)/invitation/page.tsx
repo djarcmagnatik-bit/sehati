@@ -27,6 +27,7 @@ import {
 } from "@/server/actions/invitation-actions";
 import { requireSession } from "@/server/auth/session-cookie";
 import { listWeddingEvents } from "@/server/invitation/event-service";
+import { countWishes } from "@/server/rsvp/wish-service";
 import { getInvitationForUser } from "@/server/invitation/invitation-service";
 import { getActiveWeddingForUser } from "@/server/wedding/wedding-service";
 
@@ -85,7 +86,10 @@ export default async function InvitationPage({
     );
   }
 
-  const events = await listWeddingEvents(session.user.id, wedding.id);
+  const [events, wishes] = await Promise.all([
+    listWeddingEvents(session.user.id, wedding.id),
+    countWishes(session.user.id, wedding.id),
+  ]);
   const publicUrl = absoluteUrl(getEnv().APP_URL, invitationPath(invitation.slug));
   const published = invitation.status === "PUBLISHED";
   const lastIndex = invitation.sections.length - 1;
@@ -215,6 +219,7 @@ export default async function InvitationPage({
               { href: "/invitation/love-story", label: "Cerita cinta", description: "Momen perjalanan kalian." },
               { href: "/invitation/gallery", label: "Galeri", description: "Foto prewedding atau momen pilihan." },
               { href: "/invitation/gift", label: "Hadiah digital", description: "Rekening dan alamat kirim hadiah." },
+              { href: "/invitation/wishes", label: "Ucapan & doa", description: `${wishes.total} ucapan dari tamu.` },
             ].map((item) => (
               <li key={item.href}>
                 <Link href={item.href} className="flex min-h-14 items-center justify-between gap-3 py-3">

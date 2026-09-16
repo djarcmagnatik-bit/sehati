@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { InvitationView } from "@/components/invitation/public/invitation-view";
+import { formatRelativeTime } from "@/lib/activity";
 import { getInvitationForGuestToken } from "@/server/invitation/public-invitation-service";
+import { getRsvpGuestByToken } from "@/server/rsvp/rsvp-service";
+import { listPublicWishes } from "@/server/rsvp/wish-service";
 
 type PageProps = { params: Promise<{ token: string }> };
 
@@ -16,12 +19,35 @@ export default async function GuestInvitationPage({ params }: PageProps) {
   const result = await getInvitationForGuestToken(token);
   if (!result) notFound();
 
+  const now = new Date();
+  const [rsvpGuest, wishes] = await Promise.all([getRsvpGuestByToken(token), listPublicWishes(result.weddingId)]);
+
   return (
     <InvitationView
       invitation={result.invitation}
       guestName={result.guest.invitationName}
       guestSeatCount={result.guest.seatCount}
-      now={new Date()}
+      rsvp={
+        rsvpGuest
+          ? {
+              token,
+              invitationName: rsvpGuest.invitationName,
+              seatCount: rsvpGuest.seatCount,
+              rsvpStatus: rsvpGuest.rsvpStatus,
+              attendingCount: rsvpGuest.attendingCount,
+              attendeeNames: rsvpGuest.attendeeNames,
+              message: rsvpGuest.message,
+            }
+          : null
+      }
+      wishes={wishes.map((wish) => ({
+        id: wish.id,
+        name: wish.name,
+        message: wish.message,
+        createdAtIso: wish.createdAt.toISOString(),
+        timeLabel: formatRelativeTime(wish.createdAt, now, result.invitation.timeZone),
+      }))}
+      now={now}
     />
   );
 }

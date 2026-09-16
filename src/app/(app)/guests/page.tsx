@@ -13,10 +13,12 @@ import {
   GUEST_INVITATION_STATUSES,
   GUEST_RSVP_LABEL,
   GUEST_RSVP_STATUSES,
+  type GuestRsvpStatusValue,
 } from "@/lib/guests";
 import { bulkUpdateGuestStatusAction, initializeGuestGroupsAction } from "@/server/actions/guest-actions";
 import { requireSession } from "@/server/auth/session-cookie";
 import { getGuestGroupOptions, getGuestSummary, listGuests } from "@/server/guests/guest-service";
+import { getRsvpOverview } from "@/server/rsvp/rsvp-service";
 import { getActiveWeddingForUser } from "@/server/wedding/wedding-service";
 
 export const metadata: Metadata = { title: "Tamu" };
@@ -62,10 +64,11 @@ export default async function GuestsPage({
   const count = Number.parseInt(typeof params.count === "string" ? params.count : "", 10) || 0;
   const notice = typeof params.notice === "string" ? NOTICES[params.notice]?.(count) : undefined;
 
-  const [summary, list, groups] = await Promise.all([
+  const [summary, list, groups, rsvp] = await Promise.all([
     getGuestSummary(session.user.id, wedding.id),
     listGuests(session.user.id, wedding.id, filters),
     getGuestGroupOptions(session.user.id, wedding.id),
+    getRsvpOverview(session.user.id, wedding.id),
   ]);
   const lastPage = Math.max(1, Math.ceil(list.total / list.pageSize));
   const hasFilters = filters.rsvp !== "all" || filters.invitation !== "all" || filters.group !== null || filters.q !== "";
@@ -115,6 +118,35 @@ export default async function GuestsPage({
           <Stat label="Tidak hadir" value={summary.declinedInvitations} testId="guests-declined" />
         </dl>
       </section>
+
+      {rsvp.latest.length > 0 ? (
+        <section aria-labelledby="rsvp-latest" className="rounded-3xl border border-cream-200 bg-white p-5 sm:p-6">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 id="rsvp-latest" className="font-display text-xl font-semibold">
+              Konfirmasi terbaru
+            </h2>
+            <p className="text-sm text-ink-500">
+              <span data-testid="guests-responded">{rsvp.responded}</span> dari {summary.invitations} undangan sudah menjawab
+            </p>
+          </div>
+          <ul className="mt-3 divide-y divide-cream-200">
+            {rsvp.latest.map((entry) => (
+              <li key={entry.id} className="flex flex-wrap items-baseline justify-between gap-2 py-2.5">
+                <div className="min-w-0">
+                  <Link
+                    href={`/guests/${entry.guestId}`}
+                    className="font-medium text-ink-900 underline-offset-4 hover:underline"
+                  >
+                    {entry.invitationName}
+                  </Link>
+                  {entry.message ? <p className="truncate text-xs text-ink-500">“{entry.message}”</p> : null}
+                </div>
+                <RsvpBadge status={entry.rsvpStatus as GuestRsvpStatusValue} attendingCount={entry.attendingCount} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <nav aria-label="Filter RSVP">
         <ul className="flex gap-2 overflow-x-auto pb-1">

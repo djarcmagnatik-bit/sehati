@@ -47,6 +47,7 @@ import {
   updateSectionContent,
 } from "@/server/invitation/invitation-service";
 import { deleteAssetIfUnused, uploadImage } from "@/server/media/media-service";
+import { deleteWish, setWishStatus } from "@/server/rsvp/wish-service";
 import { readString } from "./form-data";
 
 const INVALID_INPUT = "Periksa kembali data yang ditandai.";
@@ -404,4 +405,18 @@ export async function updateGiftAddressAction(_prev: FormState, formData: FormDa
   }
   revalidateInvitation();
   return { status: "success", message: "Alamat kirim hadiah disimpan." };
+}
+
+// ─── Guestbook moderation ────────────────────────────────────────────────────
+
+export async function setWishStatusAction(formData: FormData): Promise<void> {
+  const session = await requireSession();
+  const status = readString(formData, "status") === "HIDDEN" ? "HIDDEN" : "VISIBLE";
+  await runVoid("wish.moderate_failed", () => setWishStatus(session.user.id, readString(formData, "wishId"), status));
+}
+
+export async function deleteWishAction(formData: FormData): Promise<void> {
+  const session = await requireSession();
+  await runVoid("wish.delete_failed", () => deleteWish(session.user.id, readString(formData, "wishId")));
+  redirect("/invitation/wishes?notice=deleted");
 }

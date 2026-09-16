@@ -44,3 +44,30 @@ export async function registerAndOnboard(page: Page, options: { weddingInDays?: 
 
   return { email };
 }
+
+/** Creates and publishes a minimal invitation at `slug`. Ends on /invitation. */
+export async function createAndPublishInvitation(page: Page, slug: string): Promise<void> {
+  await page.goto("/invitation");
+  await page.getByRole("button", { name: "Buat undangan digital" }).click();
+  await expect(page).toHaveURL(/\/invitation\?notice=created$/);
+
+  await page.goto("/invitation/sections/couple");
+  await page.getByLabel(/^Nama lengkap mempelai wanita/).fill("Putri Ayu");
+  await page.getByLabel(/^Nama lengkap mempelai pria/).fill("Fajar Pratama");
+  await page.getByRole("button", { name: "Simpan bagian" }).click();
+  await expect(page.getByText("Bagian Mempelai disimpan.")).toBeVisible();
+
+  await page.goto("/invitation/events/new");
+  await page.getByLabel(/^Nama acara/).fill("Resepsi");
+  await page.getByLabel(/^Tanggal/).fill(futureIsoDate(400));
+  await page.getByLabel(/^Jam mulai/).fill("18:00");
+  await page.getByRole("button", { name: "Simpan acara" }).click();
+  await expect(page).toHaveURL(/\/invitation\/events\?notice=created$/);
+
+  await page.goto("/invitation");
+  await page.getByLabel(/^Alamat undangan/).fill(slug);
+  await page.getByRole("button", { name: "Simpan pengaturan" }).click();
+  await expect(page.getByText("Pengaturan undangan disimpan.")).toBeVisible();
+  await page.getByRole("button", { name: "Terbitkan undangan" }).click();
+  await expect(page.getByTestId("invitation-status")).toHaveText("Terbit");
+}

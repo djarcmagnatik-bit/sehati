@@ -63,6 +63,11 @@ export const ACTIVITY_ACTIONS = [
   "gift_account.created",
   "gift_account.updated",
   "gift_account.deleted",
+  "rsvp.received",
+  "wish.received",
+  "wish.hidden",
+  "wish.restored",
+  "wish.deleted",
 ] as const;
 
 export type ActivityAction = (typeof ACTIVITY_ACTIONS)[number];
@@ -233,6 +238,21 @@ export function describeActivity(entry: { action: string; actorName: string; met
       return `${actor} mengubah info hadiah ${quoted(name, "")}`.trimEnd();
     case "gift_account.deleted":
       return `${actor} menghapus info hadiah ${quoted(name, "")}`.trimEnd();
+    case "rsvp.received": {
+      const status = readText(meta, "status");
+      if (status === "ATTENDING") return `${quoted(name, "Seorang tamu")} konfirmasi hadir${count ? ` (${count} orang)` : ""}`;
+      if (status === "MAYBE") return `${quoted(name, "Seorang tamu")} menjawab mungkin hadir`;
+      if (status === "DECLINED") return `${quoted(name, "Seorang tamu")} menjawab berhalangan hadir`;
+      return `${quoted(name, "Seorang tamu")} mengirim konfirmasi kehadiran`;
+    }
+    case "wish.received":
+      return `${quoted(name, "Seorang tamu")} mengirim ucapan & doa`;
+    case "wish.hidden":
+      return `${actor} menyembunyikan ucapan dari ${quoted(name, "seorang tamu")}`;
+    case "wish.restored":
+      return `${actor} menampilkan kembali ucapan dari ${quoted(name, "seorang tamu")}`;
+    case "wish.deleted":
+      return `${actor} menghapus ucapan dari ${quoted(name, "seorang tamu")}`;
     default:
       return `${actor} melakukan perubahan`;
   }

@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { CountdownTimer } from "@/components/invitation/public/countdown-timer";
 import { CopyValue } from "@/components/invitation/public/copy-value";
+import { RsvpForm, type RsvpState } from "@/components/invitation/public/rsvp-form";
+import { WishesSection, type PublicWishView } from "@/components/invitation/public/wishes";
 import { dbDateToIso, formatIsoDateLong, zonedTimeToUtcMs } from "@/lib/dates";
 import { GIFT_ACCOUNT_LABEL, SECTION_LABEL, type InvitationSectionTypeValue } from "@/lib/invitation";
 import { getTheme, themeStyle } from "@/lib/invitation-themes";
@@ -13,6 +15,9 @@ type ViewProps = {
   /** Name to address the invitation to; falls back to the invitation's default greeting. */
   guestName?: string | null;
   guestSeatCount?: number | null;
+  /** Present only on a personalized link: enables the guest's own RSVP form. */
+  rsvp?: RsvpState | null;
+  wishes?: PublicWishView[];
   now: Date;
 };
 
@@ -325,7 +330,19 @@ function GiftSection({ invitation }: { invitation: PublicInvitation }) {
 }
 
 /** Renders one section; returns null when it has nothing to show, so empty sections never leave a gap. */
-function SectionBody({ section, invitation, now }: { section: PublicSection; invitation: PublicInvitation; now: Date }) {
+function SectionBody({
+  section,
+  invitation,
+  now,
+  rsvp,
+  wishes,
+}: {
+  section: PublicSection;
+  invitation: PublicInvitation;
+  now: Date;
+  rsvp: RsvpState | null;
+  wishes: PublicWishView[];
+}) {
   const intro = text(section, "intro");
   const type: InvitationSectionTypeValue = section.type;
 
@@ -395,13 +412,26 @@ function SectionBody({ section, invitation, now }: { section: PublicSection; inv
         </SectionShell>
       );
     case "RSVP":
-    case "WISHES":
-      if (!intro) return null;
       return (
-        <SectionShell id={type === "RSVP" ? "rsvp" : "ucapan"} title={SECTION_LABEL[type]}>
-          <p className="text-pretty" style={{ color: "var(--inv-muted)" }}>
-            {intro}
-          </p>
+        <SectionShell id="rsvp" title={SECTION_LABEL.RSVP} intro={intro}>
+          {rsvp ? (
+            <RsvpForm guest={rsvp} />
+          ) : (
+            <p className="text-pretty" style={{ color: "var(--inv-muted)" }}>
+              Konfirmasi kehadiran dilakukan lewat tautan undangan pribadi yang dikirimkan mempelai kepada masing-masing tamu.
+            </p>
+          )}
+        </SectionShell>
+      );
+    case "WISHES":
+      return (
+        <SectionShell id="ucapan" title={SECTION_LABEL.WISHES} intro={intro}>
+          <WishesSection
+            slug={invitation.slug}
+            token={rsvp?.token ?? null}
+            wishes={wishes}
+            defaultName={rsvp?.invitationName ?? null}
+          />
         </SectionShell>
       );
     case "GIFT":
@@ -430,7 +460,7 @@ function SectionBody({ section, invitation, now }: { section: PublicSection; inv
 }
 
 /** The whole public invitation. Receives only data the public service is allowed to expose. */
-export function InvitationView({ invitation, guestName = null, guestSeatCount = null, now }: ViewProps) {
+export function InvitationView({ invitation, guestName = null, guestSeatCount = null, rsvp = null, wishes = [], now }: ViewProps) {
   const theme = getTheme(invitation.themeCode);
   const greeting = guestName ?? invitation.defaultGuestLabel;
 
@@ -448,7 +478,7 @@ export function InvitationView({ invitation, guestName = null, guestSeatCount = 
       ) : null}
       <main>
         {invitation.sections.map((section) => (
-          <SectionBody key={section.id} section={section} invitation={invitation} now={now} />
+          <SectionBody key={section.id} section={section} invitation={invitation} now={now} rsvp={rsvp} wishes={wishes} />
         ))}
       </main>
       <footer className="px-5 pt-4 pb-12 text-center text-xs" style={{ color: "var(--inv-muted)" }}>

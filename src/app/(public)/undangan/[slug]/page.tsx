@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { InvitationView } from "@/components/invitation/public/invitation-view";
+import { formatRelativeTime } from "@/lib/activity";
 import { formatIsoDateLong } from "@/lib/dates";
 import { getPublishedInvitation } from "@/server/invitation/public-invitation-service";
+import { listPublicWishesBySlug } from "@/server/rsvp/wish-service";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -39,5 +41,20 @@ export default async function PublicInvitationPage({ params, searchParams }: Pag
   // Drafts and unknown slugs look identical from outside.
   if (!invitation) notFound();
 
-  return <InvitationView invitation={invitation} guestName={guestFromQuery(query.to)} now={new Date()} />;
+  const now = new Date();
+  const wishes = await listPublicWishesBySlug(slug);
+  return (
+    <InvitationView
+      invitation={invitation}
+      guestName={guestFromQuery(query.to)}
+      wishes={wishes.map((wish) => ({
+        id: wish.id,
+        name: wish.name,
+        message: wish.message,
+        createdAtIso: wish.createdAt.toISOString(),
+        timeLabel: formatRelativeTime(wish.createdAt, now, invitation.timeZone),
+      }))}
+      now={now}
+    />
+  );
 }

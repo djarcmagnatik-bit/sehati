@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { E2E_PASSWORD, registerAndOnboard, uniqueEmail } from "./helpers";
 
 test("partner invitation: two accounts plan the same wedding", async ({ page, browser }) => {
