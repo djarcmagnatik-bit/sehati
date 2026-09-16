@@ -87,6 +87,32 @@ enum GuestInvitationStatus {
   FOLLOW_UP
 }
 
+enum InvitationStatus {
+  DRAFT
+  PUBLISHED
+}
+
+/// Declaration order is the default section order on a new invitation.
+enum InvitationSectionType {
+  COVER
+  COUPLE
+  QUOTE
+  EVENTS
+  COUNTDOWN
+  LOVE_STORY
+  GALLERY
+  LOCATION
+  RSVP
+  WISHES
+  GIFT
+  CLOSING
+}
+
+enum GiftAccountType {
+  BANK
+  EWALLET
+}
+
 enum GuestRsvpStatus {
   PENDING
   ATTENDING
@@ -120,6 +146,8 @@ model User {
   createdVendors             Vendor[]             @relation("VendorCreatedBy")
   createdGuests              Guest[]              @relation("GuestCreatedBy")
   createdGuestImports        GuestImportBatch[]   @relation("GuestImportCreatedBy")
+  createdInvitations         Invitation[]         @relation("InvitationCreatedBy")
+  uploadedMedia              MediaAsset[]         @relation("MediaUploadedBy")
 
   @@map("users")
 }
@@ -249,6 +277,13 @@ model Wedding {
   guestGroups        GuestGroup[]
   guests             Guest[]
   guestImportBatches GuestImportBatch[]
+  invitation         Invitation?
+  invitationSections InvitationSection[]
+  weddingEvents      WeddingEvent[]
+  loveStoryEntries   LoveStoryEntry[]
+  galleryImages      GalleryImage[]
+  giftAccounts       GiftAccount[]
+  mediaAssets        MediaAsset[]
 
   @@index([weddingDate])
   @@map("weddings")
@@ -634,30 +669,32 @@ model GuestGroup {
 
 /// One invitation. It can cover several people: invitation count != guest (seat) count.
 model Guest {
-  id               String                @id @default(uuid()) @db.Uuid
-  weddingId        String                @map("wedding_id") @db.Uuid
-  groupId          String?               @map("group_id") @db.Uuid
-  guestName        String                @map("guest_name") @db.VarChar(120)
+  id                 String                @id @default(uuid()) @db.Uuid
+  weddingId          String                @map("wedding_id") @db.Uuid
+  groupId            String?               @map("group_id") @db.Uuid
+  guestName          String                @map("guest_name") @db.VarChar(120)
   /// How the invitation is addressed, e.g. "Keluarga Bapak Ahmad".
-  invitationName   String                @map("invitation_name") @db.VarChar(160)
-  phone            String?               @db.VarChar(25)
+  invitationName     String                @map("invitation_name") @db.VarChar(160)
+  phone              String?               @db.VarChar(25)
   /// Digits with country code, for duplicate detection.
-  phoneNormalized  String?               @map("phone_normalized") @db.VarChar(20)
-  email            String?               @db.VarChar(254)
-  address          String?               @db.VarChar(500)
+  phoneNormalized    String?               @map("phone_normalized") @db.VarChar(20)
+  email              String?               @db.VarChar(254)
+  address            String?               @db.VarChar(500)
   /// CHECK (seat_count BETWEEN 1 AND 50).
-  seatCount        Int                   @default(1) @map("seat_count")
-  invitationStatus GuestInvitationStatus @default(NOT_SENT) @map("invitation_status")
-  rsvpStatus       GuestRsvpStatus       @default(PENDING) @map("rsvp_status")
+  seatCount          Int                   @default(1) @map("seat_count")
+  invitationStatus   GuestInvitationStatus @default(NOT_SENT) @map("invitation_status")
+  rsvpStatus         GuestRsvpStatus       @default(PENDING) @map("rsvp_status")
   /// CHECK: 0 <= attending_count <= seat_count, 0 unless ATTENDING/MAYBE, >= 1 when ATTENDING.
-  attendingCount   Int                   @default(0) @map("attending_count")
-  notes            String?               @db.VarChar(1000)
+  attendingCount     Int                   @default(0) @map("attending_count")
+  notes              String?               @db.VarChar(1000)
   /// Random, unguessable token for the personalized invitation link (/i/{token}).
-  invitationToken  String                @unique @map("invitation_token") @db.VarChar(32)
-  importBatchId    String?               @map("import_batch_id") @db.Uuid
-  createdById      String?               @map("created_by_id") @db.Uuid
-  createdAt        DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt        DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+  invitationToken    String                @unique @map("invitation_token") @db.VarChar(32)
+  /// First time the personalized link was opened; drives the OPENED status.
+  invitationOpenedAt DateTime?             @map("invitation_opened_at") @db.Timestamptz(3)
+  importBatchId      String?               @map("import_batch_id") @db.Uuid
+  createdById        String?               @map("created_by_id") @db.Uuid
+  createdAt          DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   wedding     Wedding           @relation(fields: [weddingId], references: [id], onDelete: Cascade)
   group       GuestGroup?       @relation(fields: [groupId, weddingId], references: [id, weddingId], onDelete: NoAction)
@@ -693,4 +730,180 @@ model GuestImportBatch {
 
   @@index([weddingId, createdAt])
   @@map("guest_import_batches")
+}
+
+/// Public digital invitation for one wedding. Content lives in sections and the tables below,
+/// so switching themes never touches it.
+model Invitation {
+  id                String           @id @default(uuid()) @db.Uuid
+  weddingId         String           @unique @map("wedding_id") @db.Uuid
+  /// Public URL segment (/undangan/{slug}). Lowercase a-z, 0-9 and "-" only.
+  slug              String           @unique @db.VarChar(60)
+  status            InvitationStatus @default(DRAFT)
+  themeCode         String           @default("minimal") @map("theme_code") @db.VarChar(40)
+  /// Optional per-invitation theme overrides, validated in app code.
+  themeOptions      Json?            @map("theme_options")
+  coverImageId      String?          @map("cover_image_id") @db.Uuid
+  /// Fallback for "Kepada Yth." when a link carries no guest.
+  defaultGuestLabel String?          @map("default_guest_label") @db.VarChar(120)
+  /// Where physical gifts can be sent (shown in the gift section).
+  giftAddress       String?          @map("gift_address") @db.VarChar(500)
+  publishedAt       DateTime?        @map("published_at") @db.Timestamptz(3)
+  createdById       String?          @map("created_by_id") @db.Uuid
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  wedding    Wedding     @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  coverImage MediaAsset? @relation("InvitationCover", fields: [coverImageId, weddingId], references: [id, weddingId], onDelete: NoAction, onUpdate: NoAction)
+  createdBy  User?       @relation("InvitationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  sections         InvitationSection[]
+  loveStoryEntries LoveStoryEntry[]
+  galleryImages    GalleryImage[]
+  giftAccounts     GiftAccount[]
+
+  @@unique([id, weddingId])
+  @@index([status, slug])
+  @@map("invitations")
+}
+
+/// One row per section type: whether it is shown, in which order, and its text content.
+model InvitationSection {
+  id           String                @id @default(uuid()) @db.Uuid
+  invitationId String                @map("invitation_id") @db.Uuid
+  weddingId    String                @map("wedding_id") @db.Uuid
+  type         InvitationSectionType
+  enabled      Boolean               @default(true)
+  sortOrder    Int                   @map("sort_order")
+  /// Section-specific fields, validated per type in app code. Never secrets.
+  content      Json                  @default("{}")
+  createdAt    DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  invitation Invitation @relation(fields: [invitationId, weddingId], references: [id, weddingId], onDelete: Cascade)
+  wedding    Wedding    @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+
+  @@unique([invitationId, type])
+  @@index([invitationId, sortOrder])
+  @@map("invitation_sections")
+}
+
+/// Akad, resepsi, ngunduh mantu … Planning data that the invitation also displays.
+model WeddingEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  weddingId String   @map("wedding_id") @db.Uuid
+  name      String   @db.VarChar(80)
+  eventDate DateTime @map("event_date") @db.Date
+  /// Local wall-clock time in the wedding time zone, "HH:MM". CHECK enforces the format.
+  startTime String?  @map("start_time") @db.VarChar(5)
+  endTime   String?  @map("end_time") @db.VarChar(5)
+  venueName String?  @map("venue_name") @db.VarChar(120)
+  address   String?  @db.VarChar(500)
+  /// WGS84. CHECK keeps latitude in -90..90 and longitude in -180..180.
+  latitude  Decimal? @db.Decimal(9, 6)
+  longitude Decimal? @db.Decimal(9, 6)
+  /// Plain https link to a maps provider; no API key required.
+  mapsUrl   String?  @map("maps_url") @db.VarChar(500)
+  dressCode String?  @map("dress_code") @db.VarChar(120)
+  notes     String?  @db.VarChar(1000)
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  wedding Wedding @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+
+  @@index([weddingId, sortOrder])
+  @@map("wedding_events")
+}
+
+model LoveStoryEntry {
+  id           String   @id @default(uuid()) @db.Uuid
+  weddingId    String   @map("wedding_id") @db.Uuid
+  invitationId String   @map("invitation_id") @db.Uuid
+  title        String   @db.VarChar(120)
+  /// Free text such as "2019" or "12 Februari 2023"; not every memory has an exact date.
+  timeLabel    String?  @map("time_label") @db.VarChar(40)
+  story        String   @db.VarChar(1000)
+  imageId      String?  @map("image_id") @db.Uuid
+  sortOrder    Int      @default(0) @map("sort_order")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  invitation Invitation  @relation(fields: [invitationId, weddingId], references: [id, weddingId], onDelete: Cascade)
+  wedding    Wedding     @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  image      MediaAsset? @relation("LoveStoryImage", fields: [imageId, weddingId], references: [id, weddingId], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([invitationId, sortOrder])
+  @@map("love_story_entries")
+}
+
+model GalleryImage {
+  id           String   @id @default(uuid()) @db.Uuid
+  weddingId    String   @map("wedding_id") @db.Uuid
+  invitationId String   @map("invitation_id") @db.Uuid
+  assetId      String   @map("asset_id") @db.Uuid
+  caption      String?  @db.VarChar(160)
+  sortOrder    Int      @default(0) @map("sort_order")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  invitation Invitation @relation(fields: [invitationId, weddingId], references: [id, weddingId], onDelete: Cascade)
+  wedding    Wedding    @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  asset      MediaAsset @relation("GalleryAsset", fields: [assetId, weddingId], references: [id, weddingId], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([invitationId, assetId])
+  @@index([invitationId, sortOrder])
+  @@map("gallery_images")
+}
+
+/// Display-only gift information. The app never claims money was received.
+model GiftAccount {
+  id            String          @id @default(uuid()) @db.Uuid
+  weddingId     String          @map("wedding_id") @db.Uuid
+  invitationId  String          @map("invitation_id") @db.Uuid
+  type          GiftAccountType
+  /// Bank or e-wallet name, e.g. "BCA" or "GoPay".
+  providerName  String          @map("provider_name") @db.VarChar(60)
+  accountNumber String          @map("account_number") @db.VarChar(40)
+  accountHolder String          @map("account_holder") @db.VarChar(80)
+  notes         String?         @db.VarChar(200)
+  sortOrder     Int             @default(0) @map("sort_order")
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  invitation Invitation @relation(fields: [invitationId, weddingId], references: [id, weddingId], onDelete: Cascade)
+  wedding    Wedding    @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+
+  @@index([invitationId, sortOrder])
+  @@map("gift_accounts")
+}
+
+/// An uploaded image. Bytes live in the configured media store; only metadata is in the database.
+model MediaAsset {
+  id          String   @id @default(uuid()) @db.Uuid
+  weddingId   String   @map("wedding_id") @db.Uuid
+  /// Opaque key inside the media store; never a user-supplied path.
+  storageKey  String   @unique @map("storage_key") @db.VarChar(200)
+  /// Display-only original name.
+  fileName    String   @map("file_name") @db.VarChar(120)
+  mimeType    String   @map("mime_type") @db.VarChar(60)
+  byteSize    Int      @map("byte_size")
+  width       Int
+  height      Int
+  /// SHA-256 of the bytes, so the same image is stored once per wedding.
+  checksum    String   @db.Char(64)
+  createdById String?  @map("created_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  wedding   Wedding @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  createdBy User?   @relation("MediaUploadedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  invitationCovers Invitation[]     @relation("InvitationCover")
+  loveStoryEntries LoveStoryEntry[] @relation("LoveStoryImage")
+  galleryImages    GalleryImage[]   @relation("GalleryAsset")
+
+  @@unique([id, weddingId])
+  @@unique([weddingId, checksum])
+  @@index([weddingId, createdAt])
+  @@map("media_assets")
 }

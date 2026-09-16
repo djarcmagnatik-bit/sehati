@@ -1,0 +1,228 @@
+"use client";
+
+import { useActionState, useId, useState } from "react";
+import { Alert } from "@/components/ui/alert";
+import { SubmitButton } from "@/components/ui/submit-button";
+import { TextField } from "@/components/ui/text-field";
+import { TextareaField } from "@/components/ui/textarea-field";
+import { cn } from "@/lib/cn";
+import { initialFormState, type FormState } from "@/lib/form-state";
+import { slugify } from "@/lib/invitation";
+import { COVER_LAYOUT_LABEL, COVER_LAYOUTS, INVITATION_THEMES, type CoverLayout } from "@/lib/invitation-themes";
+import { IMAGE_MAX_BYTES, IMAGE_MIME_TYPES } from "@/lib/media";
+import {
+  updateGiftAddressAction,
+  updateInvitationSettingsAction,
+  updateInvitationThemeAction,
+  uploadCoverImageAction,
+  uploadGalleryImageAction,
+} from "@/server/actions/invitation-actions";
+
+function FormMessage({ state }: { state: FormState }) {
+  if (!state.message) return null;
+  return <Alert tone={state.status === "error" ? "error" : "success"}>{state.message}</Alert>;
+}
+
+export function InvitationSettingsForm({
+  weddingId,
+  slug,
+  defaultGuestLabel,
+  publicOrigin,
+}: {
+  weddingId: string;
+  slug: string;
+  defaultGuestLabel: string;
+  publicOrigin: string;
+}) {
+  const [state, formAction] = useActionState(updateInvitationSettingsAction, initialFormState);
+  const [draftSlug, setDraftSlug] = useState(state.values?.slug ?? slug);
+
+  return (
+    <form action={formAction} noValidate className="space-y-4">
+      <FormMessage state={state} />
+      <input type="hidden" name="weddingId" value={weddingId} />
+      <TextField
+        label="Alamat undangan"
+        name="slug"
+        required
+        maxLength={60}
+        value={draftSlug}
+        onChange={(event) => setDraftSlug(event.target.value)}
+        onBlur={(event) => setDraftSlug(slugify(event.target.value))}
+        hint={`${publicOrigin}/undangan/${slugify(draftSlug) || "…"}`}
+        errors={state.fieldErrors?.slug}
+      />
+      <TextField
+        label="Sapaan tamu bawaan"
+        name="defaultGuestLabel"
+        maxLength={120}
+        placeholder="Bapak/Ibu/Saudara/i"
+        hint="Dipakai saat tautan dibuka tanpa nama tamu."
+        defaultValue={state.values?.defaultGuestLabel ?? defaultGuestLabel}
+        errors={state.fieldErrors?.defaultGuestLabel}
+      />
+      <SubmitButton pendingLabel="Menyimpan…">Simpan pengaturan</SubmitButton>
+    </form>
+  );
+}
+
+export function ThemePicker({
+  weddingId,
+  themeCode,
+  coverLayout,
+}: {
+  weddingId: string;
+  themeCode: string;
+  coverLayout: CoverLayout;
+}) {
+  const [state, formAction] = useActionState(updateInvitationThemeAction, initialFormState);
+  const [selected, setSelected] = useState(themeCode);
+
+  return (
+    <form action={formAction} className="space-y-5">
+      <FormMessage state={state} />
+      <input type="hidden" name="weddingId" value={weddingId} />
+
+      <fieldset>
+        <legend className="text-sm font-medium text-ink-900">Tema</legend>
+        <ul className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {INVITATION_THEMES.map((theme) => {
+            const active = selected === theme.code;
+            return (
+              <li key={theme.code}>
+                <label
+                  className={cn(
+                    "flex h-full cursor-pointer gap-3 rounded-2xl border p-3 transition-colors",
+                    active ? "border-clay-600 bg-clay-50" : "border-cream-300 bg-white hover:bg-cream-100",
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="themeCode"
+                    value={theme.code}
+                    checked={active}
+                    onChange={() => setSelected(theme.code)}
+                    className="mt-1 size-4 accent-clay-600"
+                  />
+                  <span className="min-w-0">
+                    <span className="block font-medium">{theme.name}</span>
+                    <span className="mt-0.5 block text-xs text-ink-500">{theme.description}</span>
+                    <span aria-hidden="true" className="mt-2 flex gap-1">
+                      {[theme.tokens.background, theme.tokens.surface, theme.tokens.accent, theme.tokens.ink].map((color) => (
+                        <span key={color} className="size-5 rounded-full ring-1 ring-black/10" style={{ background: color }} />
+                      ))}
+                    </span>
+                  </span>
+                </label>
+              </li>
+            );
+          })}
+        </ul>
+      </fieldset>
+
+      <fieldset>
+        <legend className="text-sm font-medium text-ink-900">Tata letak sampul</legend>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {COVER_LAYOUTS.map((layout) => (
+            <label
+              key={layout}
+              className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-cream-300 bg-white px-4 text-sm has-checked:border-clay-600 has-checked:bg-clay-50"
+            >
+              <input type="radio" name="coverLayout" value={layout} defaultChecked={coverLayout === layout} className="size-4 accent-clay-600" />
+              {COVER_LAYOUT_LABEL[layout]}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      <SubmitButton pendingLabel="Menyimpan…">Simpan tampilan</SubmitButton>
+    </form>
+  );
+}
+
+const ACCEPT = IMAGE_MIME_TYPES.join(",");
+
+function ImageUploadForm({
+  weddingId,
+  action,
+  label,
+  hint,
+  submitLabel,
+}: {
+  weddingId: string;
+  action: (state: FormState, formData: FormData) => Promise<FormState>;
+  label: string;
+  hint: string;
+  submitLabel: string;
+}) {
+  const [state, formAction] = useActionState(action, initialFormState);
+  const inputId = useId();
+
+  return (
+    <form action={formAction} className="space-y-3">
+      <FormMessage state={state} />
+      <input type="hidden" name="weddingId" value={weddingId} />
+      <div className="space-y-1.5">
+        <label htmlFor={inputId} className="block text-sm font-medium text-ink-900">
+          {label}
+        </label>
+        <input
+          id={inputId}
+          type="file"
+          name="file"
+          required
+          accept={ACCEPT}
+          className="block w-full rounded-xl border border-cream-300 bg-white p-2 text-sm file:mr-3 file:rounded-full file:border-0 file:bg-clay-50 file:px-4 file:py-2 file:font-semibold file:text-clay-700"
+        />
+        <p className="text-xs text-ink-500">
+          {hint} JPG, PNG, atau WebP, maksimal {Math.round(IMAGE_MAX_BYTES / (1024 * 1024))} MB.
+        </p>
+      </div>
+      <SubmitButton pendingLabel="Mengunggah…">{submitLabel}</SubmitButton>
+    </form>
+  );
+}
+
+export function CoverUploadForm({ weddingId }: { weddingId: string }) {
+  return (
+    <ImageUploadForm
+      weddingId={weddingId}
+      action={uploadCoverImageAction}
+      label="Foto sampul"
+      hint="Foto tegak (portrait) paling pas untuk layar ponsel."
+      submitLabel="Unggah sampul"
+    />
+  );
+}
+
+export function GalleryUploadForm({ weddingId }: { weddingId: string }) {
+  return (
+    <ImageUploadForm
+      weddingId={weddingId}
+      action={uploadGalleryImageAction}
+      label="Tambah foto galeri"
+      hint="Foto akan ditampilkan dalam kotak persegi."
+      submitLabel="Unggah foto"
+    />
+  );
+}
+
+export function GiftAddressForm({ weddingId, giftAddress }: { weddingId: string; giftAddress: string }) {
+  const [state, formAction] = useActionState(updateGiftAddressAction, initialFormState);
+  return (
+    <form action={formAction} noValidate className="space-y-3">
+      <FormMessage state={state} />
+      <input type="hidden" name="weddingId" value={weddingId} />
+      <TextareaField
+        label="Alamat kirim hadiah"
+        name="giftAddress"
+        rows={3}
+        maxLength={500}
+        hint="Kosongkan bila tidak ingin menampilkan alamat."
+        defaultValue={state.values?.giftAddress ?? giftAddress}
+        errors={state.fieldErrors?.giftAddress}
+      />
+      <SubmitButton pendingLabel="Menyimpan…">Simpan alamat</SubmitButton>
+    </form>
+  );
+}

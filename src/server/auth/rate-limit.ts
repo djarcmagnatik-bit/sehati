@@ -13,6 +13,7 @@ export const RATE_LIMITS = {
   partnerInvitePerUser: { limit: 10, windowSeconds: 60 * 60 },
   invitationResponsePerUser: { limit: 20, windowSeconds: 60 * 60 },
   guestImportPerUser: { limit: 30, windowSeconds: 60 * 60 },
+  imageUploadPerUser: { limit: 60, windowSeconds: 60 * 60 },
 } as const satisfies Record<string, RateLimitRule>;
 
 /**

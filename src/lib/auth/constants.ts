@@ -14,6 +14,7 @@ export const PRIVATE_PATH_PREFIXES = [
   "/budget",
   "/vendors",
   "/guests",
+  "/invitation",
   "/activity",
   "/more",
 ] as const;

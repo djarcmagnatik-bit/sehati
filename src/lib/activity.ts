@@ -45,6 +45,24 @@ export const ACTIVITY_ACTIONS = [
   "guest.deleted",
   "guests.imported",
   "guests.bulk_status_updated",
+  "invitation.created",
+  "invitation.settings_updated",
+  "invitation.theme_changed",
+  "invitation.section_updated",
+  "invitation.sections_reordered",
+  "invitation.published",
+  "invitation.unpublished",
+  "wedding_event.created",
+  "wedding_event.updated",
+  "wedding_event.deleted",
+  "love_story.created",
+  "love_story.updated",
+  "love_story.deleted",
+  "gallery.image_added",
+  "gallery.image_removed",
+  "gift_account.created",
+  "gift_account.updated",
+  "gift_account.deleted",
 ] as const;
 
 export type ActivityAction = (typeof ACTIVITY_ACTIONS)[number];
@@ -179,6 +197,42 @@ export function describeActivity(entry: { action: string; actorName: string; met
       const label = GUEST_INVITATION_LABEL[readText(meta, "status") as GuestInvitationStatusValue];
       return `${actor} menandai ${count ?? "beberapa"} undangan sebagai ${label ? `“${label}”` : "diperbarui"}`;
     }
+    case "invitation.created":
+      return `${actor} membuat undangan digital`;
+    case "invitation.settings_updated":
+      return `${actor} memperbarui pengaturan undangan${name ? ` (${name})` : ""}`;
+    case "invitation.theme_changed":
+      return `${actor} mengganti tema undangan${name ? ` menjadi ${name}` : ""}`;
+    case "invitation.section_updated":
+      return `${actor} mengubah bagian undangan${name ? ` “${name}”` : ""}`;
+    case "invitation.sections_reordered":
+      return `${actor} mengubah urutan bagian undangan`;
+    case "invitation.published":
+      return `${actor} menerbitkan undangan${name ? ` di /undangan/${name}` : ""}`;
+    case "invitation.unpublished":
+      return `${actor} menonaktifkan undangan dari publik`;
+    case "wedding_event.created":
+      return `${actor} menambahkan acara ${quoted(name, "baru")}`;
+    case "wedding_event.updated":
+      return `${actor} mengubah acara ${quoted(name, "")}`.trimEnd();
+    case "wedding_event.deleted":
+      return `${actor} menghapus acara ${quoted(name, "")}`.trimEnd();
+    case "love_story.created":
+      return `${actor} menambahkan cerita ${quoted(title, "baru")}`;
+    case "love_story.updated":
+      return `${actor} mengubah cerita ${quoted(title, "")}`.trimEnd();
+    case "love_story.deleted":
+      return `${actor} menghapus cerita ${quoted(title, "")}`.trimEnd();
+    case "gallery.image_added":
+      return `${actor} menambahkan foto ke galeri undangan`;
+    case "gallery.image_removed":
+      return `${actor} menghapus foto dari galeri undangan`;
+    case "gift_account.created":
+      return `${actor} menambahkan info hadiah ${quoted(name, "baru")}`;
+    case "gift_account.updated":
+      return `${actor} mengubah info hadiah ${quoted(name, "")}`.trimEnd();
+    case "gift_account.deleted":
+      return `${actor} menghapus info hadiah ${quoted(name, "")}`.trimEnd();
     default:
       return `${actor} melakukan perubahan`;
   }

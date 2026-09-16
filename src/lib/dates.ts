@@ -22,6 +22,36 @@ export function isoDateToUtcMs(value: string): number {
   return Date.UTC(y, m - 1, d);
 }
 
+/** Offset of a time zone at a given instant, in milliseconds (WIB → +7h). */
+function timeZoneOffsetMs(instant: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(instant);
+  const part = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find((p) => p.type === type)?.value ?? "0");
+  const asUtc = Date.UTC(part("year"), part("month") - 1, part("day"), part("hour"), part("minute"), part("second"));
+  return asUtc - instant.getTime();
+}
+
+/**
+ * The UTC instant of a wall-clock date and time in a time zone: "2026-10-21" 09:00 in
+ * Asia/Jakarta → 2026-10-21T02:00:00Z. Used for countdowns that must tick to the local ceremony.
+ */
+export function zonedTimeToUtcMs(dateIso: string, timeZone: string = DEFAULT_TIME_ZONE, time = "00:00"): number {
+  const [hours = 0, minutes = 0] = time.split(":").map(Number);
+  const naive = isoDateToUtcMs(dateIso) + hours * 3_600_000 + minutes * 60_000;
+  // Two passes so a zone change between the guess and the result still lands on the right instant.
+  let guess = naive - timeZoneOffsetMs(new Date(naive), timeZone);
+  guess = naive - timeZoneOffsetMs(new Date(guess), timeZone);
+  return guess;
+}
+
 /** Today's calendar date in the given IANA time zone. */
 export function todayIsoInTimeZone(now: Date, timeZone: string = DEFAULT_TIME_ZONE): string {
   const parts = new Intl.DateTimeFormat("en-US", {

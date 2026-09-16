@@ -35,6 +35,7 @@ export default defineConfig({
       APP_URL: baseURL,
       MAIL_DRIVER: "file",
       MAIL_FILE_DIR: ".data/mail-e2e",
+      MEDIA_FILE_DIR: ".data/media-e2e",
     },
   },
 });

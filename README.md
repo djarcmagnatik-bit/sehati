@@ -34,7 +34,22 @@ Wedding planning workspace for couples (Indonesia-first). Built phase by phase f
   template, per-guest invitation tokens for the upcoming public invitation, dashboard guest summary,
   and a mobile bottom navigation (Beranda/Checklist/Budget/Tamu/Lainnya) with a `/more` page.
 
-Nothing beyond Phase 6 is implemented yet.
+- Phase 7 (Invitation): one digital invitation per wedding with 12 modular sections (enable, reorder,
+  edit text), wedding events (date, time, venue, coordinates, dress code) reused by the invitation,
+  love story, gallery with image upload, gift information (display-only), 9 original themes plus a
+  cover layout — presentation is fully separate from content, so switching themes changes nothing —
+  and a public page at `/undangan/{slug}` that works without a session and exposes only public data.
+  Personalized links live at `/i/{token}`: the guest is greeted by name, the URL carries no name, and
+  the first open flips the guest's invitation status to "Dibuka" (never overwriting a manual
+  follow-up). Images are validated from their own bytes (JPG/PNG/WebP, ≤ 3 MB), stored through a
+  `MEDIA_DRIVER` abstraction (local files for now), and served from `/media/{id}` — public only while
+  they belong to a published invitation.
+
+RSVP submission and guest wishes are Phase 8; those two sections are present but inert, and the
+invitation editor says so. There is no image transcoding yet (no `sharp`): uploads are size- and
+dimension-checked and served as-is.
+
+Nothing beyond Phase 7 is implemented yet.
 
 ## Stack
 
@@ -91,3 +106,6 @@ Requirements: Node.js ≥ 24, pnpm 10, PostgreSQL 16.
 - Rate limiting uses an atomic PostgreSQL upsert (`rate_limit_buckets`), so no Redis is needed yet.
 - Email: only a development `file` driver exists (writes JSON to `MAIL_FILE_DIR`). A production email
   provider is still to be chosen.
+- Uploaded images: bytes go to the media store (`MEDIA_FILE_DIR`), metadata to PostgreSQL. `/media/{id}`
+  serves them, publicly only while the owning invitation is published. Maps need no API key: a link is
+  built from coordinates or the address, and the embedded preview is a lazy OpenStreetMap frame.

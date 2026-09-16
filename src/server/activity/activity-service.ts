@@ -25,7 +25,13 @@ export type ActivityEntryInput = {
     | "vendor"
     | "guest"
     | "guest_group"
-    | "guest_import";
+    | "guest_import"
+    | "invitation"
+    | "invitation_section"
+    | "wedding_event"
+    | "love_story"
+    | "gallery"
+    | "gift_account";
   entityId?: string | null;
   metadata?: ActivityMetadata;
 };

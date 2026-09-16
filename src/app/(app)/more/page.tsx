@@ -8,6 +8,7 @@ const SECTIONS = [
   {
     title: "Perencanaan",
     links: [
+      { href: "/invitation", label: "Undangan digital", description: "Isi, tema, dan tautan undangan publik." },
       { href: "/vendors", label: "Vendor", description: "Vendor dibooking, kontrak, dan pembayarannya." },
       { href: "/vendors/research", label: "Riset vendor", description: "Kandidat vendor dan perbandingan." },
       { href: "/activity", label: "Aktivitas", description: "Riwayat perubahan di workspace berdua." },

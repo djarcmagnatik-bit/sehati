@@ -6,10 +6,14 @@ import { InvitationStatusBadge, RsvpBadge } from "@/components/guests/guest-badg
 import { Alert } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
 import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
+import { CopyField } from "@/components/ui/copy-field";
 import { formatDateTime } from "@/lib/dates";
+import { getEnv } from "@/lib/env";
+import { absoluteUrl, guestInvitationPath, whatsappShareUrl } from "@/lib/invitation";
 import { deleteGuestAction } from "@/server/actions/guest-actions";
 import { requireSession } from "@/server/auth/session-cookie";
 import { getGuestForUser, getGuestGroupOptions } from "@/server/guests/guest-service";
+import { getInvitationForUser } from "@/server/invitation/invitation-service";
 
 export const metadata: Metadata = { title: "Detail tamu" };
 
@@ -27,7 +31,12 @@ export default async function GuestDetailPage({
   if (!guest) notFound();
 
   const { notice } = await searchParams;
-  const groups = await getGuestGroupOptions(session.user.id, guest.weddingId);
+  const [groups, invitation] = await Promise.all([
+    getGuestGroupOptions(session.user.id, guest.weddingId),
+    getInvitationForUser(session.user.id, guest.weddingId),
+  ]);
+  const personalLink =
+    invitation?.status === "PUBLISHED" ? absoluteUrl(getEnv().APP_URL, guestInvitationPath(guest.invitationToken)) : null;
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
@@ -50,6 +59,38 @@ export default async function GuestDetailPage({
         <p className="mt-3 text-xs text-ink-500">
           Ditambahkan {guest.createdBy ? `oleh ${guest.createdBy.name} ` : ""}· {formatDateTime(guest.createdAt)}
         </p>
+      </Card>
+
+      <Card title="Tautan undangan personal">
+        {personalLink ? (
+          <div className="space-y-3">
+            <CopyField
+              label={`Tautan khusus ${guest.invitationName}`}
+              value={personalLink}
+              hint="Nama tamu diambil dari tautan ini, bukan dari alamat URL. Membuka tautan menandai undangan sebagai “Dibuka”."
+            />
+            <a
+              href={whatsappShareUrl(
+                `Kepada Yth. ${guest.invitationName},\n\nDengan penuh sukacita kami mengundang Anda. Detail acara ada di tautan berikut:\n${personalLink}`,
+              )}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-11 items-center rounded-full border border-cream-300 bg-white px-5 text-sm font-semibold hover:bg-cream-100"
+            >
+              Kirim lewat WhatsApp ↗
+            </a>
+            {guest.invitationOpenedAt ? (
+              <p className="text-xs text-ink-500">Pertama dibuka {formatDateTime(guest.invitationOpenedAt)}.</p>
+            ) : null}
+          </div>
+        ) : (
+          <p className="text-sm text-ink-700">
+            Tautan personal aktif setelah undangan digital diterbitkan.{" "}
+            <Link href="/invitation" className="font-semibold text-clay-700 underline underline-offset-4">
+              Buka undangan digital
+            </Link>
+          </p>
+        )}
       </Card>
 
       <Card title="Ubah data tamu">

@@ -6,6 +6,8 @@ const envSchema = z.object({
   APP_URL: z.url().default("http://localhost:3000"),
   MAIL_DRIVER: z.enum(["file"]).default("file"),
   MAIL_FILE_DIR: z.string().min(1).default(".data/mail"),
+  MEDIA_DRIVER: z.enum(["file"]).default("file"),
+  MEDIA_FILE_DIR: z.string().min(1).default(".data/media"),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -7,7 +7,8 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: [...PRIVATE_PATH_PREFIXES, "/reset-password", "/invite"],
+        // "/i/" holds personalized guest links, and "/media/" serves invitation images.
+        disallow: [...PRIVATE_PATH_PREFIXES, "/reset-password", "/invite", "/i/", "/media/"],
       },
     ],
   };

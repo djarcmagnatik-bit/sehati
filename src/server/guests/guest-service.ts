@@ -305,6 +305,8 @@ export async function getGuestForUser(userId: string, guestId: string) {
       rsvpStatus: true,
       attendingCount: true,
       notes: true,
+      invitationToken: true,
+      invitationOpenedAt: true,
       createdAt: true,
       updatedAt: true,
       group: { select: { name: true } },

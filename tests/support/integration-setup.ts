@@ -13,6 +13,8 @@ if (testUrl === process.env["DATABASE_URL"]) {
 }
 
 process.env["DATABASE_URL"] = testUrl;
+// Uploads from integration tests stay out of the development media store.
+process.env["MEDIA_FILE_DIR"] = ".data/media-test";
 
 afterAll(async () => {
   const { getDb } = await import("@/server/db");
