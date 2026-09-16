@@ -218,6 +218,11 @@ export default async function InvitationPage({
               { href: "/invitation/events", label: "Acara", description: `${events.length} acara tersimpan.` },
               { href: "/invitation/love-story", label: "Cerita cinta", description: "Momen perjalanan kalian." },
               { href: "/invitation/gallery", label: "Galeri", description: "Foto prewedding atau momen pilihan." },
+              {
+                href: "/invitation/music",
+                label: "Musik latar",
+                description: invitation.musicEnabled ? "Menyala." : invitation.musicAssetId ? "Tersimpan, sedang mati." : "Belum ada lagu.",
+              },
               { href: "/invitation/gift", label: "Hadiah digital", description: "Rekening dan alamat kirim hadiah." },
               { href: "/invitation/wishes", label: "Ucapan & doa", description: `${wishes.total} ucapan dari tamu.` },
             ].map((item) => (

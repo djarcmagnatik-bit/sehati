@@ -14,6 +14,7 @@ import {
   type InvitationSettingsInput,
   type InvitationThemeInput,
 } from "@/lib/validation/invitation";
+import type { InvitationMusicInput } from "@/lib/validation/planning";
 import { recordActivity } from "@/server/activity/activity-service";
 import { memberWeddingWhere, requireWeddingMember, WeddingAccessError } from "@/server/authz/wedding-access";
 import { getDb } from "@/server/db";
@@ -55,6 +56,9 @@ const invitationSelect = {
   themeCode: true,
   themeOptions: true,
   coverImageId: true,
+  musicAssetId: true,
+  musicEnabled: true,
+  musicVolume: true,
   defaultGuestLabel: true,
   giftAddress: true,
   publishedAt: true,
@@ -396,8 +400,69 @@ export async function unpublishInvitation(userId: string, weddingId: string): Pr
 export async function setCoverImage(userId: string, weddingId: string, assetId: string | null): Promise<void> {
   const { invitation, membership } = await requireInvitation(userId, weddingId);
   if (assetId) {
-    const asset = await getDb().mediaAsset.findFirst({ where: { id: assetId, weddingId: membership.weddingId }, select: { id: true } });
+    const asset = await getDb().mediaAsset.findFirst({
+      where: { id: assetId, weddingId: membership.weddingId, kind: "IMAGE" },
+      select: { id: true },
+    });
     if (!asset) throw new WeddingAccessError();
   }
   await getDb().invitation.update({ where: { id: invitation.id }, data: { coverImageId: assetId } });
+}
+
+// ─── Background music ────────────────────────────────────────────────────────
+
+/** Attaches an uploaded audio file from the same wedding, or clears it (which also switches music off). */
+export async function setInvitationMusic(userId: string, weddingId: string, assetId: string | null): Promise<void> {
+  const { invitation, membership } = await requireInvitation(userId, weddingId);
+  if (assetId) {
+    const asset = await getDb().mediaAsset.findFirst({
+      where: { id: assetId, weddingId: membership.weddingId, kind: "AUDIO" },
+      select: { id: true },
+    });
+    if (!asset) throw new WeddingAccessError();
+  }
+  await getDb().$transaction(async (tx) => {
+    await tx.invitation.update({
+      where: { id: invitation.id },
+      data: assetId ? { musicAssetId: assetId, musicEnabled: true } : { musicAssetId: null, musicEnabled: false },
+    });
+    await recordActivity(tx, {
+      weddingId: membership.weddingId,
+      userId,
+      actorName: membership.displayName,
+      action: "invitation.music_updated",
+      entityType: "invitation",
+      entityId: invitation.id,
+      metadata: { enabled: assetId !== null },
+    });
+  });
+}
+
+export type MusicSettingsResult = { ok: true } | { ok: false; reason: "no_track" };
+
+export async function updateInvitationMusic(
+  userId: string,
+  weddingId: string,
+  input: InvitationMusicInput,
+): Promise<MusicSettingsResult> {
+  const { invitation, membership } = await requireInvitation(userId, weddingId);
+  const current = await getDb().invitation.findUniqueOrThrow({ where: { id: invitation.id }, select: { musicAssetId: true } });
+  if (input.musicEnabled && !current.musicAssetId) return { ok: false, reason: "no_track" };
+
+  await getDb().$transaction(async (tx) => {
+    await tx.invitation.update({
+      where: { id: invitation.id },
+      data: { musicEnabled: input.musicEnabled, musicVolume: input.musicVolume },
+    });
+    await recordActivity(tx, {
+      weddingId: membership.weddingId,
+      userId,
+      actorName: membership.displayName,
+      action: "invitation.music_updated",
+      entityType: "invitation",
+      entityId: invitation.id,
+      metadata: { enabled: input.musicEnabled, count: input.musicVolume },
+    });
+  });
+  return { ok: true };
 }

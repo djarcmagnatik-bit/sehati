@@ -74,6 +74,8 @@ function researchInput(overrides: Partial<VendorResearchInput> = {}): VendorRese
     cons: "DP 50%",
     notes: "Test food hari Sabtu",
     status: "SHORTLISTED",
+    meetingDate: null,
+    meetingTime: null,
     ...overrides,
   };
 }

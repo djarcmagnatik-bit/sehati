@@ -32,7 +32,11 @@ export type ActivityEntryInput = {
     | "love_story"
     | "gallery"
     | "gift_account"
-    | "wish";
+    | "wish"
+    | "savings"
+    | "gift_item"
+    | "rundown_item"
+    | "calendar_event";
   entityId?: string | null;
   metadata?: ActivityMetadata;
 };

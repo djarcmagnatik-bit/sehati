@@ -26,6 +26,8 @@ export type PublicInvitation = {
   timeZone: string;
   defaultGuestLabel: string | null;
   coverImageId: string | null;
+  /** Present only when music is switched on and a track is attached. */
+  music: { assetId: string; volume: number } | null;
   giftAddress: string | null;
   sections: PublicSection[];
   events: WeddingEventRow[];
@@ -54,6 +56,9 @@ export const getPublishedInvitation = cache(async (slug: string): Promise<Public
       themeCode: true,
       themeOptions: true,
       coverImageId: true,
+      musicAssetId: true,
+      musicEnabled: true,
+      musicVolume: true,
       defaultGuestLabel: true,
       giftAddress: true,
       wedding: {
@@ -122,6 +127,10 @@ export const getPublishedInvitation = cache(async (slug: string): Promise<Public
     timeZone: wedding.timeZone,
     defaultGuestLabel: invitation.defaultGuestLabel,
     coverImageId: invitation.coverImageId,
+    music:
+      invitation.musicEnabled && invitation.musicAssetId
+        ? { assetId: invitation.musicAssetId, volume: invitation.musicVolume }
+        : null,
     giftAddress: invitation.giftAddress,
     sections: invitation.sections.map((section) => ({
       id: section.id,
@@ -134,13 +143,12 @@ export const getPublishedInvitation = cache(async (slug: string): Promise<Public
       longitude: event.longitude === null ? null : Number(event.longitude),
     })),
     loveStory: invitation.loveStoryEntries,
-    gallery: invitation.galleryImages.map((image) => ({
-      id: image.id,
-      assetId: image.asset.id,
-      caption: image.caption,
-      width: image.asset.width,
-      height: image.asset.height,
-    })),
+    // Gallery rows only ever point at images, which always carry dimensions (CHECK constraint).
+    gallery: invitation.galleryImages.flatMap((image) =>
+      image.asset.width && image.asset.height
+        ? [{ id: image.id, assetId: image.asset.id, caption: image.caption, width: image.asset.width, height: image.asset.height }]
+        : [],
+    ),
     giftAccounts: invitation.giftAccounts.map((account) => ({ ...account, type: account.type as GiftAccountTypeValue })),
   };
 });

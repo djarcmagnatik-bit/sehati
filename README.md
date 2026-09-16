@@ -54,10 +54,25 @@ Wedding planning workspace for couples (Indonesia-first). Built phase by phase f
   per IP, with moderation (hide keeps it for the couple, delete is permanent); a hidden wish
   disappears from the public page, and a wish outlives the guest who sent it.
 
-There is no image transcoding yet (no `sharp`): uploads are size- and dimension-checked and served
-as-is. Background music is not implemented.
+- Phase 9 (Planning extras):
+  - **Calendar** (`/calendar`, month / week / agenda) aggregates task deadlines, payment due dates
+    (with what is still unpaid), wedding events, vendor meetings (new date/time on vendor research)
+    and custom agenda entries. Nothing is stored twice; every entry links back to its source record,
+    and each source has a symbol and a legend so colour is never the only cue.
+  - **Savings** (`/savings`): deposits per contributor, a wedding-fund target that falls back to the
+    budget target, and what still has to be saved per month before the wedding date.
+  - **Seserahan** (`/seserahan`): items with admin-configurable categories, quantity, estimated vs
+    actual price, who buys it, a private photo, and planned → purchased → packed → ready.
+  - **Rundown** (`/rundown`): the wedding-day schedule grouped by day and ordered by time, as a
+    timeline or a table, printable (app chrome hides in print).
+  - **Background music** for the invitation: MP3/M4A/OGG upload validated from the file header,
+    served publicly only while switched on, and a player that falls back to a visible "Putar musik"
+    button when the browser blocks autoplay.
 
-Nothing beyond Phase 8 is implemented yet.
+There is no image transcoding yet (no `sharp`): uploads are size- and dimension-checked and served
+as-is. Audio has no HTTP range support, so seeking inside a long track may not work in every browser.
+
+Nothing beyond Phase 9 is implemented yet.
 
 ## Stack
 

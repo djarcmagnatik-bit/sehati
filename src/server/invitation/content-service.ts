@@ -147,7 +147,10 @@ export async function addGalleryImage(
 ): Promise<AddGalleryImageResult> {
   const { invitation, membership } = await requireInvitationScope(userId, weddingId);
   const db = getDb();
-  const asset = await db.mediaAsset.findFirst({ where: { id: assetId, weddingId: invitation.weddingId }, select: { id: true } });
+  const asset = await db.mediaAsset.findFirst({
+    where: { id: assetId, weddingId: invitation.weddingId, kind: "IMAGE" },
+    select: { id: true },
+  });
   if (!asset) throw new WeddingAccessError();
 
   const count = await db.galleryImage.count({ where: { invitationId: invitation.id } });

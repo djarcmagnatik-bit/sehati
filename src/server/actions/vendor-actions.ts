@@ -29,6 +29,8 @@ const NO_ACCESS = "Data tidak ditemukan atau kamu tidak memiliki akses.";
 
 const CONTACT_FIELDS = ["contactPerson", "whatsapp", "phone", "instagram", "website"] as const;
 const RESEARCH_FIELDS = [
+  "meetingDate",
+  "meetingTime",
   "name",
   "categoryId",
   "status",

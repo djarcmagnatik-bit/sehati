@@ -1,6 +1,7 @@
 /** Activity feed vocabulary and presentation (pure, client-safe). */
 import { formatDateTime, formatIsoDateLong, isValidIsoDate } from "@/lib/dates";
 import { GUEST_INVITATION_LABEL, type GuestInvitationStatusValue } from "@/lib/guests";
+import { GIFT_ITEM_STATUS_LABEL, type GiftItemStatusValue } from "@/lib/planning";
 import { formatRupiah } from "@/lib/money";
 import { VENDOR_RESEARCH_STATUS_LABEL, type VendorResearchStatusValue } from "@/lib/vendors";
 
@@ -68,6 +69,20 @@ export const ACTIVITY_ACTIONS = [
   "wish.hidden",
   "wish.restored",
   "wish.deleted",
+  "savings.recorded",
+  "savings.updated",
+  "savings.deleted",
+  "savings.target_updated",
+  "seserahan.item_created",
+  "seserahan.item_updated",
+  "seserahan.item_deleted",
+  "rundown.item_created",
+  "rundown.item_updated",
+  "rundown.item_deleted",
+  "calendar.event_created",
+  "calendar.event_updated",
+  "calendar.event_deleted",
+  "invitation.music_updated",
 ] as const;
 
 export type ActivityAction = (typeof ACTIVITY_ACTIONS)[number];
@@ -253,6 +268,38 @@ export function describeActivity(entry: { action: string; actorName: string; met
       return `${actor} menampilkan kembali ucapan dari ${quoted(name, "seorang tamu")}`;
     case "wish.deleted":
       return `${actor} menghapus ucapan dari ${quoted(name, "seorang tamu")}`;
+    case "savings.recorded":
+      return `${actor} mencatat tabungan${money ? ` ${money}` : ""}${name ? ` dari ${name}` : ""}`;
+    case "savings.updated":
+      return `${actor} mengubah catatan tabungan${name ? ` dari ${name}` : ""}`;
+    case "savings.deleted":
+      return `${actor} menghapus catatan tabungan${money ? ` ${money}` : ""}`;
+    case "savings.target_updated":
+      return money && readText(meta, "amount") !== "0"
+        ? `${actor} mengatur target dana pernikahan menjadi ${money}`
+        : `${actor} memperbarui target tabungan`;
+    case "seserahan.item_created":
+      return `${actor} menambahkan seserahan ${quoted(name, "baru")}`;
+    case "seserahan.item_updated": {
+      const label = GIFT_ITEM_STATUS_LABEL[readText(meta, "status") as GiftItemStatusValue];
+      return `${actor} memperbarui seserahan ${quoted(name, "")}${label ? ` (${label})` : ""}`.replace("  ", " ");
+    }
+    case "seserahan.item_deleted":
+      return `${actor} menghapus seserahan ${quoted(name, "")}`.trimEnd();
+    case "rundown.item_created":
+      return `${actor} menambahkan ${quoted(title, "acara")} ke rundown`;
+    case "rundown.item_updated":
+      return `${actor} mengubah rundown ${quoted(title, "")}`.trimEnd();
+    case "rundown.item_deleted":
+      return `${actor} menghapus ${quoted(title, "acara")} dari rundown`;
+    case "calendar.event_created":
+      return `${actor} menambahkan agenda ${quoted(title, "baru")}`;
+    case "calendar.event_updated":
+      return `${actor} mengubah agenda ${quoted(title, "")}`.trimEnd();
+    case "calendar.event_deleted":
+      return `${actor} menghapus agenda ${quoted(title, "")}`.trimEnd();
+    case "invitation.music_updated":
+      return `${actor} mengatur musik latar undangan`;
     default:
       return `${actor} melakukan perubahan`;
   }

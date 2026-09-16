@@ -175,6 +175,8 @@ const researchDetailSelect = {
   cons: true,
   notes: true,
   status: true,
+  meetingDate: true,
+  meetingTime: true,
   createdAt: true,
   updatedAt: true,
   category: { select: { name: true, budgetCategoryName: true } },
@@ -218,6 +220,8 @@ function researchData(input: VendorResearchInput) {
     pros: input.pros,
     cons: input.cons,
     notes: input.notes,
+    meetingDate: input.meetingDate ? isoToDbDate(input.meetingDate) : null,
+    meetingTime: input.meetingTime,
   };
 }
 

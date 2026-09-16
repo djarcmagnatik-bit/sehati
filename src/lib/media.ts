@@ -112,3 +112,53 @@ export function formatBytes(size: number): string {
 export function mediaPath(assetId: string): string {
   return `/media/${assetId}`;
 }
+
+// ─── Audio (invitation background music) ─────────────────────────────────────
+
+export const AUDIO_MAX_BYTES = 6 * 1024 * 1024;
+export const AUDIO_MIME_TYPES = ["audio/mpeg", "audio/mp4", "audio/ogg"] as const;
+export type AudioMimeType = (typeof AUDIO_MIME_TYPES)[number];
+
+/** Browsers and OSes report the same formats under several names. */
+const AUDIO_TYPE_ALIASES: Record<string, AudioMimeType> = {
+  "audio/mpeg": "audio/mpeg",
+  "audio/mp3": "audio/mpeg",
+  "audio/mpeg3": "audio/mpeg",
+  "audio/x-mpeg-3": "audio/mpeg",
+  "audio/mp4": "audio/mp4",
+  "audio/x-m4a": "audio/mp4",
+  "audio/m4a": "audio/mp4",
+  "audio/aac": "audio/mp4",
+  "audio/ogg": "audio/ogg",
+  "application/ogg": "audio/ogg",
+};
+
+/** Format from the file's own header: ID3 tag or MPEG frame sync, an MP4 "ftyp" box, or "OggS". */
+export function readAudioType(bytes: Uint8Array): AudioMimeType | null {
+  if (bytes.length < 12) return null;
+  const ascii = (start: number, length: number) => String.fromCharCode(...Array.from(bytes.slice(start, start + length)));
+  if (ascii(0, 3) === "ID3") return "audio/mpeg";
+  // MPEG audio frame: 11 set sync bits, and a layer that is not "reserved".
+  if (bytes[0] === 0xff && (bytes[1]! & 0xe0) === 0xe0 && (bytes[1]! & 0x06) !== 0) return "audio/mpeg";
+  if (ascii(4, 4) === "ftyp") return "audio/mp4";
+  if (ascii(0, 4) === "OggS") return "audio/ogg";
+  return null;
+}
+
+export type AudioRejection = "too_large" | "unsupported_type";
+
+export function audioRejection(bytes: Uint8Array, declaredType: string): AudioRejection | null {
+  if (bytes.byteLength > AUDIO_MAX_BYTES) return "too_large";
+  const raw = declaredType.split(";")[0]?.trim().toLowerCase() ?? "";
+  const declared = raw ? AUDIO_TYPE_ALIASES[raw] : undefined;
+  if (raw && !declared && raw !== "application/octet-stream") return "unsupported_type";
+  const actual = readAudioType(bytes);
+  if (!actual) return "unsupported_type";
+  if (declared && declared !== actual) return "unsupported_type";
+  return null;
+}
+
+export const AUDIO_REJECTION_MESSAGE: Record<AudioRejection, string> = {
+  too_large: `Ukuran file musik maksimal ${Math.round(AUDIO_MAX_BYTES / (1024 * 1024))} MB.`,
+  unsupported_type: "Format musik harus MP3, M4A, atau OGG.",
+};

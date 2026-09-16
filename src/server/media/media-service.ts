@@ -1,7 +1,7 @@
 import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
-import { imageRejection, readImageInfo, type ImageRejection } from "@/lib/media";
+import { audioRejection, imageRejection, readAudioType, readImageInfo, type AudioRejection, type ImageRejection } from "@/lib/media";
 import { requireWeddingMember, WeddingAccessError } from "@/server/authz/wedding-access";
 import { getDb } from "@/server/db";
 import { getMediaStore, MIME_EXTENSION } from "./media-store";
@@ -55,6 +55,44 @@ export async function uploadImage(userId: string, weddingId: string, file: Uploa
   return { ok: true, assetId: asset.id, reused: false };
 }
 
+export type AudioUploadResult = { ok: true; assetId: string; reused: boolean } | { ok: false; reason: AudioRejection };
+
+/** Same pipeline as images: validate from the bytes, store under a generated key, dedupe per wedding. */
+export async function uploadAudio(userId: string, weddingId: string, file: UploadedImage): Promise<AudioUploadResult> {
+  const membership = await requireWeddingMember(userId, weddingId);
+  const rejection = audioRejection(file.bytes, file.type);
+  if (rejection) return { ok: false, reason: rejection };
+  const mimeType = readAudioType(file.bytes);
+  if (!mimeType) return { ok: false, reason: "unsupported_type" };
+
+  const db = getDb();
+  const checksum = createHash("sha256").update(file.bytes).digest("hex");
+  const existing = await db.mediaAsset.findUnique({
+    where: { weddingId_checksum: { weddingId: membership.weddingId, checksum } },
+    select: { id: true, kind: true },
+  });
+  if (existing?.kind === "AUDIO") return { ok: true, assetId: existing.id, reused: true };
+  if (existing) return { ok: false, reason: "unsupported_type" };
+
+  const assetId = randomUUID();
+  const storageKey = `${membership.weddingId}/${assetId}.${MIME_EXTENSION[mimeType]}`;
+  await getMediaStore().put(storageKey, file.bytes);
+  await db.mediaAsset.create({
+    data: {
+      id: assetId,
+      weddingId: membership.weddingId,
+      storageKey,
+      fileName: file.name.split(/[\\/]/).pop()?.slice(0, 120) || "musik",
+      mimeType,
+      kind: "AUDIO",
+      byteSize: file.bytes.byteLength,
+      checksum,
+      createdById: userId,
+    },
+  });
+  return { ok: true, assetId, reused: false };
+}
+
 export type AssetDelivery = { bytes: Buffer; mimeType: string; byteSize: number; checksum: string };
 
 /**
@@ -75,7 +113,7 @@ export async function getAssetForDelivery(assetId: string, viewerUserId: string 
       wedding: {
         select: {
           members: { select: { userId: true } },
-          invitation: { select: { status: true, coverImageId: true } },
+          invitation: { select: { status: true, coverImageId: true, musicAssetId: true, musicEnabled: true } },
         },
       },
     },
@@ -86,6 +124,7 @@ export async function getAssetForDelivery(assetId: string, viewerUserId: string 
   let allowed = false;
   if (invitation?.status === "PUBLISHED") {
     if (invitation.coverImageId === asset.id) allowed = true;
+    else if (invitation.musicEnabled && invitation.musicAssetId === asset.id) allowed = true;
     else {
       const [inGallery, inStory] = await Promise.all([
         getDb().galleryImage.count({ where: { assetId: asset.id } }),
@@ -123,12 +162,14 @@ export async function deleteAssetIfUnused(userId: string, assetId: string): Prom
   });
   if (!asset) throw new WeddingAccessError();
 
-  const [gallery, story, cover] = await Promise.all([
+  const [gallery, story, cover, music, giftItems] = await Promise.all([
     db.galleryImage.count({ where: { assetId: asset.id } }),
     db.loveStoryEntry.count({ where: { imageId: asset.id } }),
     db.invitation.count({ where: { coverImageId: asset.id } }),
+    db.invitation.count({ where: { musicAssetId: asset.id } }),
+    db.giftItem.count({ where: { photoId: asset.id } }),
   ]);
-  if (gallery + story + cover > 0) return false;
+  if (gallery + story + cover + music + giftItems > 0) return false;
 
   await db.mediaAsset.delete({ where: { id: asset.id } });
   await getMediaStore().delete(asset.storageKey);

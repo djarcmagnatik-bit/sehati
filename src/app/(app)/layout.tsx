@@ -17,7 +17,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-dvh">
-      <header className="sticky top-0 z-30 border-b border-cream-200 bg-cream-50/90 backdrop-blur">
+      <header className="sticky top-0 z-30 border-b border-cream-200 bg-cream-50/90 backdrop-blur print:hidden">
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-4 px-4">
           <Brand href="/dashboard" />
           <DesktopNav />

@@ -89,6 +89,17 @@ export const vendorResearchSchema = z.object({
   cons: optionalText("Kekurangan", 1000),
   notes: optionalText("Catatan", 2000),
   status: z.enum(EDITABLE_RESEARCH_STATUSES, "Pilih status"),
+  meetingDate: optionalIsoDate("Tanggal janji temu"),
+  meetingTime: z
+    .string()
+    .trim()
+    .optional()
+    .transform(emptyToNull)
+    .refine((value) => value === null || /^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(value), "Jam janji temu harus format 24 jam, contoh 14:00"),
+}).superRefine((data, ctx) => {
+  if (data.meetingTime && !data.meetingDate) {
+    ctx.addIssue({ code: "custom", path: ["meetingDate"], message: "Isi tanggal janji temu bila jamnya diisi" });
+  }
 });
 
 /** Contract details captured when a vendor is booked; creates a linked expense when a value is given. */

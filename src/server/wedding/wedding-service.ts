@@ -121,6 +121,8 @@ export function getActiveWeddingForUser(userId: string) {
           receptionDate: true,
           timeZone: true,
           targetBudget: true,
+          savingsTarget: true,
+          savingsMonthlyTarget: true,
           currency: true,
           status: true,
           coupleNote: true,

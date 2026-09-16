@@ -22,6 +22,8 @@ import { requireSession } from "@/server/auth/session-cookie";
 import { getBudgetOverview, getUpcomingPayments } from "@/server/budget/budget-service";
 import { getChecklistSummary, getUpcomingTasks } from "@/server/checklist/task-service";
 import { getGuestSummary } from "@/server/guests/guest-service";
+import { getSavingsSummary } from "@/server/planning/savings-service";
+import { getSeserahanSummary } from "@/server/planning/seserahan-service";
 import { getVendorSummary } from "@/server/vendors/vendor-service";
 import { getActiveWeddingForUser } from "@/server/wedding/wedding-service";
 import { CoupleNoteForm } from "./couple-note-form";
@@ -89,7 +91,7 @@ export default async function DashboardPage({
   });
   const partnerJoined = wedding.members.some((member) => member.role === "PARTNER");
 
-  const [summary, upcomingTasks, recentActivity, budget, upcomingPayments, vendors, guests] = await Promise.all([
+  const [summary, upcomingTasks, recentActivity, budget, upcomingPayments, vendors, guests, savings, seserahan] = await Promise.all([
     getChecklistSummary(session.user.id, wedding.id, todayIso),
     getUpcomingTasks(session.user.id, wedding.id, 5),
     getRecentActivity(session.user.id, wedding.id, 5),
@@ -97,6 +99,8 @@ export default async function DashboardPage({
     getUpcomingPayments(session.user.id, wedding.id, 5),
     getVendorSummary(session.user.id, wedding.id),
     getGuestSummary(session.user.id, wedding.id),
+    getSavingsSummary(session.user.id, wedding.id, now),
+    getSeserahanSummary(session.user.id, wedding.id),
   ]);
   const budgetTotals = budget.totals;
 
@@ -256,6 +260,27 @@ export default async function DashboardPage({
           <Link href="/vendors" className={`mt-4 inline-block ${LINK_CLASS}`}>
             Buka vendor
           </Link>
+        </Card>
+
+        <Card title="Tabungan & seserahan">
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
+            <MoneyStat label="Tabungan terkumpul" amount={savings.saved} testId="dashboard-savings-saved" />
+            <MoneyStat label="Kekurangan dana" amount={savings.remaining} testId="dashboard-savings-remaining" emptyLabel="—" />
+            <CountStat label="Seserahan siap" value={seserahan.done} testId="dashboard-seserahan-done" />
+            <CountStat label="Total barang seserahan" value={seserahan.items} testId="dashboard-seserahan-items" />
+          </dl>
+          {savings.percent !== null ? <ProgressBar percent={savings.percent} label="Progres tabungan" className="mt-4" /> : null}
+          <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2">
+            <Link href="/savings" className={LINK_CLASS}>
+              Buka tabungan
+            </Link>
+            <Link href="/seserahan" className={LINK_CLASS}>
+              Buka seserahan
+            </Link>
+            <Link href="/calendar" className={LINK_CLASS}>
+              Lihat kalender
+            </Link>
+          </div>
         </Card>
 
         <Card title="Workspace berdua">

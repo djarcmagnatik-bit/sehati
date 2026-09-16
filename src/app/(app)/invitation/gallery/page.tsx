@@ -68,8 +68,8 @@ export default async function InvitationGalleryPage() {
                   <img
                     src={mediaPath(image.asset.id)}
                     alt={image.caption ?? image.asset.fileName}
-                    width={image.asset.width}
-                    height={image.asset.height}
+                    width={image.asset.width ?? undefined}
+                    height={image.asset.height ?? undefined}
                     className="size-28 rounded-2xl object-cover"
                   />
                   <div className="min-w-48 flex-1 space-y-3">

@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@/generated/prisma/client";
 import { BUDGET_CATEGORY_TEMPLATES } from "./budget-templates";
+import { GIFT_CATEGORIES } from "./gift-categories";
 import { GUEST_GROUP_TEMPLATES } from "./guest-group-templates";
 import { TASK_CATEGORIES, TASK_TEMPLATES } from "./task-templates";
 import { VENDOR_CATEGORIES } from "./vendor-categories";
@@ -71,6 +72,14 @@ export async function upsertReferenceData(db: PrismaClient): Promise<void> {
   }
   for (const row of GUEST_GROUP_TEMPLATES) {
     await db.guestGroupTemplate.upsert({
+      where: { code: row.code },
+      update: { name: row.name, sortOrder: row.sortOrder },
+      create: row,
+    });
+  }
+
+  for (const row of GIFT_CATEGORIES) {
+    await db.giftCategory.upsert({
       where: { code: row.code },
       update: { name: row.name, sortOrder: row.sortOrder },
       create: row,

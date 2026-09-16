@@ -8,7 +8,7 @@ import { VendorResearchForm } from "@/components/vendors/vendor-research-form";
 import { Alert, type AlertTone } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
 import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
-import { todayIsoInTimeZone } from "@/lib/dates";
+import { dbDateToIso, todayIsoInTimeZone } from "@/lib/dates";
 import { formatRupiah, formatRupiahDigits } from "@/lib/money";
 import { ratingLabel } from "@/lib/vendors";
 import { deleteVendorResearchAction } from "@/server/actions/vendor-actions";
@@ -125,6 +125,8 @@ export default async function VendorResearchDetailPage({
             pros: research.pros ?? "",
             cons: research.cons ?? "",
             notes: research.notes ?? "",
+            meetingDate: research.meetingDate ? dbDateToIso(research.meetingDate) : "",
+            meetingTime: research.meetingTime ?? "",
           }}
         />
       </Card>

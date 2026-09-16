@@ -108,6 +108,19 @@ enum InvitationSectionType {
   CLOSING
 }
 
+/// Seserahan preparation: planned → bought → packed → ready to hand over.
+enum GiftItemStatus {
+  PLANNED
+  PURCHASED
+  PACKED
+  READY
+}
+
+enum MediaKind {
+  IMAGE
+  AUDIO
+}
+
 enum WishStatus {
   VISIBLE
   HIDDEN
@@ -154,6 +167,9 @@ model User {
   createdInvitations         Invitation[]         @relation("InvitationCreatedBy")
   uploadedMedia              MediaAsset[]         @relation("MediaUploadedBy")
   moderatedWishes            Wish[]               @relation("WishModeratedBy")
+  createdSavings             SavingsEntry[]       @relation("SavingsCreatedBy")
+  createdGiftItems           GiftItem[]           @relation("GiftItemCreatedBy")
+  createdCalendarEvents      CalendarEvent[]      @relation("CalendarEventCreatedBy")
 
   @@map("users")
 }
@@ -261,6 +277,10 @@ model Wedding {
   checklistGeneratedAt     DateTime?           @map("checklist_generated_at") @db.Timestamptz(3)
   /// Set once default budget categories have been created.
   budgetInitializedAt      DateTime?           @map("budget_initialized_at") @db.Timestamptz(3)
+  /// Wedding fund target. Falls back to target_budget when empty. CHECK (>= 0).
+  savingsTarget            BigInt?             @map("savings_target")
+  /// Optional monthly saving target. CHECK (>= 0).
+  savingsMonthlyTarget     BigInt?             @map("savings_monthly_target")
   /// Set once default guest groups have been created.
   guestGroupsInitializedAt DateTime?           @map("guest_groups_initialized_at") @db.Timestamptz(3)
   createdById              String?             @map("created_by_id") @db.Uuid
@@ -292,6 +312,10 @@ model Wedding {
   mediaAssets        MediaAsset[]
   rsvpSubmissions    RsvpSubmission[]
   wishes             Wish[]
+  savingsEntries     SavingsEntry[]
+  giftItems          GiftItem[]
+  rundownItems       RundownItem[]
+  calendarEvents     CalendarEvent[]
 
   @@index([weddingDate])
   @@map("weddings")
@@ -594,6 +618,10 @@ model VendorResearch {
   cons           String?              @db.VarChar(1000)
   notes          String?              @db.VarChar(2000)
   status         VendorResearchStatus @default(RESEARCHING)
+  /// A scheduled meeting with this candidate, shown on the planning calendar.
+  meetingDate    DateTime?            @map("meeting_date") @db.Date
+  /// Local time "HH:MM"; CHECK enforces the format.
+  meetingTime    String?              @map("meeting_time") @db.VarChar(5)
   createdById    String?              @map("created_by_id") @db.Uuid
   createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -755,6 +783,11 @@ model Invitation {
   /// Optional per-invitation theme overrides, validated in app code.
   themeOptions      Json?            @map("theme_options")
   coverImageId      String?          @map("cover_image_id") @db.Uuid
+  /// Background music: an uploaded audio asset plus how it should start.
+  musicAssetId      String?          @map("music_asset_id") @db.Uuid
+  musicEnabled      Boolean          @default(false) @map("music_enabled")
+  /// CHECK (music_volume BETWEEN 0 AND 100).
+  musicVolume       Int              @default(60) @map("music_volume")
   /// Fallback for "Kepada Yth." when a link carries no guest.
   defaultGuestLabel String?          @map("default_guest_label") @db.VarChar(120)
   /// Where physical gifts can be sent (shown in the gift section).
@@ -766,6 +799,7 @@ model Invitation {
 
   wedding    Wedding     @relation(fields: [weddingId], references: [id], onDelete: Cascade)
   coverImage MediaAsset? @relation("InvitationCover", fields: [coverImageId, weddingId], references: [id, weddingId], onDelete: NoAction, onUpdate: NoAction)
+  music      MediaAsset? @relation("InvitationMusic", fields: [musicAssetId, weddingId], references: [id, weddingId], onDelete: NoAction, onUpdate: NoAction)
   createdBy  User?       @relation("InvitationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
   sections         InvitationSection[]
@@ -891,25 +925,31 @@ model GiftAccount {
 
 /// An uploaded image. Bytes live in the configured media store; only metadata is in the database.
 model MediaAsset {
-  id          String   @id @default(uuid()) @db.Uuid
-  weddingId   String   @map("wedding_id") @db.Uuid
+  id              String    @id @default(uuid()) @db.Uuid
+  weddingId       String    @map("wedding_id") @db.Uuid
   /// Opaque key inside the media store; never a user-supplied path.
-  storageKey  String   @unique @map("storage_key") @db.VarChar(200)
+  storageKey      String    @unique @map("storage_key") @db.VarChar(200)
   /// Display-only original name.
-  fileName    String   @map("file_name") @db.VarChar(120)
-  mimeType    String   @map("mime_type") @db.VarChar(60)
-  byteSize    Int      @map("byte_size")
-  width       Int
-  height      Int
+  fileName        String    @map("file_name") @db.VarChar(120)
+  mimeType        String    @map("mime_type") @db.VarChar(60)
+  byteSize        Int       @map("byte_size")
+  kind            MediaKind @default(IMAGE)
+  /// Pixel size for images; null for audio.
+  width           Int?
+  height          Int?
+  /// Length in seconds for audio; null for images.
+  durationSeconds Int?      @map("duration_seconds")
   /// SHA-256 of the bytes, so the same image is stored once per wedding.
-  checksum    String   @db.Char(64)
-  createdById String?  @map("created_by_id") @db.Uuid
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  checksum        String    @db.Char(64)
+  createdById     String?   @map("created_by_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
 
   wedding   Wedding @relation(fields: [weddingId], references: [id], onDelete: Cascade)
   createdBy User?   @relation("MediaUploadedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
   invitationCovers Invitation[]     @relation("InvitationCover")
+  invitationMusic  Invitation[]     @relation("InvitationMusic")
+  giftItems        GiftItem[]       @relation("GiftItemPhoto")
   loveStoryEntries LoveStoryEntry[] @relation("LoveStoryImage")
   galleryImages    GalleryImage[]   @relation("GalleryAsset")
 
@@ -963,4 +1003,121 @@ model Wish {
 
   @@index([weddingId, status, createdAt])
   @@map("wishes")
+}
+
+/// Money the couple has set aside, one row per deposit.
+model SavingsEntry {
+  id          String   @id @default(uuid()) @db.Uuid
+  weddingId   String   @map("wedding_id") @db.Uuid
+  /// Who contributed, free text (a partner, parents, a bonus…).
+  contributor String   @db.VarChar(80)
+  /// Whole rupiah. CHECK (amount > 0).
+  amount      BigInt
+  entryDate   DateTime @map("entry_date") @db.Date
+  /// Where the money sits, e.g. "BCA" or "Celengan".
+  account     String?  @db.VarChar(80)
+  notes       String?  @db.VarChar(500)
+  createdById String?  @map("created_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  wedding   Wedding @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  createdBy User?   @relation("SavingsCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([weddingId, entryDate])
+  @@map("savings_entries")
+}
+
+/// Admin-configurable seserahan categories, shared by every wedding.
+model GiftCategory {
+  id        String   @id @default(uuid()) @db.Uuid
+  code      String   @unique @db.VarChar(40)
+  name      String   @db.VarChar(80)
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  items GiftItem[]
+
+  @@map("gift_categories")
+}
+
+/// One seserahan item: what it is, who buys it, and how far along it is.
+model GiftItem {
+  id             String         @id @default(uuid()) @db.Uuid
+  weddingId      String         @map("wedding_id") @db.Uuid
+  categoryId     String?        @map("category_id") @db.Uuid
+  name           String         @db.VarChar(120)
+  /// CHECK (quantity BETWEEN 1 AND 999).
+  quantity       Int            @default(1)
+  /// Whole rupiah. CHECK (>= 0).
+  estimatedPrice BigInt?        @map("estimated_price")
+  actualPrice    BigInt?        @map("actual_price")
+  /// Who is responsible for buying it.
+  responsible    String?        @db.VarChar(80)
+  status         GiftItemStatus @default(PLANNED)
+  notes          String?        @db.VarChar(1000)
+  photoId        String?        @map("photo_id") @db.Uuid
+  sortOrder      Int            @default(0) @map("sort_order")
+  createdById    String?        @map("created_by_id") @db.Uuid
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  wedding   Wedding       @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  category  GiftCategory? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  photo     MediaAsset?   @relation("GiftItemPhoto", fields: [photoId, weddingId], references: [id, weddingId], onDelete: NoAction, onUpdate: NoAction)
+  createdBy User?         @relation("GiftItemCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([weddingId, status])
+  @@index([weddingId, sortOrder])
+  @@map("gift_items")
+}
+
+/// Minute-by-minute plan for the wedding day.
+model RundownItem {
+  id          String    @id @default(uuid()) @db.Uuid
+  weddingId   String    @map("wedding_id") @db.Uuid
+  /// Defaults to the wedding date; set for multi-day celebrations.
+  itemDate    DateTime? @map("item_date") @db.Date
+  /// Local time "HH:MM"; CHECK enforces the format and start <= end.
+  startTime   String    @map("start_time") @db.VarChar(5)
+  endTime     String?   @map("end_time") @db.VarChar(5)
+  title       String    @db.VarChar(120)
+  description String?   @db.VarChar(1000)
+  /// Person in charge.
+  pic         String?   @db.VarChar(80)
+  location    String?   @db.VarChar(120)
+  category    String?   @db.VarChar(60)
+  notes       String?   @db.VarChar(500)
+  sortOrder   Int       @default(0) @map("sort_order")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  wedding Wedding @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+
+  @@index([weddingId, itemDate, sortOrder])
+  @@map("rundown_items")
+}
+
+/// Appointments the calendar cannot derive from other records.
+model CalendarEvent {
+  id          String   @id @default(uuid()) @db.Uuid
+  weddingId   String   @map("wedding_id") @db.Uuid
+  title       String   @db.VarChar(120)
+  eventDate   DateTime @map("event_date") @db.Date
+  /// Local time "HH:MM"; CHECK enforces the format.
+  startTime   String?  @map("start_time") @db.VarChar(5)
+  endTime     String?  @map("end_time") @db.VarChar(5)
+  location    String?  @db.VarChar(120)
+  notes       String?  @db.VarChar(500)
+  createdById String?  @map("created_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  wedding   Wedding @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  createdBy User?   @relation("CalendarEventCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([weddingId, eventDate])
+  @@map("calendar_events")
 }

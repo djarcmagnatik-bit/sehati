@@ -28,7 +28,9 @@ export type ResearchDefaults = Record<
   | "website"
   | "pros"
   | "cons"
-  | "notes",
+  | "notes"
+  | "meetingDate"
+  | "meetingTime",
   string
 >;
 
@@ -48,6 +50,8 @@ const EMPTY: ResearchDefaults = {
   pros: "",
   cons: "",
   notes: "",
+  meetingDate: "",
+  meetingTime: "",
 };
 
 type Props = { categories: Array<{ id: string; name: string }> } & (
@@ -126,6 +130,21 @@ export function VendorResearchForm(props: Props) {
           <TextField label="Telepon" name="phone" inputMode="tel" defaultValue={value("phone")} errors={errors.phone} />
           <TextField label="Instagram" name="instagram" placeholder="@namavendor" defaultValue={value("instagram")} errors={errors.instagram} />
           <TextField label="Website" name="website" inputMode="url" placeholder="namavendor.com" defaultValue={value("website")} errors={errors.website} className="sm:col-span-2" />
+        </div>
+      </fieldset>
+
+      <fieldset className="space-y-4">
+        <legend className="text-sm font-semibold text-ink-900">Janji temu (opsional)</legend>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <TextField
+            label="Tanggal janji temu"
+            name="meetingDate"
+            type="date"
+            hint="Muncul di kalender."
+            defaultValue={value("meetingDate")}
+            errors={errors.meetingDate}
+          />
+          <TextField label="Jam janji temu" name="meetingTime" type="time" defaultValue={value("meetingTime")} errors={errors.meetingTime} />
         </div>
       </fieldset>
 

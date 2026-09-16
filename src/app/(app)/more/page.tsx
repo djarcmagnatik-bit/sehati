@@ -8,7 +8,11 @@ const SECTIONS = [
   {
     title: "Perencanaan",
     links: [
+      { href: "/calendar", label: "Kalender", description: "Tenggat, pembayaran, janji vendor, dan acara dalam satu tampilan." },
       { href: "/invitation", label: "Undangan digital", description: "Isi, tema, dan tautan undangan publik." },
+      { href: "/rundown", label: "Rundown", description: "Susunan acara hari-H per jam." },
+      { href: "/seserahan", label: "Seserahan", description: "Daftar hantaran, pembeli, dan statusnya." },
+      { href: "/savings", label: "Tabungan", description: "Setoran dana pernikahan dan targetnya." },
       { href: "/vendors", label: "Vendor", description: "Vendor dibooking, kontrak, dan pembayarannya." },
       { href: "/vendors/research", label: "Riset vendor", description: "Kandidat vendor dan perbandingan." },
       { href: "/activity", label: "Aktivitas", description: "Riwayat perubahan di workspace berdua." },

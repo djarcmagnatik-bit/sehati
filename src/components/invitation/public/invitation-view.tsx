@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { CountdownTimer } from "@/components/invitation/public/countdown-timer";
 import { CopyValue } from "@/components/invitation/public/copy-value";
+import { MusicPlayer } from "@/components/invitation/public/music-player";
 import { RsvpForm, type RsvpState } from "@/components/invitation/public/rsvp-form";
 import { WishesSection, type PublicWishView } from "@/components/invitation/public/wishes";
 import { dbDateToIso, formatIsoDateLong, zonedTimeToUtcMs } from "@/lib/dates";
@@ -481,7 +482,8 @@ export function InvitationView({ invitation, guestName = null, guestSeatCount = 
           <SectionBody key={section.id} section={section} invitation={invitation} now={now} rsvp={rsvp} wishes={wishes} />
         ))}
       </main>
-      <footer className="px-5 pt-4 pb-12 text-center text-xs" style={{ color: "var(--inv-muted)" }}>
+      {invitation.music ? <MusicPlayer src={mediaPath(invitation.music.assetId)} volume={invitation.music.volume} /> : null}
+      <footer className="px-5 pt-4 pb-24 text-center text-xs" style={{ color: "var(--inv-muted)" }}>
         <p>
           {invitation.coupleName} · <time dateTime={invitation.weddingDateIso}>{formatIsoDateLong(invitation.weddingDateIso)}</time>
         </p>
