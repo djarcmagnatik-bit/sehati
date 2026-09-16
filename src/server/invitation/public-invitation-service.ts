@@ -4,6 +4,7 @@ import { formatCoupleName } from "@/lib/couple";
 import { dbDateToIso } from "@/lib/dates";
 import type { GiftAccountTypeValue, InvitationSectionTypeValue } from "@/lib/invitation";
 import { parseSectionContent } from "@/lib/validation/invitation";
+import { weddingHasFeature } from "@/server/billing/access";
 import { getDb } from "@/server/db";
 import { coverLayoutOf } from "./invitation-service";
 import type { CoverLayout } from "@/lib/invitation-themes";
@@ -52,6 +53,7 @@ export const getPublishedInvitation = cache(async (slug: string): Promise<Public
   const invitation = await getDb().invitation.findFirst({
     where: { slug, status: "PUBLISHED", wedding: { deletedAt: null } },
     select: {
+      weddingId: true,
       slug: true,
       themeCode: true,
       themeOptions: true,
@@ -109,6 +111,8 @@ export const getPublishedInvitation = cache(async (slug: string): Promise<Public
     },
   });
   if (!invitation) return null;
+  // A published page stays up only while the wedding still has invitation access (e.g. not refunded).
+  if (!(await weddingHasFeature(invitation.weddingId, "invitation"))) return null;
 
   const { wedding } = invitation;
   return {

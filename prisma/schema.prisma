@@ -170,6 +170,8 @@ model User {
   createdSavings             SavingsEntry[]       @relation("SavingsCreatedBy")
   createdGiftItems           GiftItem[]           @relation("GiftItemCreatedBy")
   createdCalendarEvents      CalendarEvent[]      @relation("CalendarEventCreatedBy")
+  grantedEntitlements        WeddingEntitlement[] @relation("EntitlementGrantedBy")
+  paymentTransactions        PaymentTransaction[] @relation("PaymentTransactionUser")
 
   @@map("users")
 }
@@ -288,34 +290,38 @@ model Wedding {
   updatedAt                DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt                DateTime?           @map("deleted_at") @db.Timestamptz(3)
 
-  eventType          EventType?          @relation(fields: [eventTypeId], references: [id], onDelete: Restrict)
-  marriageProcess    MarriageProcess?    @relation(fields: [marriageProcessId], references: [id], onDelete: Restrict)
-  createdBy          User?               @relation("WeddingCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  members            WeddingMember[]
-  tasks              Task[]
-  partnerInvitations PartnerInvitation[]
-  activityLogs       ActivityLog[]
-  budgetCategories   BudgetCategory[]
-  expenses           Expense[]
-  payments           Payment[]
-  vendorResearch     VendorResearch[]
-  vendors            Vendor[]
-  guestGroups        GuestGroup[]
-  guests             Guest[]
-  guestImportBatches GuestImportBatch[]
-  invitation         Invitation?
-  invitationSections InvitationSection[]
-  weddingEvents      WeddingEvent[]
-  loveStoryEntries   LoveStoryEntry[]
-  galleryImages      GalleryImage[]
-  giftAccounts       GiftAccount[]
-  mediaAssets        MediaAsset[]
-  rsvpSubmissions    RsvpSubmission[]
-  wishes             Wish[]
-  savingsEntries     SavingsEntry[]
-  giftItems          GiftItem[]
-  rundownItems       RundownItem[]
-  calendarEvents     CalendarEvent[]
+  eventType           EventType?           @relation(fields: [eventTypeId], references: [id], onDelete: Restrict)
+  marriageProcess     MarriageProcess?     @relation(fields: [marriageProcessId], references: [id], onDelete: Restrict)
+  createdBy           User?                @relation("WeddingCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  members             WeddingMember[]
+  tasks               Task[]
+  partnerInvitations  PartnerInvitation[]
+  activityLogs        ActivityLog[]
+  budgetCategories    BudgetCategory[]
+  expenses            Expense[]
+  payments            Payment[]
+  vendorResearch      VendorResearch[]
+  vendors             Vendor[]
+  guestGroups         GuestGroup[]
+  guests              Guest[]
+  guestImportBatches  GuestImportBatch[]
+  invitation          Invitation?
+  invitationSections  InvitationSection[]
+  weddingEvents       WeddingEvent[]
+  loveStoryEntries    LoveStoryEntry[]
+  galleryImages       GalleryImage[]
+  giftAccounts        GiftAccount[]
+  mediaAssets         MediaAsset[]
+  rsvpSubmissions     RsvpSubmission[]
+  wishes              Wish[]
+  savingsEntries      SavingsEntry[]
+  giftItems           GiftItem[]
+  rundownItems        RundownItem[]
+  calendarEvents      CalendarEvent[]
+  entitlements        WeddingEntitlement[]
+  paymentTransactions PaymentTransaction[]
+  addonPurchases      AddonPurchase[]
+  addonUsages         AddonUsage[]
 
   @@index([weddingDate])
   @@map("weddings")
@@ -1120,4 +1126,189 @@ model CalendarEvent {
 
   @@index([weddingId, eventDate])
   @@map("calendar_events")
+}
+
+// ─── Monetization ────────────────────────────────────────────────────────────
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  EXPIRED
+  REFUNDED
+}
+
+enum PaymentKind {
+  PLAN
+  ADDON
+}
+
+enum EntitlementSource {
+  PURCHASE
+  ADMIN_GRANT
+}
+
+/// A sellable access package. Prices and feature lists live here, never in code.
+model Plan {
+  id           String   @id @default(uuid()) @db.Uuid
+  code         String   @unique @db.VarChar(40)
+  name         String   @db.VarChar(80)
+  description  String?  @db.VarChar(500)
+  /// Whole rupiah. CHECK (price >= 0).
+  price        BigInt
+  /// Null = lasts for the life of the wedding workspace.
+  durationDays Int?     @map("duration_days")
+  /// Feature keys this plan unlocks; unknown keys are ignored by the app.
+  features     String[]
+  isActive     Boolean  @default(true) @map("is_active")
+  sortOrder    Int      @default(0) @map("sort_order")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  entitlements WeddingEntitlement[]
+  transactions PaymentTransaction[]
+
+  @@map("plans")
+}
+
+/// What a wedding may use. Shared by both partners; revoked rows are kept for history.
+model WeddingEntitlement {
+  id            String            @id @default(uuid()) @db.Uuid
+  weddingId     String            @map("wedding_id") @db.Uuid
+  planId        String            @map("plan_id") @db.Uuid
+  source        EntitlementSource
+  /// Set for purchases; unique so one payment can never grant twice.
+  transactionId String?           @unique @map("transaction_id") @db.Uuid
+  startsAt      DateTime          @map("starts_at") @db.Timestamptz(3)
+  expiresAt     DateTime?         @map("expires_at") @db.Timestamptz(3)
+  revokedAt     DateTime?         @map("revoked_at") @db.Timestamptz(3)
+  grantedById   String?           @map("granted_by_id") @db.Uuid
+  note          String?           @db.VarChar(200)
+  createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  wedding     Wedding             @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  plan        Plan                @relation(fields: [planId], references: [id], onDelete: Restrict)
+  transaction PaymentTransaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  grantedBy   User?               @relation("EntitlementGrantedBy", fields: [grantedById], references: [id], onDelete: SetNull)
+
+  @@index([weddingId, revokedAt])
+  @@map("wedding_entitlements")
+}
+
+/// One checkout attempt. The status only ever changes through a verified provider webhook.
+model PaymentTransaction {
+  id                String        @id @default(uuid()) @db.Uuid
+  /// Opaque id shared with the payment provider.
+  orderId           String        @unique @map("order_id") @db.VarChar(40)
+  weddingId         String        @map("wedding_id") @db.Uuid
+  userId            String?       @map("user_id") @db.Uuid
+  kind              PaymentKind
+  planId            String?       @map("plan_id") @db.Uuid
+  addonId           String?       @map("addon_id") @db.Uuid
+  /// Item name copied at checkout, so later catalogue edits never change a receipt.
+  itemName          String        @map("item_name") @db.VarChar(120)
+  /// Whole rupiah. CHECK (amount > 0).
+  amount            BigInt
+  currency          String        @default("IDR") @db.Char(3)
+  status            PaymentStatus @default(PENDING)
+  provider          String        @db.VarChar(20)
+  providerReference String?       @map("provider_reference") @db.VarChar(120)
+  checkoutUrl       String?       @map("checkout_url") @db.VarChar(500)
+  expiresAt         DateTime      @map("expires_at") @db.Timestamptz(3)
+  paidAt            DateTime?     @map("paid_at") @db.Timestamptz(3)
+  failedAt          DateTime?     @map("failed_at") @db.Timestamptz(3)
+  refundedAt        DateTime?     @map("refunded_at") @db.Timestamptz(3)
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  wedding       Wedding               @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  user          User?                 @relation("PaymentTransactionUser", fields: [userId], references: [id], onDelete: SetNull)
+  plan          Plan?                 @relation(fields: [planId], references: [id], onDelete: Restrict)
+  addon         Addon?                @relation(fields: [addonId], references: [id], onDelete: Restrict)
+  entitlement   WeddingEntitlement?
+  addonPurchase AddonPurchase?
+  webhookEvents PaymentWebhookEvent[]
+
+  @@index([weddingId, createdAt])
+  @@index([status, expiresAt])
+  @@map("payment_transactions")
+}
+
+/// Every webhook call we accepted, keyed so a replay is recognised and ignored.
+model PaymentWebhookEvent {
+  id             String   @id @default(uuid()) @db.Uuid
+  provider       String   @db.VarChar(20)
+  /// provider + order + reported status + provider event id (or payload hash).
+  eventKey       String   @unique @map("event_key") @db.VarChar(200)
+  orderId        String   @map("order_id") @db.VarChar(40)
+  transactionId  String?  @map("transaction_id") @db.Uuid
+  reportedStatus String   @map("reported_status") @db.VarChar(30)
+  outcome        String   @db.VarChar(40)
+  /// Payload with signatures stripped, for support and audits.
+  payload        Json
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  transaction PaymentTransaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  @@index([orderId, createdAt])
+  @@map("payment_webhook_events")
+}
+
+/// A separately sold quota (e.g. voice greetings). Inactive add-ons cannot be bought.
+model Addon {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique @db.VarChar(40)
+  name        String   @db.VarChar(80)
+  description String?  @db.VarChar(500)
+  /// Whole rupiah. CHECK (price >= 0).
+  price       BigInt
+  /// Units granted per purchase. CHECK (quota_amount > 0).
+  quotaAmount Int      @map("quota_amount")
+  unit        String   @db.VarChar(30)
+  isActive    Boolean  @default(true) @map("is_active")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  purchases    AddonPurchase[]
+  usages       AddonUsage[]
+  transactions PaymentTransaction[]
+
+  @@map("addons")
+}
+
+model AddonPurchase {
+  id            String    @id @default(uuid()) @db.Uuid
+  weddingId     String    @map("wedding_id") @db.Uuid
+  addonId       String    @map("addon_id") @db.Uuid
+  transactionId String?   @unique @map("transaction_id") @db.Uuid
+  /// CHECK (quota > 0).
+  quota         Int
+  revokedAt     DateTime? @map("revoked_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  wedding     Wedding             @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  addon       Addon               @relation(fields: [addonId], references: [id], onDelete: Restrict)
+  transaction PaymentTransaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  @@index([weddingId, addonId])
+  @@map("addon_purchases")
+}
+
+/// Quota spent. Remaining quota = active purchases minus usage, always computed.
+model AddonUsage {
+  id          String   @id @default(uuid()) @db.Uuid
+  weddingId   String   @map("wedding_id") @db.Uuid
+  addonId     String   @map("addon_id") @db.Uuid
+  /// CHECK (amount > 0).
+  amount      Int
+  reason      String   @db.VarChar(120)
+  referenceId String?  @map("reference_id") @db.VarChar(80)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  wedding Wedding @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  addon   Addon   @relation(fields: [addonId], references: [id], onDelete: Restrict)
+
+  @@index([weddingId, addonId])
+  @@map("addon_usages")
 }

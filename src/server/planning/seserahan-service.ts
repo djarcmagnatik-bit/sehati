@@ -3,7 +3,8 @@ import { z } from "zod";
 import { isGiftItemDone, type GiftItemStatusValue } from "@/lib/planning";
 import type { GiftItemInput } from "@/lib/validation/planning";
 import { recordActivity } from "@/server/activity/activity-service";
-import { memberWeddingWhere, requireWeddingMember, WeddingAccessError } from "@/server/authz/wedding-access";
+import { memberWeddingWhere, WeddingAccessError } from "@/server/authz/wedding-access";
+import { requireWeddingFeature } from "@/server/billing/access";
 import { getDb } from "@/server/db";
 
 const uuidSchema = z.uuid();
@@ -26,7 +27,7 @@ async function categoryUsable(categoryId: string, currentCategoryId?: string): P
 }
 
 export async function listGiftItems(userId: string, weddingId: string, status: GiftItemStatusValue | "all" = "all") {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("seserahan", userId, weddingId);
   return getDb().giftItem.findMany({
     where: { weddingId: membership.weddingId, ...(status === "all" ? {} : { status }) },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
@@ -76,7 +77,7 @@ export type SeserahanSummary = {
 
 /** Totals for the seserahan page: estimated vs actual money, and how many items are ready. */
 export async function getSeserahanSummary(userId: string, weddingId: string): Promise<SeserahanSummary> {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("seserahan", userId, weddingId);
   const rows = await getDb().giftItem.groupBy({
     by: ["status"],
     where: { weddingId: membership.weddingId },
@@ -118,7 +119,7 @@ function itemData(input: GiftItemInput) {
 }
 
 export async function createGiftItem(userId: string, weddingId: string, input: GiftItemInput): Promise<GiftItemResult> {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("seserahan", userId, weddingId);
   if (input.categoryId && !(await categoryUsable(input.categoryId))) return { ok: false, reason: "invalid_category" };
 
   return getDb().$transaction(async (tx) => {
@@ -147,7 +148,7 @@ async function findItemScope(userId: string, itemId: string) {
     select: { id: true, weddingId: true, name: true, categoryId: true, status: true, photoId: true },
   });
   if (!item) throw new WeddingAccessError();
-  const membership = await requireWeddingMember(userId, item.weddingId);
+  const membership = await requireWeddingFeature("seserahan", userId, item.weddingId);
   return { item, membership };
 }
 

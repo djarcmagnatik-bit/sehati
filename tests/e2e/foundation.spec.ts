@@ -58,7 +58,8 @@ test("register → onboarding → dashboard → couple note → logout → login
   await expect(page).toHaveURL(/\/dashboard$/);
   await expect(page.getByRole("heading", { level: 1, name: "Putri & Fajar" })).toBeVisible();
   await expect(page.getByText("hari menuju hari bahagia")).toBeVisible();
-  await expect(page.getByTestId("budget-target")).toHaveText(/Rp\s100\.000\.000/);
+  // A new workspace starts on free access: paid sections appear as locked previews.
+  await expect(page.getByText("Budget & pembayaran tersedia di Akses Penuh.").first()).toBeVisible();
   await expect(page.getByText("Akad + Resepsi")).toBeVisible();
 
   // Couple note persists

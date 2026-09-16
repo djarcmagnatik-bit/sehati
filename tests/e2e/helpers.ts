@@ -1,4 +1,5 @@
 import { expect, type Page } from "@playwright/test";
+import { grantFullAccess } from "./test-db";
 
 export const E2E_PASSWORD = "rahasia-aman-123";
 
@@ -12,8 +13,11 @@ export function uniqueEmail(prefix = "e2e"): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`;
 }
 
-/** Registers a fresh account and completes onboarding (Akad + Resepsi, KUA). Ends on the dashboard. */
-export async function registerAndOnboard(page: Page, options: { weddingInDays?: number } = {}) {
+/**
+ * Registers a fresh account and completes onboarding (Akad + Resepsi, KUA). Ends on the dashboard.
+ * The workspace gets full access unless `access: "free"` is asked for.
+ */
+export async function registerAndOnboard(page: Page, options: { weddingInDays?: number; access?: "full" | "free" } = {}) {
   const email = uniqueEmail();
 
   await page.goto("/register");
@@ -42,6 +46,10 @@ export async function registerAndOnboard(page: Page, options: { weddingInDays?: 
   await page.getByRole("button", { name: "Buat workspace" }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
 
+  if (options.access !== "free") {
+    await grantFullAccess(email.toLowerCase());
+    await page.reload();
+  }
   return { email };
 }
 

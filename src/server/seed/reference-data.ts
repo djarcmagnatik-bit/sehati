@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@/generated/prisma/client";
 import { BUDGET_CATEGORY_TEMPLATES } from "./budget-templates";
+import { ADDON_SEEDS, PLAN_SEEDS } from "./billing-catalog";
 import { GIFT_CATEGORIES } from "./gift-categories";
 import { GUEST_GROUP_TEMPLATES } from "./guest-group-templates";
 import { TASK_CATEGORIES, TASK_TEMPLATES } from "./task-templates";
@@ -84,6 +85,14 @@ export async function upsertReferenceData(db: PrismaClient): Promise<void> {
       update: { name: row.name, sortOrder: row.sortOrder },
       create: row,
     });
+  }
+
+  // Catalogue rows are created once; afterwards prices and features belong to the admins.
+  for (const plan of PLAN_SEEDS) {
+    await db.plan.upsert({ where: { code: plan.code }, update: {}, create: plan });
+  }
+  for (const addon of ADDON_SEEDS) {
+    await db.addon.upsert({ where: { code: addon.code }, update: {}, create: addon });
   }
 
   const [eventTypes, marriageProcesses, categories, existingTemplates] = await Promise.all([

@@ -36,7 +36,8 @@ export type ActivityEntryInput = {
     | "savings"
     | "gift_item"
     | "rundown_item"
-    | "calendar_event";
+    | "calendar_event"
+    | "payment_transaction";
   entityId?: string | null;
   metadata?: ActivityMetadata;
 };

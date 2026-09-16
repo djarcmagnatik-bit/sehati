@@ -4,7 +4,8 @@ import { Prisma } from "@/generated/prisma/client";
 import { GALLERY_MAX_IMAGES } from "@/lib/media";
 import type { GalleryCaptionInput, GiftAccountInput, GiftAddressInput, LoveStoryEntryInput } from "@/lib/validation/invitation";
 import { recordActivity } from "@/server/activity/activity-service";
-import { memberWeddingWhere, requireWeddingMember, WeddingAccessError } from "@/server/authz/wedding-access";
+import { memberWeddingWhere, WeddingAccessError } from "@/server/authz/wedding-access";
+import { requireWeddingFeature } from "@/server/billing/access";
 import { getDb } from "@/server/db";
 
 type Tx = Prisma.TransactionClient;
@@ -14,7 +15,7 @@ const isUuid = (value: string) => uuidSchema.safeParse(value).success;
 
 /** Every content row hangs off the wedding's single invitation; this resolves and authorizes it. */
 async function requireInvitationScope(userId: string, weddingId: string) {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("invitation", userId, weddingId);
   const invitation = await getDb().invitation.findUnique({
     where: { weddingId: membership.weddingId },
     select: { id: true, weddingId: true },
@@ -36,7 +37,7 @@ async function nextSortOrder(tx: Tx, table: "loveStoryEntry" | "galleryImage" | 
 // ─── Love story ──────────────────────────────────────────────────────────────
 
 export async function listLoveStoryEntries(userId: string, weddingId: string) {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("invitation", userId, weddingId);
   return getDb().loveStoryEntry.findMany({
     where: { weddingId: membership.weddingId },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
@@ -84,7 +85,7 @@ async function findEntryScope(userId: string, entryId: string) {
     select: { id: true, weddingId: true, title: true },
   });
   if (!entry) throw new WeddingAccessError();
-  const membership = await requireWeddingMember(userId, entry.weddingId);
+  const membership = await requireWeddingFeature("invitation", userId, entry.weddingId);
   return { entry, membership };
 }
 
@@ -123,7 +124,7 @@ export async function deleteLoveStoryEntry(userId: string, entryId: string): Pro
 // ─── Gallery ─────────────────────────────────────────────────────────────────
 
 export async function listGalleryImages(userId: string, weddingId: string) {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("invitation", userId, weddingId);
   return getDb().galleryImage.findMany({
     where: { weddingId: membership.weddingId },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
@@ -191,7 +192,7 @@ async function findGalleryScope(userId: string, imageId: string) {
     select: { id: true, weddingId: true, assetId: true },
   });
   if (!image) throw new WeddingAccessError();
-  const membership = await requireWeddingMember(userId, image.weddingId);
+  const membership = await requireWeddingFeature("invitation", userId, image.weddingId);
   return { image, membership };
 }
 
@@ -239,7 +240,7 @@ export async function moveGalleryImage(userId: string, imageId: string, directio
 // ─── Gift information ────────────────────────────────────────────────────────
 
 export async function listGiftAccounts(userId: string, weddingId: string) {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("invitation", userId, weddingId);
   return getDb().giftAccount.findMany({
     where: { weddingId: membership.weddingId },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
@@ -287,7 +288,7 @@ async function findGiftScope(userId: string, accountId: string) {
     select: { id: true, weddingId: true, providerName: true },
   });
   if (!account) throw new WeddingAccessError();
-  const membership = await requireWeddingMember(userId, account.weddingId);
+  const membership = await requireWeddingFeature("invitation", userId, account.weddingId);
   return { account, membership };
 }
 

@@ -17,7 +17,8 @@ import {
 } from "@/lib/guest-import";
 import { normalizeGuestName } from "@/lib/guests";
 import { recordActivity } from "@/server/activity/activity-service";
-import { memberWeddingWhere, requireWeddingMember, WeddingAccessError } from "@/server/authz/wedding-access";
+import { memberWeddingWhere, WeddingAccessError } from "@/server/authz/wedding-access";
+import { requireWeddingFeature } from "@/server/billing/access";
 import { getDb } from "@/server/db";
 import { generateInvitationToken } from "./guest-service";
 
@@ -135,7 +136,7 @@ export async function previewGuestImport(
   file: UploadedFile,
   now: Date = new Date(),
 ): Promise<PreviewImportResult> {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("guests", userId, weddingId);
 
   const read = await readGuestFile(file);
   if (!read.ok) return read;
@@ -232,7 +233,7 @@ export async function commitGuestImport(
     select: { id: true, weddingId: true },
   });
   if (!batch) throw new WeddingAccessError();
-  const membership = await requireWeddingMember(userId, batch.weddingId);
+  const membership = await requireWeddingFeature("guests", userId, batch.weddingId);
 
   return db.$transaction(async (tx) => {
     const locked = await tx.$queryRaw<Array<{ rows: unknown; committed_at: Date | null; expires_at: Date }>>`

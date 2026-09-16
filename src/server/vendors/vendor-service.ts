@@ -11,7 +11,8 @@ import type {
   VendorUpdateInput,
 } from "@/lib/validation/vendor";
 import { recordActivity } from "@/server/activity/activity-service";
-import { memberWeddingWhere, requireWeddingMember, WeddingAccessError } from "@/server/authz/wedding-access";
+import { memberWeddingWhere, WeddingAccessError } from "@/server/authz/wedding-access";
+import { requireWeddingFeature } from "@/server/billing/access";
 import { getDb } from "@/server/db";
 
 type Tx = Prisma.TransactionClient;
@@ -54,7 +55,7 @@ async function budgetCategoryInWedding(budgetCategoryId: string, weddingId: stri
 
 /** Booked vendors for pickers (e.g. linking an expense), with the suggested budget category name. */
 export async function getVendorOptions(userId: string, weddingId: string) {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("vendors", userId, weddingId);
   return getDb().vendor.findMany({
     where: { weddingId: membership.weddingId },
     orderBy: { name: "asc" },
@@ -97,7 +98,7 @@ async function vendorFinancials(weddingId: string, vendorIds?: string[]): Promis
 
 /** Dashboard numbers: researching / booked / vendors still waiting for a first payment / money. */
 export async function getVendorSummary(userId: string, weddingId: string) {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("vendors", userId, weddingId);
   const id = membership.weddingId;
   const db = getDb();
   const [researching, booked, financials] = await Promise.all([
@@ -120,7 +121,7 @@ export async function getVendorSummary(userId: string, weddingId: string) {
 // ─── Research (candidates) ───────────────────────────────────────────────────
 
 export async function listVendorResearch(userId: string, weddingId: string, filters: ResearchFilters) {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("vendors", userId, weddingId);
   const where: Prisma.VendorResearchWhereInput = { weddingId: membership.weddingId };
   if (filters.view === "active") where.status = { not: "REJECTED" };
   else if (filters.view !== "all") where.status = filters.view;
@@ -193,7 +194,7 @@ export async function getVendorResearchForUser(userId: string, researchId: strin
 
 /** Candidates for the comparison table; ids outside the wedding are silently ignored. Keeps the requested order. */
 export async function getResearchForComparison(userId: string, weddingId: string, ids: string[]) {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("vendors", userId, weddingId);
   const valid = ids.filter(isUuid);
   if (valid.length === 0) return [];
   const rows = await getDb().vendorResearch.findMany({
@@ -232,7 +233,7 @@ export async function createVendorResearch(
   weddingId: string,
   input: VendorResearchInput,
 ): Promise<ResearchMutationResult> {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("vendors", userId, weddingId);
   if (!(await vendorCategoryUsable(input.categoryId))) return { ok: false, reason: "invalid_category" };
 
   return getDb().$transaction(async (tx) => {
@@ -260,7 +261,7 @@ async function findResearchScope(userId: string, researchId: string) {
     select: { id: true, weddingId: true, name: true, categoryId: true, status: true, bookedVendor: { select: { id: true } } },
   });
   if (!research) throw new WeddingAccessError();
-  const membership = await requireWeddingMember(userId, research.weddingId);
+  const membership = await requireWeddingFeature("vendors", userId, research.weddingId);
   return { research, membership };
 }
 
@@ -447,7 +448,7 @@ export async function bookVendorFromResearch(
 // ─── Booked vendors ──────────────────────────────────────────────────────────
 
 export async function listVendors(userId: string, weddingId: string, filters: VendorFilters) {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("vendors", userId, weddingId);
   const where: Prisma.VendorWhereInput = { weddingId: membership.weddingId };
   if (filters.categoryId) where.categoryId = filters.categoryId;
   if (filters.q) {
@@ -551,7 +552,7 @@ export type VendorMutationResult =
 
 /** Direct booking without prior research (e.g. a vendor recommended by family). */
 export async function createVendor(userId: string, weddingId: string, input: VendorCreateInput): Promise<VendorMutationResult> {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("vendors", userId, weddingId);
   if (!(await vendorCategoryUsable(input.categoryId))) return { ok: false, reason: "invalid_category" };
   if (input.budgetCategoryId && !(await budgetCategoryInWedding(input.budgetCategoryId, membership.weddingId))) {
     return { ok: false, reason: "invalid_budget_category" };
@@ -592,7 +593,7 @@ async function findVendorScope(userId: string, vendorId: string) {
     select: { id: true, weddingId: true, name: true, categoryId: true, researchId: true, _count: { select: { expenses: true } } },
   });
   if (!vendor) throw new WeddingAccessError();
-  const membership = await requireWeddingMember(userId, vendor.weddingId);
+  const membership = await requireWeddingFeature("vendors", userId, vendor.weddingId);
   return { vendor, membership };
 }
 

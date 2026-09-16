@@ -83,6 +83,8 @@ export const ACTIVITY_ACTIONS = [
   "calendar.event_updated",
   "calendar.event_deleted",
   "invitation.music_updated",
+  "billing.payment_paid",
+  "billing.payment_refunded",
 ] as const;
 
 export type ActivityAction = (typeof ACTIVITY_ACTIONS)[number];
@@ -298,6 +300,10 @@ export function describeActivity(entry: { action: string; actorName: string; met
       return `${actor} mengubah agenda ${quoted(title, "")}`.trimEnd();
     case "calendar.event_deleted":
       return `${actor} menghapus agenda ${quoted(title, "")}`.trimEnd();
+    case "billing.payment_paid":
+      return `Pembayaran ${quoted(name, "paket")}${money ? ` sebesar ${money}` : ""} berhasil diterima`;
+    case "billing.payment_refunded":
+      return `Pembayaran ${quoted(name, "paket")}${money ? ` sebesar ${money}` : ""} dikembalikan; aksesnya dicabut`;
     case "invitation.music_updated":
       return `${actor} mengatur musik latar undangan`;
     default:

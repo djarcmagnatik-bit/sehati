@@ -4,7 +4,8 @@ import { z } from "zod";
 import { normalizeAttendance } from "@/lib/guests";
 import type { RsvpInput } from "@/lib/validation/rsvp";
 import { recordActivity } from "@/server/activity/activity-service";
-import { memberWeddingWhere, requireWeddingMember, WeddingAccessError } from "@/server/authz/wedding-access";
+import { memberWeddingWhere, WeddingAccessError } from "@/server/authz/wedding-access";
+import { requireWeddingFeature, weddingHasFeature } from "@/server/billing/access";
 import { getDb } from "@/server/db";
 
 const uuidSchema = z.uuid();
@@ -47,6 +48,7 @@ export async function getRsvpGuestByToken(token: string): Promise<RsvpGuest | nu
     },
   });
   if (!guest || guest.wedding.invitation?.status !== "PUBLISHED") return null;
+  if (!(await weddingHasFeature(guest.weddingId, "invitation"))) return null;
 
   const last = guest.rsvpSubmissions[0];
   return {
@@ -128,9 +130,10 @@ export async function listRsvpSubmissions(userId: string, guestId: string) {
   if (!uuidSchema.safeParse(guestId).success) return [];
   const guest = await getDb().guest.findFirst({
     where: { id: guestId, wedding: memberWeddingWhere(userId) },
-    select: { id: true },
+    select: { id: true, weddingId: true },
   });
   if (!guest) throw new WeddingAccessError();
+  await requireWeddingFeature("guests", userId, guest.weddingId);
 
   return getDb().rsvpSubmission.findMany({
     where: { guestId: guest.id },
@@ -160,7 +163,7 @@ export type RsvpOverview = {
 
 /** What the couple sees after guests start answering. */
 export async function getRsvpOverview(userId: string, weddingId: string, latestLimit = 5): Promise<RsvpOverview> {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("guests", userId, weddingId);
   const db = getDb();
   const [counts, latest] = await Promise.all([
     db.guest.groupBy({

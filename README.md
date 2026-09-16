@@ -72,7 +72,31 @@ Wedding planning workspace for couples (Indonesia-first). Built phase by phase f
 There is no image transcoding yet (no `sharp`): uploads are size- and dimension-checked and served
 as-is. Audio has no HTTP range support, so seeking inside a long track may not work in every browser.
 
-Nothing beyond Phase 9 is implemented yet.
+- Phase 10 (Monetization):
+  - **Free vs Full Access per wedding**, shared by both partners. Free: account, onboarding,
+    dashboard preview, checklist, savings and the calendar (showing only sections the wedding may
+    open). Full Access unlocks vendors, budget & payments, guests & RSVP, the invitation, rundown,
+    seserahan and partner invitations.
+  - **Enforced in the services**, not by hiding menus: every paid service checks membership first
+    (outsiders still get "not found") and then access (`FeatureLockedError`). Pages redirect to
+    `/billing?feature=…`, actions explain the lock, the public invitation, its media, RSVP and
+    wishes disappear when access is revoked.
+  - **Plans and add-ons live in the database** (seeded once, never overwritten). Add-ons carry a
+    quota that is spent atomically; the seeded voice-greeting add-on stays inactive until that
+    feature exists.
+  - **Checkout → webhook**: a checkout creates a pending order with the price copied at that moment
+    and sends the buyer to the provider. Only a verified webhook changes the order
+    (pending / paid / failed / expired / refunded): the transaction row is locked, each event is
+    stored under a unique key so replays are no-ops, amounts must match, a paid order never moves
+    backwards, and a refund revokes what it granted. The return page only reports the database.
+  - **Providers**: `sandbox` (a local hosted-page stand-in that sends a real HMAC-signed webhook over
+    HTTP; refused in production unless `ALLOW_SANDBOX_PAYMENTS=true`) and `midtrans` (Snap checkout,
+    SHA-512 notification signature). The Midtrans code is unit-tested against its documented
+    contract but has **not** been exercised against the live Midtrans sandbox (no credentials).
+  - Support tool: `pnpm access:grant -- --email <email>` grants Full Access as an admin grant.
+
+Nothing beyond Phase 10 is implemented yet. Promo codes and plan management UI come with the admin
+phase.
 
 ## Stack
 
@@ -113,6 +137,7 @@ Requirements: Node.js ≥ 24, pnpm 10, PostgreSQL 16.
 | `pnpm test:e2e` | Playwright against a production build (`next start` on port 3100) using `DATABASE_URL_TEST` (`pnpm exec playwright install chromium` first). Rate-limit buckets in the test database are cleared before each test; app limits are unchanged |
 | `pnpm db:migrate` | Create a new migration during development |
 | `pnpm db:deploy` / `db:status` / `db:seed` | Apply migrations / status / seed reference data |
+| `pnpm access:grant -- --email <email> [--plan CODE]` | Give an account's weddings a plan without payment (admin grant) |
 
 ## Architecture notes
 

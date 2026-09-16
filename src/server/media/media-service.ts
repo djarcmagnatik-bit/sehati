@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { audioRejection, imageRejection, readAudioType, readImageInfo, type AudioRejection, type ImageRejection } from "@/lib/media";
 import { requireWeddingMember, WeddingAccessError } from "@/server/authz/wedding-access";
+import { weddingHasFeature } from "@/server/billing/access";
 import { getDb } from "@/server/db";
 import { getMediaStore, MIME_EXTENSION } from "./media-store";
 
@@ -122,7 +123,7 @@ export async function getAssetForDelivery(assetId: string, viewerUserId: string 
 
   const invitation = asset.wedding.invitation;
   let allowed = false;
-  if (invitation?.status === "PUBLISHED") {
+  if (invitation?.status === "PUBLISHED" && (await weddingHasFeature(asset.weddingId, "invitation"))) {
     if (invitation.coverImageId === asset.id) allowed = true;
     else if (invitation.musicEnabled && invitation.musicAssetId === asset.id) allowed = true;
     else {

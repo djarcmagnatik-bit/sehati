@@ -1,6 +1,7 @@
 import { addDaysIso, todayIsoInTimeZone } from "@/lib/dates";
 import { makeOnboardingSchema } from "@/lib/validation/onboarding";
 import { registerUser } from "@/server/auth/auth-service";
+import { adminGrantPlan } from "@/server/billing/billing-service";
 import { getDb } from "@/server/db";
 import { createWeddingForUser } from "@/server/wedding/wedding-service";
 import { createTestUser, ensureReferenceData, TEST_PASSWORD } from "./integration-helpers";
@@ -13,8 +14,14 @@ export async function createUserWithEmail(tracker: string[], email: string, name
   return { userId: result.userId, email: email.trim().toLowerCase(), password: TEST_PASSWORD };
 }
 
-/** Owner account + wedding workspace (Akad + Resepsi, KUA, Rp100.000.000). */
-export async function createOwnerWorkspace(tracker: string[], options: { name?: string; weddingInDays?: number } = {}) {
+/**
+ * Owner account + wedding workspace (Akad + Resepsi, KUA, Rp100.000.000). Full access is granted by
+ * default so feature tests exercise the features; pass `access: "free"` to test the locked state.
+ */
+export async function createOwnerWorkspace(
+  tracker: string[],
+  options: { name?: string; weddingInDays?: number; access?: "full" | "free" } = {},
+) {
   const refs = await ensureReferenceData();
   const owner = await createTestUser(tracker, options.name ?? "Fajar");
   const today = todayIsoInTimeZone(new Date());
@@ -32,6 +39,10 @@ export async function createOwnerWorkspace(tracker: string[], options: { name?: 
   });
   const result = await createWeddingForUser(owner.userId, data);
   if (!result.ok) throw new Error(`workspace creation failed: ${result.reason}`);
+  if (options.access !== "free") {
+    const granted = await adminGrantPlan(result.weddingId, "FULL_ACCESS", { note: "test" });
+    if (!granted.ok) throw new Error(`access grant failed: ${granted.reason}`);
+  }
   const ownerMember = await getDb().weddingMember.findFirstOrThrow({
     where: { weddingId: result.weddingId, userId: owner.userId },
     select: { id: true },

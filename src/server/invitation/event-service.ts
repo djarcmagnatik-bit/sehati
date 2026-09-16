@@ -4,7 +4,8 @@ import { Prisma } from "@/generated/prisma/client";
 import { isoToDbDate } from "@/lib/dates";
 import type { WeddingEventInput } from "@/lib/validation/invitation";
 import { recordActivity } from "@/server/activity/activity-service";
-import { memberWeddingWhere, requireWeddingMember, WeddingAccessError } from "@/server/authz/wedding-access";
+import { memberWeddingWhere, WeddingAccessError } from "@/server/authz/wedding-access";
+import { requireWeddingFeature } from "@/server/billing/access";
 import { getDb } from "@/server/db";
 
 const uuidSchema = z.uuid();
@@ -68,7 +69,7 @@ function eventData(input: WeddingEventInput) {
 }
 
 export async function listWeddingEvents(userId: string, weddingId: string): Promise<WeddingEventRow[]> {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("invitation", userId, weddingId);
   const events = await getDb().weddingEvent.findMany({
     where: { weddingId: membership.weddingId },
     orderBy: [{ sortOrder: "asc" }, { eventDate: "asc" }],
@@ -87,7 +88,7 @@ export async function getWeddingEventForUser(userId: string, eventId: string): P
 }
 
 export async function createWeddingEvent(userId: string, weddingId: string, input: WeddingEventInput): Promise<string> {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("invitation", userId, weddingId);
   return getDb().$transaction(async (tx) => {
     const last = await tx.weddingEvent.aggregate({ where: { weddingId: membership.weddingId }, _max: { sortOrder: true } });
     const event = await tx.weddingEvent.create({
@@ -114,7 +115,7 @@ async function findEventScope(userId: string, eventId: string) {
     select: { id: true, weddingId: true, name: true },
   });
   if (!event) throw new WeddingAccessError();
-  const membership = await requireWeddingMember(userId, event.weddingId);
+  const membership = await requireWeddingFeature("invitation", userId, event.weddingId);
   return { event, membership };
 }
 

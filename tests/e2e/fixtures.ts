@@ -1,21 +1,5 @@
 import { test as base } from "@playwright/test";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { config } from "dotenv";
-import { PrismaClient } from "../../src/generated/prisma/client";
-
-config({ path: ".env.test", quiet: true });
-config({ quiet: true });
-
-let client: PrismaClient | undefined;
-
-function getTestDb(): PrismaClient {
-  if (client) return client;
-  const testUrl = process.env["DATABASE_URL_TEST"];
-  if (!testUrl) throw new Error("DATABASE_URL_TEST belum diisi");
-  if (testUrl === process.env["DATABASE_URL"]) throw new Error("DATABASE_URL_TEST tidak boleh sama dengan DATABASE_URL");
-  client = new PrismaClient({ adapter: new PrismaPg({ connectionString: testUrl }) });
-  return client;
-}
+import { getTestDb } from "./test-db";
 
 /**
  * Every spec registers a fresh account, and the whole suite runs from one IP, so the app's

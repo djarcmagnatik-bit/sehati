@@ -3,7 +3,8 @@ import { z } from "zod";
 import { PUBLIC_WISHES_LIMIT, WISHES_PAGE_SIZE, type WishStatusValue } from "@/lib/rsvp";
 import type { WishInput } from "@/lib/validation/rsvp";
 import { recordActivity } from "@/server/activity/activity-service";
-import { memberWeddingWhere, requireWeddingMember, WeddingAccessError } from "@/server/authz/wedding-access";
+import { memberWeddingWhere, WeddingAccessError } from "@/server/authz/wedding-access";
+import { requireWeddingFeature, weddingHasFeature } from "@/server/billing/access";
 import { getDb } from "@/server/db";
 import { hashIp } from "./rsvp-service";
 
@@ -58,6 +59,7 @@ export async function submitWish(
     weddingId = invitation?.weddingId ?? null;
   }
   if (!weddingId) return { ok: false, reason: "not_found" };
+  if (!(await weddingHasFeature(weddingId, "invitation"))) return { ok: false, reason: "not_found" };
 
   const scopedWeddingId = weddingId;
   return db.$transaction(async (tx) => {
@@ -92,7 +94,7 @@ export type WishFilter = "all" | WishStatusValue;
 
 /** Moderation list: every wish, including hidden ones, with who sent it. */
 export async function listWishesForUser(userId: string, weddingId: string, filter: WishFilter = "all", page = 1) {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("invitation", userId, weddingId);
   const where = { weddingId: membership.weddingId, ...(filter === "all" ? {} : { status: filter }) };
   const db = getDb();
   const [total, items, visible] = await db.$transaction([
@@ -124,7 +126,7 @@ async function findWishScope(userId: string, wishId: string) {
     select: { id: true, weddingId: true, name: true, status: true },
   });
   if (!wish) throw new WeddingAccessError();
-  const membership = await requireWeddingMember(userId, wish.weddingId);
+  const membership = await requireWeddingFeature("invitation", userId, wish.weddingId);
   return { wish, membership };
 }
 
@@ -170,7 +172,7 @@ export async function deleteWish(userId: string, wishId: string): Promise<void> 
 }
 
 export async function countWishes(userId: string, weddingId: string): Promise<{ total: number; hidden: number }> {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("invitation", userId, weddingId);
   const db = getDb();
   const [total, hidden] = await Promise.all([
     db.wish.count({ where: { weddingId: membership.weddingId } }),

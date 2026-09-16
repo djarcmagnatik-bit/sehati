@@ -78,7 +78,8 @@ test("rsvp: guest answers from their personal link and the couple sees it", asyn
   // The guest can still change their answer; the history keeps both.
   await guestPage.getByLabel("Maaf, berhalangan").check();
   await guestPage.getByRole("button", { name: /^Perbarui konfirmasi/ }).click();
-  await expect(guestPage.getByText(/Terima kasih sudah mengabari/)).toBeVisible();
+  // The choice hint uses the same words, so read the form's status message specifically.
+  await expect(guestPage.getByRole("status").filter({ hasText: "Doa kalian tetap kami nantikan" })).toBeVisible();
   await anonymous.close();
 
   await page.goto("/guests");

@@ -19,6 +19,8 @@ export const PRIVATE_PATH_PREFIXES = [
   "/savings",
   "/seserahan",
   "/rundown",
+  "/billing",
+  "/payments",
   "/activity",
   "/more",
 ] as const;

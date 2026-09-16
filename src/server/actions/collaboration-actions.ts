@@ -9,6 +9,7 @@ import { emailSchema } from "@/lib/validation/auth";
 import { consumeRateLimit, RATE_LIMITS } from "@/server/auth/rate-limit";
 import { requireSession } from "@/server/auth/session-cookie";
 import { WeddingAccessError } from "@/server/authz/wedding-access";
+import { FeatureLockedError, lockedState, upgradePath } from "@/server/billing/locked";
 import {
   acceptPartnerInvitation,
   createPartnerInvitation,
@@ -54,6 +55,7 @@ export async function invitePartnerAction(_prev: FormState, formData: FormData):
       appUrl: getEnv().APP_URL,
     });
   } catch (error) {
+    if (error instanceof FeatureLockedError) return lockedState(error, values);
     if (error instanceof WeddingAccessError) return { status: "error", message: NO_ACCESS, values };
     logger.error("partner_invitation.create_failed", { error });
     return { status: "error", message: "Undangan belum berhasil dibuat. Silakan coba lagi.", values };
@@ -88,6 +90,7 @@ export async function revokeInvitationAction(formData: FormData): Promise<void> 
     const result = await revokePartnerInvitation(session.user.id, readString(formData, "weddingId"));
     if (!result.ok) return;
   } catch (error) {
+    if (error instanceof FeatureLockedError) redirect(upgradePath(error));
     if (error instanceof WeddingAccessError) return;
     throw error;
   }
@@ -101,6 +104,7 @@ export async function removePartnerAction(formData: FormData): Promise<void> {
     const result = await removePartner(session.user.id, readString(formData, "weddingId"));
     if (!result.ok) return;
   } catch (error) {
+    if (error instanceof FeatureLockedError) redirect(upgradePath(error));
     if (error instanceof WeddingAccessError) return;
     throw error;
   }

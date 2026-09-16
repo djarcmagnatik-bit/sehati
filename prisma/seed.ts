@@ -12,7 +12,7 @@ async function main() {
   const db = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
   try {
     await upsertReferenceData(db);
-    const [eventTypes, marriageProcesses, taskCategories, taskTemplates, budgetTemplates, vendorCategories, guestGroups, giftCategories] =
+    const [eventTypes, marriageProcesses, taskCategories, taskTemplates, budgetTemplates, vendorCategories, guestGroups, giftCategories, plans, addons] =
       await Promise.all([
         db.eventType.count(),
         db.marriageProcess.count(),
@@ -22,12 +22,14 @@ async function main() {
         db.vendorCategory.count(),
         db.guestGroupTemplate.count(),
         db.giftCategory.count(),
+        db.plan.count(),
+        db.addon.count(),
       ]);
     console.log(
       `Seed selesai: ${eventTypes} event types, ${marriageProcesses} marriage processes, ` +
         `${taskCategories} task categories, ${taskTemplates} task templates, ` +
         `${budgetTemplates} budget category templates, ${vendorCategories} vendor categories, ` +
-        `${guestGroups} guest group templates, ${giftCategories} gift categories.`,
+        `${guestGroups} guest group templates, ${giftCategories} gift categories, ${plans} plans, ${addons} add-ons.`,
     );
   } finally {
     await db.$disconnect();

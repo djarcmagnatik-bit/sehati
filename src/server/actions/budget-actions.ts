@@ -15,6 +15,7 @@ import {
 import { fieldErrorsFromZod } from "@/lib/validation/errors";
 import { requireSession } from "@/server/auth/session-cookie";
 import { WeddingAccessError } from "@/server/authz/wedding-access";
+import { FeatureLockedError, lockedState, upgradePath } from "@/server/billing/locked";
 import {
   createBudgetCategory,
   createExpense,
@@ -45,6 +46,7 @@ function revalidateBudget() {
 }
 
 function failure(error: unknown, event: string, values?: Record<string, string>): FormState {
+  if (error instanceof FeatureLockedError) return lockedState(error, values);
   if (error instanceof WeddingAccessError) return { status: "error", message: NO_ACCESS, values };
   logger.error(event, { error });
   return { status: "error", message: SAVE_FAILED, values };
@@ -71,6 +73,7 @@ export async function initializeBudgetAction(formData: FormData): Promise<void> 
   try {
     await initializeBudgetIfMissing(session.user.id, readString(formData, "weddingId"));
   } catch (error) {
+    if (error instanceof FeatureLockedError) redirect(upgradePath(error));
     if (error instanceof WeddingAccessError) return;
     throw error;
   }
@@ -124,6 +127,7 @@ export async function deleteBudgetCategoryAction(formData: FormData): Promise<vo
     const result = await deleteBudgetCategory(session.user.id, categoryId);
     blocked = !result.ok;
   } catch (error) {
+    if (error instanceof FeatureLockedError) redirect(upgradePath(error));
     if (error instanceof WeddingAccessError) return;
     throw error;
   }
@@ -190,6 +194,7 @@ export async function deleteExpenseAction(formData: FormData): Promise<void> {
     const result = await deleteExpense(session.user.id, expenseId);
     blocked = !result.ok;
   } catch (error) {
+    if (error instanceof FeatureLockedError) redirect(upgradePath(error));
     if (error instanceof WeddingAccessError) return;
     throw error;
   }
@@ -228,6 +233,7 @@ export async function deletePaymentAction(formData: FormData): Promise<void> {
   try {
     ({ expenseId } = await deletePayment(session.user.id, readString(formData, "paymentId")));
   } catch (error) {
+    if (error instanceof FeatureLockedError) redirect(upgradePath(error));
     if (error instanceof WeddingAccessError) return;
     throw error;
   }

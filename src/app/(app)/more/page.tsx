@@ -24,6 +24,7 @@ const SECTIONS = [
       { href: "/settings/wedding", label: "Pernikahan", description: "Tanggal pernikahan dan tenggat checklist." },
       { href: "/settings/partner", label: "Pasangan", description: "Undang atau kelola pasangan." },
       { href: "/settings/security", label: "Keamanan akun", description: "Perangkat yang sedang masuk." },
+      { href: "/billing", label: "Akses & pembayaran", description: "Status Akses Penuh, pembelian, dan riwayat pembayaran." },
     ],
   },
 ] as const;

@@ -16,7 +16,8 @@ import {
 } from "@/lib/validation/invitation";
 import type { InvitationMusicInput } from "@/lib/validation/planning";
 import { recordActivity } from "@/server/activity/activity-service";
-import { memberWeddingWhere, requireWeddingMember, WeddingAccessError } from "@/server/authz/wedding-access";
+import { memberWeddingWhere, WeddingAccessError } from "@/server/authz/wedding-access";
+import { requireWeddingFeature } from "@/server/billing/access";
 import { getDb } from "@/server/db";
 
 type Tx = Prisma.TransactionClient;
@@ -102,7 +103,7 @@ async function loadSections(db: Tx | ReturnType<typeof getDb>, invitationId: str
 
 /** The editor view: invitation settings plus every section in display order. */
 export async function getInvitationForUser(userId: string, weddingId: string) {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("invitation", userId, weddingId);
   const invitation = await getDb().invitation.findUnique({ where: { weddingId: membership.weddingId }, select: invitationSelect });
   if (!invitation) return null;
   return { ...invitation, sections: await loadSections(getDb(), invitation.id) };
@@ -137,7 +138,7 @@ export type CreateInvitationResult = { ok: true; invitationId: string; created: 
 
 /** Creates the invitation and its sections once per wedding; safe to call from any page. */
 export async function ensureInvitation(userId: string, weddingId: string): Promise<CreateInvitationResult> {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("invitation", userId, weddingId);
   const db = getDb();
   const existing = await db.invitation.findUnique({ where: { weddingId: membership.weddingId }, select: { id: true } });
   if (existing) return { ok: true, invitationId: existing.id, created: false };
@@ -183,7 +184,7 @@ export async function ensureInvitation(userId: string, weddingId: string): Promi
 }
 
 async function requireInvitation(userId: string, weddingId: string) {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("invitation", userId, weddingId);
   const invitation = await getDb().invitation.findUnique({
     where: { weddingId: membership.weddingId },
     select: { id: true, slug: true, status: true, themeCode: true, themeOptions: true },
@@ -251,7 +252,7 @@ async function findSectionScope(userId: string, sectionId: string) {
     select: { id: true, weddingId: true, invitationId: true, type: true, enabled: true },
   });
   if (!section) throw new WeddingAccessError();
-  const membership = await requireWeddingMember(userId, section.weddingId);
+  const membership = await requireWeddingFeature("invitation", userId, section.weddingId);
   return { section, membership };
 }
 

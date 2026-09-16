@@ -3,7 +3,8 @@ import { z } from "zod";
 import { dbDateToIso, isoToDbDate } from "@/lib/dates";
 import type { RundownItemInput } from "@/lib/validation/planning";
 import { recordActivity } from "@/server/activity/activity-service";
-import { memberWeddingWhere, requireWeddingMember, WeddingAccessError } from "@/server/authz/wedding-access";
+import { memberWeddingWhere, WeddingAccessError } from "@/server/authz/wedding-access";
+import { requireWeddingFeature } from "@/server/billing/access";
 import { getDb } from "@/server/db";
 
 const uuidSchema = z.uuid();
@@ -30,7 +31,7 @@ export type RundownDay = { dateIso: string; items: RundownRow[] };
  * wedding date. Equal start times keep the order the couple arranged.
  */
 export async function listRundown(userId: string, weddingId: string): Promise<RundownDay[]> {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("rundown", userId, weddingId);
   const db = getDb();
   const [wedding, items] = await Promise.all([
     db.wedding.findUniqueOrThrow({ where: { id: membership.weddingId }, select: { weddingDate: true } }),
@@ -106,7 +107,7 @@ function itemData(input: RundownItemInput) {
 }
 
 export async function createRundownItem(userId: string, weddingId: string, input: RundownItemInput): Promise<string> {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("rundown", userId, weddingId);
   return getDb().$transaction(async (tx) => {
     const last = await tx.rundownItem.aggregate({ where: { weddingId: membership.weddingId }, _max: { sortOrder: true } });
     const item = await tx.rundownItem.create({
@@ -133,7 +134,7 @@ async function findItemScope(userId: string, itemId: string) {
     select: { id: true, weddingId: true, title: true },
   });
   if (!item) throw new WeddingAccessError();
-  const membership = await requireWeddingMember(userId, item.weddingId);
+  const membership = await requireWeddingFeature("rundown", userId, item.weddingId);
   return { item, membership };
 }
 

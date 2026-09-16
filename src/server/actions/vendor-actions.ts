@@ -13,6 +13,7 @@ import {
 } from "@/lib/validation/vendor";
 import { requireSession } from "@/server/auth/session-cookie";
 import { WeddingAccessError } from "@/server/authz/wedding-access";
+import { FeatureLockedError, lockedState, upgradePath } from "@/server/billing/locked";
 import {
   bookVendorFromResearch,
   createVendor,
@@ -57,6 +58,7 @@ function revalidateVendors() {
 }
 
 function failure(error: unknown, event: string, values: Record<string, string>): FormState {
+  if (error instanceof FeatureLockedError) return lockedState(error, values);
   if (error instanceof WeddingAccessError) return { status: "error", message: NO_ACCESS, values };
   logger.error(event, { error });
   return { status: "error", message: "Data belum berhasil disimpan. Silakan coba lagi.", values };
@@ -103,6 +105,7 @@ export async function deleteVendorResearchAction(formData: FormData): Promise<vo
   try {
     blocked = !(await deleteVendorResearch(session.user.id, researchId)).ok;
   } catch (error) {
+    if (error instanceof FeatureLockedError) redirect(upgradePath(error));
     if (error instanceof WeddingAccessError) return;
     throw error;
   }
@@ -183,6 +186,7 @@ export async function deleteVendorAction(formData: FormData): Promise<void> {
   try {
     blocked = !(await deleteVendor(session.user.id, vendorId)).ok;
   } catch (error) {
+    if (error instanceof FeatureLockedError) redirect(upgradePath(error));
     if (error instanceof WeddingAccessError) return;
     throw error;
   }

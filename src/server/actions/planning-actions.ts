@@ -18,6 +18,8 @@ import {
 import { consumeRateLimit, RATE_LIMITS } from "@/server/auth/rate-limit";
 import { requireSession } from "@/server/auth/session-cookie";
 import { WeddingAccessError } from "@/server/authz/wedding-access";
+import { requireWeddingFeature } from "@/server/billing/access";
+import { FeatureLockedError, lockedState, upgradePath } from "@/server/billing/locked";
 import { setInvitationMusic, updateInvitationMusic } from "@/server/invitation/invitation-service";
 import { deleteAssetIfUnused, uploadAudio, uploadImage } from "@/server/media/media-service";
 import { createCalendarEvent, deleteCalendarEvent, updateCalendarEvent } from "@/server/planning/calendar-service";
@@ -45,6 +47,7 @@ function readFields(formData: FormData, keys: readonly string[]): Record<string,
 }
 
 function failure(error: unknown, event: string, values?: Record<string, string>): FormState {
+  if (error instanceof FeatureLockedError) return lockedState(error, values);
   if (error instanceof WeddingAccessError) return { status: "error", message: NO_ACCESS, values };
   logger.error(event, { error });
   return { status: "error", message: "Data belum berhasil disimpan. Silakan coba lagi.", values };
@@ -54,6 +57,7 @@ async function runVoid(event: string, paths: string[], action: () => Promise<unk
   try {
     await action();
   } catch (error) {
+    if (error instanceof FeatureLockedError) redirect(upgradePath(error));
     if (error instanceof WeddingAccessError) return;
     logger.error(event, { error });
     throw error;
@@ -183,6 +187,7 @@ export async function uploadGiftItemPhotoAction(_prev: FormState, formData: Form
   if (!(file instanceof File) || file.size === 0) return { status: "error", message: "Pilih foto terlebih dahulu." };
   if (file.size > IMAGE_MAX_BYTES) return { status: "error", message: IMAGE_REJECTION_MESSAGE.too_large };
   try {
+    await requireWeddingFeature("seserahan", session.user.id, readString(formData, "weddingId"));
     const limit = await consumeRateLimit(`image-upload:user:${session.user.id}`, RATE_LIMITS.imageUploadPerUser);
     if (!limit.allowed) return { status: "error", message: "Terlalu banyak unggahan dalam waktu singkat. Coba lagi nanti." };
     const uploaded = await uploadImage(session.user.id, readString(formData, "weddingId"), {
@@ -292,6 +297,7 @@ export async function uploadInvitationMusicAction(_prev: FormState, formData: Fo
   if (!(file instanceof File) || file.size === 0) return { status: "error", message: "Pilih file musik terlebih dahulu." };
   if (file.size > AUDIO_MAX_BYTES) return { status: "error", message: AUDIO_REJECTION_MESSAGE.too_large };
   try {
+    await requireWeddingFeature("invitation", session.user.id, weddingId);
     const limit = await consumeRateLimit(`image-upload:user:${session.user.id}`, RATE_LIMITS.imageUploadPerUser);
     if (!limit.allowed) return { status: "error", message: "Terlalu banyak unggahan dalam waktu singkat. Coba lagi nanti." };
     const uploaded = await uploadAudio(session.user.id, weddingId, {

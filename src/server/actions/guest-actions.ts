@@ -11,6 +11,7 @@ import { bulkInvitationStatusSchema, guestGroupSchema, guestInputSchema } from "
 import { consumeRateLimit, RATE_LIMITS } from "@/server/auth/rate-limit";
 import { requireSession } from "@/server/auth/session-cookie";
 import { WeddingAccessError } from "@/server/authz/wedding-access";
+import { FeatureLockedError, lockedState, upgradePath } from "@/server/billing/locked";
 import {
   commitGuestImport,
   previewGuestImport,
@@ -55,6 +56,7 @@ function revalidateGuests() {
 }
 
 function failure(error: unknown, event: string, values?: Record<string, string>): FormState {
+  if (error instanceof FeatureLockedError) return lockedState(error, values);
   if (error instanceof WeddingAccessError) return { status: "error", message: NO_ACCESS, values };
   logger.error(event, { error });
   return { status: "error", message: "Data belum berhasil disimpan. Silakan coba lagi.", values };
@@ -108,6 +110,7 @@ export async function deleteGuestAction(formData: FormData): Promise<void> {
   try {
     await deleteGuest(session.user.id, readString(formData, "guestId"));
   } catch (error) {
+    if (error instanceof FeatureLockedError) redirect(upgradePath(error));
     if (error instanceof WeddingAccessError) return;
     throw error;
   }
@@ -128,6 +131,7 @@ export async function bulkUpdateGuestStatusAction(formData: FormData): Promise<v
   try {
     count = await bulkUpdateInvitationStatus(session.user.id, readString(formData, "weddingId"), parsed.data.guestIds, parsed.data.status);
   } catch (error) {
+    if (error instanceof FeatureLockedError) redirect(upgradePath(error));
     if (error instanceof WeddingAccessError) return;
     throw error;
   }
@@ -174,6 +178,7 @@ export async function deleteGuestGroupAction(formData: FormData): Promise<void> 
   try {
     await deleteGuestGroup(session.user.id, readString(formData, "groupId"));
   } catch (error) {
+    if (error instanceof FeatureLockedError) redirect(upgradePath(error));
     if (error instanceof WeddingAccessError) return;
     throw error;
   }
@@ -186,6 +191,7 @@ export async function initializeGuestGroupsAction(formData: FormData): Promise<v
   try {
     await initializeGuestGroupsIfMissing(session.user.id, readString(formData, "weddingId"));
   } catch (error) {
+    if (error instanceof FeatureLockedError) redirect(upgradePath(error));
     if (error instanceof WeddingAccessError) return;
     throw error;
   }

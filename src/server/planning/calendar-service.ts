@@ -6,6 +6,7 @@ import { formatTimeRange, type CalendarEntry } from "@/lib/planning";
 import type { CalendarEventInput } from "@/lib/validation/planning";
 import { recordActivity } from "@/server/activity/activity-service";
 import { memberWeddingWhere, requireWeddingMember, WeddingAccessError } from "@/server/authz/wedding-access";
+import { getWeddingFeatures } from "@/server/billing/access";
 import { getDb } from "@/server/db";
 
 const uuidSchema = z.uuid();
@@ -32,13 +33,15 @@ export async function listCalendarEntries(
   const range = { gte: isoToDbDate(fromIso), lte: isoToDbDate(toIso) };
   const scope = { weddingId: membership.weddingId };
   const db = getDb();
+  const features = await getWeddingFeatures(membership.weddingId);
+  const none = Promise.resolve([] as never[]);
 
   const [tasks, expenses, events, meetings, custom] = await Promise.all([
     db.task.findMany({
       where: { ...scope, dueDate: range, status: { not: "CANCELLED" } },
       select: { id: true, title: true, dueDate: true, status: true, category: { select: { name: true } } },
     }),
-    db.expense.findMany({
+    features.has("budget") ? db.expense.findMany({
       where: { ...scope, dueDate: range },
       select: {
         id: true,
@@ -48,15 +51,15 @@ export async function listCalendarEntries(
         payments: { select: { amount: true } },
         vendor: { select: { name: true } },
       },
-    }),
-    db.weddingEvent.findMany({
+    }) : none,
+    features.has("invitation") ? db.weddingEvent.findMany({
       where: { ...scope, eventDate: range },
       select: { id: true, name: true, eventDate: true, startTime: true, endTime: true, venueName: true },
-    }),
-    db.vendorResearch.findMany({
+    }) : none,
+    features.has("vendors") ? db.vendorResearch.findMany({
       where: { ...scope, meetingDate: range },
       select: { id: true, name: true, meetingDate: true, meetingTime: true, status: true, category: { select: { name: true } } },
-    }),
+    }) : none,
     db.calendarEvent.findMany({
       where: { ...scope, eventDate: range },
       select: { id: true, title: true, eventDate: true, startTime: true, endTime: true, location: true },

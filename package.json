@@ -23,6 +23,7 @@
     "db:status": "prisma migrate status",
     "db:seed": "tsx prisma/seed.ts",
     "db:test:deploy": "tsx scripts/with-test-db.ts prisma migrate deploy",
+    "access:grant": "tsx scripts/grant-access.ts",
     "db:test:seed": "tsx scripts/with-test-db.ts tsx prisma/seed.ts"
   },
   "dependencies": {

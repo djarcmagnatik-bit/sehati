@@ -6,7 +6,8 @@ import { EXPENSE_PAGE_SIZE, type ExpenseFilters, type ExpenseSort } from "@/lib/
 import { isoToDbDate } from "@/lib/dates";
 import type { BudgetCategoryInput, BudgetSettingsInput, ExpenseInput, PaymentInput } from "@/lib/validation/budget";
 import { recordActivity } from "@/server/activity/activity-service";
-import { memberWeddingWhere, requireWeddingMember, WeddingAccessError } from "@/server/authz/wedding-access";
+import { memberWeddingWhere, WeddingAccessError } from "@/server/authz/wedding-access";
+import { requireWeddingFeature } from "@/server/billing/access";
 import { getDb } from "@/server/db";
 
 type Tx = Prisma.TransactionClient;
@@ -52,7 +53,7 @@ export async function initializeBudgetIfMissing(
   weddingId: string,
   now: Date = new Date(),
 ): Promise<InitializeBudgetResult> {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("budget", userId, weddingId);
   return getDb().$transaction(async (tx) => {
     const claimed = await tx.wedding.updateMany({
       where: { id: membership.weddingId, budgetInitializedAt: null, deletedAt: null },
@@ -77,7 +78,7 @@ export async function initializeBudgetIfMissing(
 // ─── Overview & settings ─────────────────────────────────────────────────────
 
 export async function getBudgetOverview(userId: string, weddingId: string) {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("budget", userId, weddingId);
   const id = membership.weddingId;
   const db = getDb();
 
@@ -140,7 +141,7 @@ export async function getBudgetOverview(userId: string, weddingId: string) {
 }
 
 export async function updateBudgetSettings(userId: string, weddingId: string, input: BudgetSettingsInput): Promise<void> {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("budget", userId, weddingId);
   await getDb().$transaction(async (tx) => {
     await tx.wedding.update({
       where: { id: membership.weddingId },
@@ -161,7 +162,7 @@ export async function updateBudgetSettings(userId: string, weddingId: string, in
 // ─── Categories ──────────────────────────────────────────────────────────────
 
 export async function getBudgetCategoryOptions(userId: string, weddingId: string) {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("budget", userId, weddingId);
   return getDb().budgetCategory.findMany({
     where: { weddingId: membership.weddingId },
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
@@ -196,7 +197,7 @@ export async function createBudgetCategory(
   weddingId: string,
   input: BudgetCategoryInput,
 ): Promise<BudgetCategoryResult> {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("budget", userId, weddingId);
   try {
     return await getDb().$transaction(async (tx) => {
       if (await categoryNameTaken(tx, membership.weddingId, input.name)) {
@@ -239,7 +240,7 @@ export async function updateBudgetCategory(
 ): Promise<BudgetCategoryResult> {
   const category = await getBudgetCategoryForUser(userId, categoryId);
   if (!category) throw new WeddingAccessError();
-  const membership = await requireWeddingMember(userId, category.weddingId);
+  const membership = await requireWeddingFeature("budget", userId, category.weddingId);
 
   try {
     return await getDb().$transaction(async (tx) => {
@@ -274,7 +275,7 @@ export async function deleteBudgetCategory(
   const category = await getBudgetCategoryForUser(userId, categoryId);
   if (!category) throw new WeddingAccessError();
   if (category._count.expenses > 0) return { ok: false, reason: "has_expenses" };
-  const membership = await requireWeddingMember(userId, category.weddingId);
+  const membership = await requireWeddingFeature("budget", userId, category.weddingId);
 
   await getDb().$transaction(async (tx) => {
     await tx.budgetCategory.delete({ where: { id: category.id } });
@@ -365,7 +366,7 @@ async function queryExpenses(weddingId: string, filters: ExpenseFilters, limit: 
 }
 
 export async function listExpenses(userId: string, weddingId: string, filters: ExpenseFilters) {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("budget", userId, weddingId);
   const result = await queryExpenses(
     membership.weddingId,
     filters,
@@ -377,7 +378,7 @@ export async function listExpenses(userId: string, weddingId: string, filters: E
 
 /** Expenses that still have an outstanding balance, nearest due date first. */
 export async function getUpcomingPayments(userId: string, weddingId: string, limit = 5) {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("budget", userId, weddingId);
   const result = await queryExpenses(
     membership.weddingId,
     { status: "outstanding", categoryId: null, q: "", sort: "due", page: 1 },
@@ -445,7 +446,7 @@ async function expenseReferencesError(
 }
 
 export async function createExpense(userId: string, weddingId: string, input: ExpenseInput): Promise<ExpenseMutationResult> {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("budget", userId, weddingId);
   const referenceError = await expenseReferencesError(input, membership.weddingId);
   if (referenceError) return { ok: false, reason: referenceError };
 
@@ -483,7 +484,7 @@ async function findExpenseScope(userId: string, expenseId: string) {
     select: { id: true, weddingId: true, title: true },
   });
   if (!expense) throw new WeddingAccessError();
-  const membership = await requireWeddingMember(userId, expense.weddingId);
+  const membership = await requireWeddingFeature("budget", userId, expense.weddingId);
   return { expense, membership };
 }
 
@@ -599,7 +600,7 @@ export async function deletePayment(userId: string, paymentId: string): Promise<
     select: { id: true, weddingId: true, expenseId: true, amount: true, expense: { select: { title: true } } },
   });
   if (!payment) throw new WeddingAccessError();
-  const membership = await requireWeddingMember(userId, payment.weddingId);
+  const membership = await requireWeddingFeature("budget", userId, payment.weddingId);
 
   await getDb().$transaction(async (tx) => {
     await lockExpense(tx, payment.expenseId);

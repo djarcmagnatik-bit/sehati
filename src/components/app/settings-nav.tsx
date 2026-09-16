@@ -8,6 +8,7 @@ const ITEMS = [
   { href: "/settings/security", label: "Keamanan akun" },
   { href: "/settings/wedding", label: "Pernikahan" },
   { href: "/settings/partner", label: "Pasangan" },
+  { href: "/billing", label: "Akses & pembayaran" },
 ] as const;
 
 export function SettingsNav() {

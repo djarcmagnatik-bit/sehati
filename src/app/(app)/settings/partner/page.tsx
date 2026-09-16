@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SettingsNav } from "@/components/app/settings-nav";
 import { Alert } from "@/components/ui/alert";
@@ -7,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { formatDateTime } from "@/lib/dates";
 import { revokeInvitationAction } from "@/server/actions/collaboration-actions";
 import { requireSession } from "@/server/auth/session-cookie";
+import { weddingHasFeature } from "@/server/billing/access";
 import { getPartnerOverview } from "@/server/collaboration/partner-invitation-service";
 import { getActiveWeddingForUser } from "@/server/wedding/wedding-service";
 import { InvitePartnerForm } from "./invite-partner-form";
@@ -33,7 +35,10 @@ export default async function PartnerSettingsPage({
   const { wedding } = membership;
   const params = await searchParams;
   const notice = typeof params.notice === "string" ? NOTICES[params.notice] : undefined;
-  const overview = await getPartnerOverview(session.user.id, wedding.id);
+  const [overview, canInvite] = await Promise.all([
+    getPartnerOverview(session.user.id, wedding.id),
+    weddingHasFeature(wedding.id, "collaboration"),
+  ]);
   const partner = overview.members.find((member) => member.role === "PARTNER");
   const isOwner = overview.viewerRole === "OWNER";
   const pending = overview.pendingInvitation;
@@ -91,7 +96,16 @@ export default async function PartnerSettingsPage({
               </form>
             </div>
           ) : null}
-          <InvitePartnerForm weddingId={wedding.id} defaultEmail={pending?.email ?? ""} hasPending={Boolean(pending)} />
+          {canInvite ? (
+            <InvitePartnerForm weddingId={wedding.id} defaultEmail={pending?.email ?? ""} hasPending={Boolean(pending)} />
+          ) : (
+            <p className="text-sm text-ink-700">
+              <span aria-hidden="true">🔒 </span>Kolaborasi pasangan tersedia di Akses Penuh.{" "}
+              <Link href="/billing?feature=collaboration" className="font-semibold text-clay-700 underline underline-offset-4">
+                Lihat Akses Penuh
+              </Link>
+            </p>
+          )}
         </Card>
       ) : null}
     </div>

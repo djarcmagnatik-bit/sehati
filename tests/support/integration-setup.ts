@@ -15,6 +15,8 @@ if (testUrl === process.env["DATABASE_URL"]) {
 process.env["DATABASE_URL"] = testUrl;
 // Uploads from integration tests stay out of the development media store.
 process.env["MEDIA_FILE_DIR"] = ".data/media-test";
+process.env["PAYMENT_PROVIDER"] = "sandbox";
+process.env["PAYMENT_SANDBOX_SECRET"] = "integration-sandbox-secret-0123456789";
 
 afterAll(async () => {
   const { getDb } = await import("@/server/db");

@@ -36,6 +36,10 @@ export default defineConfig({
       MAIL_DRIVER: "file",
       MAIL_FILE_DIR: ".data/mail-e2e",
       MEDIA_FILE_DIR: ".data/media-e2e",
+      // Checkout goes through the sandbox provider: a real signed webhook, no real money.
+      PAYMENT_PROVIDER: "sandbox",
+      PAYMENT_SANDBOX_SECRET: "e2e-sandbox-webhook-secret-0123456789",
+      ALLOW_SANDBOX_PAYMENTS: "true",
     },
   },
 });

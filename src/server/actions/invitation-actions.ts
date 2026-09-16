@@ -21,6 +21,8 @@ import {
 import { consumeRateLimit, RATE_LIMITS } from "@/server/auth/rate-limit";
 import { requireSession } from "@/server/auth/session-cookie";
 import { WeddingAccessError } from "@/server/authz/wedding-access";
+import { requireWeddingFeature } from "@/server/billing/access";
+import { FeatureLockedError, lockedState, upgradePath } from "@/server/billing/locked";
 import {
   addGalleryImage,
   createGiftAccount,
@@ -63,6 +65,7 @@ function revalidateInvitation() {
 }
 
 function failure(error: unknown, event: string, values?: Record<string, string>): FormState {
+  if (error instanceof FeatureLockedError) return lockedState(error, values);
   if (error instanceof WeddingAccessError) return { status: "error", message: NO_ACCESS, values };
   logger.error(event, { error });
   return { status: "error", message: "Perubahan belum tersimpan. Silakan coba lagi.", values };
@@ -73,6 +76,7 @@ async function runVoid(event: string, action: () => Promise<void>): Promise<void
   try {
     await action();
   } catch (error) {
+    if (error instanceof FeatureLockedError) redirect(upgradePath(error));
     if (error instanceof WeddingAccessError) return;
     logger.error(event, { error });
     throw error;
@@ -164,6 +168,7 @@ export async function publishInvitationAction(formData: FormData): Promise<void>
     const result = await publishInvitation(session.user.id, readString(formData, "weddingId"));
     if (!result.ok) notice = `incomplete_${result.missing.join("-")}`;
   } catch (error) {
+    if (error instanceof FeatureLockedError) redirect(upgradePath(error));
     if (error instanceof WeddingAccessError) return;
     throw error;
   }
@@ -287,6 +292,8 @@ export async function uploadGalleryImageAction(_prev: FormState, formData: FormD
   const session = await requireSession();
   const weddingId = readString(formData, "weddingId");
   try {
+    // Checked before the upload, so a locked workspace never stores the file.
+    await requireWeddingFeature("invitation", session.user.id, weddingId);
     const uploaded = await uploadFromForm(session.user.id, weddingId, formData.get("file"));
     if (!("ok" in uploaded)) return uploaded;
     const added = await addGalleryImage(session.user.id, weddingId, uploaded.assetId);
@@ -307,6 +314,7 @@ export async function uploadCoverImageAction(_prev: FormState, formData: FormDat
   const session = await requireSession();
   const weddingId = readString(formData, "weddingId");
   try {
+    await requireWeddingFeature("invitation", session.user.id, weddingId);
     const uploaded = await uploadFromForm(session.user.id, weddingId, formData.get("file"));
     if (!("ok" in uploaded)) return uploaded;
     await setCoverImage(session.user.id, weddingId, uploaded.assetId);

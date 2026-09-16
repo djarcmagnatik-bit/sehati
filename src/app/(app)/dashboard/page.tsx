@@ -16,12 +16,14 @@ import {
   getWeddingCountdown,
   todayIsoInTimeZone,
 } from "@/lib/dates";
+import { FEATURE_LABEL, type Feature } from "@/lib/billing";
 import { formatRupiah } from "@/lib/money";
 import { getRecentActivity } from "@/server/activity/activity-service";
 import { requireSession } from "@/server/auth/session-cookie";
 import { getBudgetOverview, getUpcomingPayments } from "@/server/budget/budget-service";
 import { getChecklistSummary, getUpcomingTasks } from "@/server/checklist/task-service";
 import { getGuestSummary } from "@/server/guests/guest-service";
+import { getWeddingFeatures } from "@/server/billing/access";
 import { getSavingsSummary } from "@/server/planning/savings-service";
 import { getSeserahanSummary } from "@/server/planning/seserahan-service";
 import { getVendorSummary } from "@/server/vendors/vendor-service";
@@ -53,6 +55,21 @@ function DetailRow({ label, value }: { label: string; value: string }) {
       <dt className="text-sm text-ink-500">{label}</dt>
       <dd className="text-sm font-medium text-ink-900">{value}</dd>
     </div>
+  );
+}
+
+/** Dashboard preview for a paid section: says what it is and where to unlock it. */
+function LockedCard({ title, feature }: { title: string; feature: Feature }) {
+  return (
+    <Card title={title}>
+      <p className="text-sm text-ink-700">
+        <span aria-hidden="true">🔒 </span>
+        {FEATURE_LABEL[feature]} tersedia di Akses Penuh.
+      </p>
+      <Link href={`/billing?feature=${feature}`} className={`mt-4 inline-block ${LINK_CLASS}`}>
+        Lihat Akses Penuh
+      </Link>
+    </Card>
   );
 }
 
@@ -91,18 +108,21 @@ export default async function DashboardPage({
   });
   const partnerJoined = wedding.members.some((member) => member.role === "PARTNER");
 
+  // Paid sections are only queried when the wedding may use them; the services would refuse anyway.
+  const features = await getWeddingFeatures(wedding.id);
+  const when = <T,>(feature: Feature, load: () => Promise<T>): Promise<T | null> =>
+    features.has(feature) ? load() : Promise.resolve(null);
   const [summary, upcomingTasks, recentActivity, budget, upcomingPayments, vendors, guests, savings, seserahan] = await Promise.all([
     getChecklistSummary(session.user.id, wedding.id, todayIso),
     getUpcomingTasks(session.user.id, wedding.id, 5),
     getRecentActivity(session.user.id, wedding.id, 5),
-    getBudgetOverview(session.user.id, wedding.id),
-    getUpcomingPayments(session.user.id, wedding.id, 5),
-    getVendorSummary(session.user.id, wedding.id),
-    getGuestSummary(session.user.id, wedding.id),
+    when("budget", () => getBudgetOverview(session.user.id, wedding.id)),
+    when("budget", () => getUpcomingPayments(session.user.id, wedding.id, 5)),
+    when("vendors", () => getVendorSummary(session.user.id, wedding.id)),
+    when("guests", () => getGuestSummary(session.user.id, wedding.id)),
     getSavingsSummary(session.user.id, wedding.id, now),
-    getSeserahanSummary(session.user.id, wedding.id),
+    when("seserahan", () => getSeserahanSummary(session.user.id, wedding.id)),
   ]);
-  const budgetTotals = budget.totals;
 
   return (
     <div className="space-y-6">
@@ -188,95 +208,117 @@ export default async function DashboardPage({
           )}
         </Card>
 
-        <Card title="Ringkasan budget">
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
-            <MoneyStat label="Target" amount={budgetTotals.target} testId="budget-target" />
-            <MoneyStat label="Dialokasikan" amount={budgetTotals.allocated} testId="budget-allocated" />
-            <MoneyStat label="Komitmen" amount={budgetTotals.committed} testId="budget-committed" />
-            <MoneyStat label="Sudah dibayar" amount={budgetTotals.paid} testId="budget-paid" />
-            <MoneyStat label="Belum dibayar" amount={budgetTotals.unpaid} testId="budget-unpaid" />
-            <MoneyStat label="Sisa budget" amount={budgetTotals.remaining} testId="budget-remaining" emptyLabel="—" />
-          </dl>
-          {budgetTotals.warning === "over" ? (
-            <p className="mt-3 text-sm font-medium text-danger-600">⚠ Komitmen melebihi target budget</p>
-          ) : budgetTotals.warning === "near" ? (
-            <p className="mt-3 text-sm font-medium text-clay-700">⚠ Komitmen mendekati target budget</p>
-          ) : null}
-          <Link href="/budget" className={`mt-4 inline-block ${LINK_CLASS}`}>
-            Buka budget
-          </Link>
-        </Card>
+        {features.has("budget") ? (
+          <Card title="Ringkasan budget">
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
+              <MoneyStat label="Target" amount={budget!.totals.target} testId="budget-target" />
+              <MoneyStat label="Dialokasikan" amount={budget!.totals.allocated} testId="budget-allocated" />
+              <MoneyStat label="Komitmen" amount={budget!.totals.committed} testId="budget-committed" />
+              <MoneyStat label="Sudah dibayar" amount={budget!.totals.paid} testId="budget-paid" />
+              <MoneyStat label="Belum dibayar" amount={budget!.totals.unpaid} testId="budget-unpaid" />
+              <MoneyStat label="Sisa budget" amount={budget!.totals.remaining} testId="budget-remaining" emptyLabel="—" />
+            </dl>
+            {budget!.totals.warning === "over" ? (
+              <p className="mt-3 text-sm font-medium text-danger-600">⚠ Komitmen melebihi target budget</p>
+            ) : budget!.totals.warning === "near" ? (
+              <p className="mt-3 text-sm font-medium text-clay-700">⚠ Komitmen mendekati target budget</p>
+            ) : null}
+            <Link href="/budget" className={`mt-4 inline-block ${LINK_CLASS}`}>
+              Buka budget
+            </Link>
+          </Card>
+        ) : (
+          <LockedCard title="Ringkasan budget" feature="budget" />
+        )}
 
-        <Card title="Pembayaran mendatang">
-          {upcomingPayments.length === 0 ? (
-            <p className="text-sm text-ink-700">Tidak ada tagihan yang belum lunas.</p>
-          ) : (
-            <ul className="divide-y divide-cream-200">
-              {upcomingPayments.map((expense) => (
-                <li key={expense.id} className="flex items-center justify-between gap-3 py-2.5">
-                  <div className="min-w-0">
-                    <Link
-                      href={`/budget/expenses/${expense.id}`}
-                      className="block truncate text-sm font-medium text-ink-900 underline-offset-4 hover:underline"
-                    >
-                      {expense.title}
-                    </Link>
-                    <p className="text-xs text-ink-500">
-                      {expense.vendor ? `${expense.vendor.name} · ` : ""}Sisa {formatRupiah(expense.outstanding)}
-                    </p>
-                  </div>
-                  <span className="shrink-0">
-                    {expense.dueDateIso ? (
-                      <DueBadge dueDateIso={expense.dueDateIso} status="TODO" todayIso={todayIso} />
-                    ) : (
-                      <span className="text-xs text-ink-500">Tanpa jatuh tempo</span>
-                    )}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
+        {features.has("budget") ? (
+          <Card title="Pembayaran mendatang">
+            {upcomingPayments!.length === 0 ? (
+              <p className="text-sm text-ink-700">Tidak ada tagihan yang belum lunas.</p>
+            ) : (
+              <ul className="divide-y divide-cream-200">
+                {upcomingPayments!.map((expense) => (
+                  <li key={expense.id} className="flex items-center justify-between gap-3 py-2.5">
+                    <div className="min-w-0">
+                      <Link
+                        href={`/budget/expenses/${expense.id}`}
+                        className="block truncate text-sm font-medium text-ink-900 underline-offset-4 hover:underline"
+                      >
+                        {expense.title}
+                      </Link>
+                      <p className="text-xs text-ink-500">
+                        {expense.vendor ? `${expense.vendor.name} · ` : ""}Sisa {formatRupiah(expense.outstanding)}
+                      </p>
+                    </div>
+                    <span className="shrink-0">
+                      {expense.dueDateIso ? (
+                        <DueBadge dueDateIso={expense.dueDateIso} status="TODO" todayIso={todayIso} />
+                      ) : (
+                        <span className="text-xs text-ink-500">Tanpa jatuh tempo</span>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        ) : (
+          <LockedCard title="Pembayaran mendatang" feature="budget" />
+        )}
 
-        <Card title="Tamu">
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
-            <CountStat label="Undangan" value={guests.invitations} testId="dashboard-guests-invitations" />
-            <CountStat label="Estimasi kursi" value={guests.seats} testId="dashboard-guests-seats" />
-            <CountStat label="Orang yang hadir" value={guests.attendingSeats} testId="dashboard-guests-attending-seats" />
-            <CountStat label="Belum merespons" value={guests.pendingInvitations} testId="dashboard-guests-pending" />
-          </dl>
-          <Link href="/guests" className={`mt-4 inline-block ${LINK_CLASS}`}>
-            Buka daftar tamu
-          </Link>
-        </Card>
+        {features.has("guests") ? (
+          <Card title="Tamu">
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
+              <CountStat label="Undangan" value={guests!.invitations} testId="dashboard-guests-invitations" />
+              <CountStat label="Estimasi kursi" value={guests!.seats} testId="dashboard-guests-seats" />
+              <CountStat label="Orang yang hadir" value={guests!.attendingSeats} testId="dashboard-guests-attending-seats" />
+              <CountStat label="Belum merespons" value={guests!.pendingInvitations} testId="dashboard-guests-pending" />
+            </dl>
+            <Link href="/guests" className={`mt-4 inline-block ${LINK_CLASS}`}>
+              Buka daftar tamu
+            </Link>
+          </Card>
+        ) : (
+          <LockedCard title="Tamu" feature="guests" />
+        )}
 
-        <Card title="Vendor">
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
-            <CountStat label="Dibooking" value={vendors.booked} testId="dashboard-vendors-booked" />
-            <CountStat label="Kandidat dalam riset" value={vendors.researching} testId="dashboard-vendors-researching" />
-            <CountStat label="Menunggu DP" value={vendors.needingDp} testId="dashboard-vendors-needing-dp" />
-            <MoneyStat label="Sisa pembayaran vendor" amount={vendors.outstanding} testId="dashboard-vendors-outstanding" />
-          </dl>
-          <Link href="/vendors" className={`mt-4 inline-block ${LINK_CLASS}`}>
-            Buka vendor
-          </Link>
-        </Card>
+        {features.has("vendors") ? (
+          <Card title="Vendor">
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
+              <CountStat label="Dibooking" value={vendors!.booked} testId="dashboard-vendors-booked" />
+              <CountStat label="Kandidat dalam riset" value={vendors!.researching} testId="dashboard-vendors-researching" />
+              <CountStat label="Menunggu DP" value={vendors!.needingDp} testId="dashboard-vendors-needing-dp" />
+              <MoneyStat label="Sisa pembayaran vendor" amount={vendors!.outstanding} testId="dashboard-vendors-outstanding" />
+            </dl>
+            <Link href="/vendors" className={`mt-4 inline-block ${LINK_CLASS}`}>
+              Buka vendor
+            </Link>
+          </Card>
+        ) : (
+          <LockedCard title="Vendor" feature="vendors" />
+        )}
 
         <Card title="Tabungan & seserahan">
           <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
             <MoneyStat label="Tabungan terkumpul" amount={savings.saved} testId="dashboard-savings-saved" />
             <MoneyStat label="Kekurangan dana" amount={savings.remaining} testId="dashboard-savings-remaining" emptyLabel="—" />
-            <CountStat label="Seserahan siap" value={seserahan.done} testId="dashboard-seserahan-done" />
-            <CountStat label="Total barang seserahan" value={seserahan.items} testId="dashboard-seserahan-items" />
+            {seserahan ? (
+              <>
+                <CountStat label="Seserahan siap" value={seserahan.done} testId="dashboard-seserahan-done" />
+                <CountStat label="Total barang seserahan" value={seserahan.items} testId="dashboard-seserahan-items" />
+              </>
+            ) : null}
           </dl>
           {savings.percent !== null ? <ProgressBar percent={savings.percent} label="Progres tabungan" className="mt-4" /> : null}
           <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2">
             <Link href="/savings" className={LINK_CLASS}>
               Buka tabungan
             </Link>
-            <Link href="/seserahan" className={LINK_CLASS}>
-              Buka seserahan
-            </Link>
+            {seserahan ? (
+              <Link href="/seserahan" className={LINK_CLASS}>
+                Buka seserahan
+              </Link>
+            ) : null}
             <Link href="/calendar" className={LINK_CLASS}>
               Lihat kalender
             </Link>

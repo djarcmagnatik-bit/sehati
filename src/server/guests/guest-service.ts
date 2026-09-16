@@ -6,7 +6,8 @@ import { GUEST_PAGE_SIZE, type GuestFilters, type GuestSort } from "@/lib/guest-
 import { nextInvitationStatus, normalizePhone, type EditableInvitationStatus } from "@/lib/guests";
 import type { GuestGroupInput, GuestInput } from "@/lib/validation/guests";
 import { recordActivity } from "@/server/activity/activity-service";
-import { memberWeddingWhere, requireWeddingMember, WeddingAccessError } from "@/server/authz/wedding-access";
+import { memberWeddingWhere, WeddingAccessError } from "@/server/authz/wedding-access";
+import { requireWeddingFeature } from "@/server/billing/access";
 import { getDb } from "@/server/db";
 
 type Tx = Prisma.TransactionClient;
@@ -45,7 +46,7 @@ export async function initializeGuestGroupsIfMissing(
   weddingId: string,
   now: Date = new Date(),
 ): Promise<{ ok: true; created: number } | { ok: false; reason: "already_initialized" }> {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("guests", userId, weddingId);
   return getDb().$transaction(async (tx) => {
     const claimed = await tx.wedding.updateMany({
       where: { id: membership.weddingId, guestGroupsInitializedAt: null, deletedAt: null },
@@ -66,7 +67,7 @@ export async function initializeGuestGroupsIfMissing(
 }
 
 export async function getGuestGroupOptions(userId: string, weddingId: string) {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("guests", userId, weddingId);
   return getDb().guestGroup.findMany({
     where: { weddingId: membership.weddingId },
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
@@ -75,7 +76,7 @@ export async function getGuestGroupOptions(userId: string, weddingId: string) {
 }
 
 export async function listGuestGroupsWithCounts(userId: string, weddingId: string) {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("guests", userId, weddingId);
   const db = getDb();
   const [groups, counts] = await Promise.all([
     db.guestGroup.findMany({
@@ -108,7 +109,7 @@ async function groupNameTaken(tx: Tx, weddingId: string, name: string, excludeId
 export type GuestGroupResult = { ok: true; groupId: string } | { ok: false; reason: "duplicate_name" };
 
 export async function createGuestGroup(userId: string, weddingId: string, input: GuestGroupInput): Promise<GuestGroupResult> {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("guests", userId, weddingId);
   try {
     return await getDb().$transaction(async (tx) => {
       if (await groupNameTaken(tx, membership.weddingId, input.name)) return { ok: false, reason: "duplicate_name" } as const;
@@ -141,7 +142,7 @@ async function findGroupScope(userId: string, groupId: string) {
     select: { id: true, weddingId: true, name: true },
   });
   if (!group) throw new WeddingAccessError();
-  const membership = await requireWeddingMember(userId, group.weddingId);
+  const membership = await requireWeddingFeature("guests", userId, group.weddingId);
   return { group, membership };
 }
 
@@ -209,7 +210,7 @@ export type GuestSummary = {
 
 /** Invitations (rows) and seats (people) are always counted separately. One aggregate query. */
 export async function getGuestSummary(userId: string, weddingId: string): Promise<GuestSummary> {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("guests", userId, weddingId);
   const rows = await getDb().$queryRaw<Array<Record<keyof GuestSummary, number>>>`
     SELECT
       COUNT(*)::int AS "invitations",
@@ -248,7 +249,7 @@ const GUEST_ORDER: Record<GuestSort, Prisma.GuestOrderByWithRelationInput[]> = {
 };
 
 export async function listGuests(userId: string, weddingId: string, filters: GuestFilters) {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("guests", userId, weddingId);
   const where: Prisma.GuestWhereInput = { weddingId: membership.weddingId };
   if (filters.rsvp !== "all") where.rsvpStatus = filters.rsvp;
   if (filters.invitation !== "all") where.invitationStatus = filters.invitation;
@@ -336,7 +337,7 @@ function guestData(input: GuestInput) {
 }
 
 export async function createGuest(userId: string, weddingId: string, input: GuestInput): Promise<GuestMutationResult> {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("guests", userId, weddingId);
   if (input.groupId && !(await groupInWedding(input.groupId, membership.weddingId))) return { ok: false, reason: "invalid_group" };
 
   return getDb().$transaction(async (tx) => {
@@ -370,7 +371,7 @@ async function findGuestScope(userId: string, guestId: string) {
     select: { id: true, weddingId: true, invitationName: true, invitationStatus: true },
   });
   if (!guest) throw new WeddingAccessError();
-  const membership = await requireWeddingMember(userId, guest.weddingId);
+  const membership = await requireWeddingFeature("guests", userId, guest.weddingId);
   return { guest, membership };
 }
 
@@ -421,7 +422,7 @@ export async function bulkUpdateInvitationStatus(
   guestIds: string[],
   status: EditableInvitationStatus,
 ): Promise<number> {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("guests", userId, weddingId);
   const ids = [...new Set(guestIds.filter(isUuid))];
   if (ids.length === 0) return 0;
 

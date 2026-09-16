@@ -7,6 +7,7 @@ import { SITE } from "@/lib/site";
 import { recordActivity } from "@/server/activity/activity-service";
 import { generateToken, hashToken } from "@/server/auth/tokens";
 import { requireWeddingMember } from "@/server/authz/wedding-access";
+import { requireWeddingFeature } from "@/server/billing/access";
 import { getDb } from "@/server/db";
 import type { Mailer } from "@/server/mail/mailer";
 
@@ -40,7 +41,7 @@ export async function createPartnerInvitation(
   deps: { mailer: Mailer; appUrl: string },
   now: Date = new Date(),
 ): Promise<CreatePartnerInvitationResult> {
-  const membership = await requireWeddingMember(userId, weddingId);
+  const membership = await requireWeddingFeature("collaboration", userId, weddingId);
   if (membership.role !== "OWNER") return { ok: false, reason: "not_owner" };
 
   const email = normalizeEmail(rawEmail);
