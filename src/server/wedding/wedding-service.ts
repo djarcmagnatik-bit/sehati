@@ -7,14 +7,15 @@ import { requireWeddingMember } from "@/server/authz/wedding-access";
 import { createBudgetCategoriesFromTemplates } from "@/server/budget/budget-service";
 import { generateTemplateTasks, recalculableTasksWhere } from "@/server/checklist/checklist-generation";
 import { getDb } from "@/server/db";
+import { createGuestGroupsFromTemplates } from "@/server/guests/guest-service";
 
 export type CreateWeddingResult =
   | { ok: true; weddingId: string }
   | { ok: false; reason: "already_has_wedding" | "invalid_event_type" | "invalid_marriage_process" };
 
 /**
- * Creates the workspace, the OWNER membership, the template checklist and the default budget
- * categories in one transaction.
+ * Creates the workspace, the OWNER membership, the template checklist, default budget categories and
+ * default guest groups in one transaction.
  */
 export async function createWeddingForUser(
   userId: string,
@@ -60,6 +61,7 @@ export async function createWeddingForUser(
           currency: data.currency,
           checklistGeneratedAt: now,
           budgetInitializedAt: now,
+          guestGroupsInitializedAt: now,
           createdById: userId,
           members: {
             create: { userId, role: "OWNER", displayName: data.displayName },
@@ -73,6 +75,7 @@ export async function createWeddingForUser(
         createdById: userId,
       });
       await createBudgetCategoriesFromTemplates(tx, wedding.id);
+      await createGuestGroupsFromTemplates(tx, wedding.id);
 
       await recordActivity(tx, {
         weddingId: wedding.id,
@@ -123,6 +126,7 @@ export function getActiveWeddingForUser(userId: string) {
           coupleNote: true,
           coupleNoteUpdatedAt: true,
           checklistGeneratedAt: true,
+          guestGroupsInitializedAt: true,
           eventType: { select: { name: true } },
           marriageProcess: { select: { name: true } },
           members: {

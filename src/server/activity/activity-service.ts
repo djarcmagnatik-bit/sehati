@@ -22,7 +22,10 @@ export type ActivityEntryInput = {
     | "expense"
     | "payment"
     | "vendor_research"
-    | "vendor";
+    | "vendor"
+    | "guest"
+    | "guest_group"
+    | "guest_import";
   entityId?: string | null;
   metadata?: ActivityMetadata;
 };

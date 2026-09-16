@@ -5,7 +5,18 @@
 export const SESSION_COOKIE_NAME =
   process.env.NODE_ENV === "production" ? "__Host-sehati_session" : "sehati_session";
 
-export const PRIVATE_PATH_PREFIXES = ["/dashboard", "/onboarding", "/settings"] as const;
+/** Signed-in areas: the proxy redirects anonymous visitors to /login and marks responses noindex. */
+export const PRIVATE_PATH_PREFIXES = [
+  "/dashboard",
+  "/onboarding",
+  "/settings",
+  "/checklist",
+  "/budget",
+  "/vendors",
+  "/guests",
+  "/activity",
+  "/more",
+] as const;
 
 export function isPrivatePath(pathname: string): boolean {
   return PRIVATE_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));

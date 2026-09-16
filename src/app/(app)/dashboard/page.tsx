@@ -21,6 +21,7 @@ import { getRecentActivity } from "@/server/activity/activity-service";
 import { requireSession } from "@/server/auth/session-cookie";
 import { getBudgetOverview, getUpcomingPayments } from "@/server/budget/budget-service";
 import { getChecklistSummary, getUpcomingTasks } from "@/server/checklist/task-service";
+import { getGuestSummary } from "@/server/guests/guest-service";
 import { getVendorSummary } from "@/server/vendors/vendor-service";
 import { getActiveWeddingForUser } from "@/server/wedding/wedding-service";
 import { CoupleNoteForm } from "./couple-note-form";
@@ -58,7 +59,7 @@ function CountStat({ label, value, testId }: { label: string; value: number; tes
     <div>
       <dt className="text-xs text-ink-500">{label}</dt>
       <dd data-testid={testId} className="mt-0.5 font-semibold text-ink-900">
-        {value}
+        {value.toLocaleString("id-ID")}
       </dd>
     </div>
   );
@@ -88,13 +89,14 @@ export default async function DashboardPage({
   });
   const partnerJoined = wedding.members.some((member) => member.role === "PARTNER");
 
-  const [summary, upcomingTasks, recentActivity, budget, upcomingPayments, vendors] = await Promise.all([
+  const [summary, upcomingTasks, recentActivity, budget, upcomingPayments, vendors, guests] = await Promise.all([
     getChecklistSummary(session.user.id, wedding.id, todayIso),
     getUpcomingTasks(session.user.id, wedding.id, 5),
     getRecentActivity(session.user.id, wedding.id, 5),
     getBudgetOverview(session.user.id, wedding.id),
     getUpcomingPayments(session.user.id, wedding.id, 5),
     getVendorSummary(session.user.id, wedding.id),
+    getGuestSummary(session.user.id, wedding.id),
   ]);
   const budgetTotals = budget.totals;
 
@@ -128,7 +130,9 @@ export default async function DashboardPage({
         </div>
       </section>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      {/* grid-cols-1 keeps the single-column track at minmax(0,1fr): without it a long,
+          truncated task title would widen the column past the viewport on a phone. */}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <Card title="Progres persiapan">
           {summary.total === 0 ? (
             <p className="text-sm text-ink-700">Belum ada tugas di checklist.</p>
@@ -228,6 +232,18 @@ export default async function DashboardPage({
               ))}
             </ul>
           )}
+        </Card>
+
+        <Card title="Tamu">
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
+            <CountStat label="Undangan" value={guests.invitations} testId="dashboard-guests-invitations" />
+            <CountStat label="Estimasi kursi" value={guests.seats} testId="dashboard-guests-seats" />
+            <CountStat label="Orang yang hadir" value={guests.attendingSeats} testId="dashboard-guests-attending-seats" />
+            <CountStat label="Belum merespons" value={guests.pendingInvitations} testId="dashboard-guests-pending" />
+          </dl>
+          <Link href="/guests" className={`mt-4 inline-block ${LINK_CLASS}`}>
+            Buka daftar tamu
+          </Link>
         </Card>
 
         <Card title="Vendor">

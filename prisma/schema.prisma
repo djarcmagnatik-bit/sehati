@@ -80,6 +80,20 @@ enum VendorResearchStatus {
   SELECTED
 }
 
+enum GuestInvitationStatus {
+  NOT_SENT
+  SENT
+  OPENED
+  FOLLOW_UP
+}
+
+enum GuestRsvpStatus {
+  PENDING
+  ATTENDING
+  MAYBE
+  DECLINED
+}
+
 // ─── Phase 1: identity & workspace ───────────────────────────────────────────
 
 model User {
@@ -104,6 +118,8 @@ model User {
   createdPayments            Payment[]            @relation("PaymentCreatedBy")
   createdVendorResearch      VendorResearch[]     @relation("VendorResearchCreatedBy")
   createdVendors             Vendor[]             @relation("VendorCreatedBy")
+  createdGuests              Guest[]              @relation("GuestCreatedBy")
+  createdGuestImports        GuestImportBatch[]   @relation("GuestImportCreatedBy")
 
   @@map("users")
 }
@@ -186,35 +202,37 @@ model MarriageProcess {
 }
 
 model Wedding {
-  id                   String              @id @default(uuid()) @db.Uuid
-  brideName            String              @map("bride_name") @db.VarChar(80)
-  groomName            String              @map("groom_name") @db.VarChar(80)
+  id                       String              @id @default(uuid()) @db.Uuid
+  brideName                String              @map("bride_name") @db.VarChar(80)
+  groomName                String              @map("groom_name") @db.VarChar(80)
   /// Name of the partner given during onboarding, before the partner account joins.
-  partnerName          String?             @map("partner_name") @db.VarChar(80)
-  coupleDisplayFormat  CoupleDisplayFormat @default(BRIDE_GROOM) @map("couple_display_format")
-  customDisplayName    String?             @map("custom_display_name") @db.VarChar(120)
-  weddingDate          DateTime            @map("wedding_date") @db.Date
-  engagementDate       DateTime?           @map("engagement_date") @db.Date
-  receptionDate        DateTime?           @map("reception_date") @db.Date
-  timeZone             String              @default("Asia/Jakarta") @map("time_zone") @db.VarChar(64)
-  eventTypeId          String?             @map("event_type_id") @db.Uuid
-  marriageProcessId    String?             @map("marriage_process_id") @db.Uuid
+  partnerName              String?             @map("partner_name") @db.VarChar(80)
+  coupleDisplayFormat      CoupleDisplayFormat @default(BRIDE_GROOM) @map("couple_display_format")
+  customDisplayName        String?             @map("custom_display_name") @db.VarChar(120)
+  weddingDate              DateTime            @map("wedding_date") @db.Date
+  engagementDate           DateTime?           @map("engagement_date") @db.Date
+  receptionDate            DateTime?           @map("reception_date") @db.Date
+  timeZone                 String              @default("Asia/Jakarta") @map("time_zone") @db.VarChar(64)
+  eventTypeId              String?             @map("event_type_id") @db.Uuid
+  marriageProcessId        String?             @map("marriage_process_id") @db.Uuid
   /// Whole rupiah. CHECK (target_budget >= 0) is added in the migration SQL.
-  targetBudget         BigInt?             @map("target_budget")
-  currency             String              @default("IDR") @db.Char(3)
+  targetBudget             BigInt?             @map("target_budget")
+  currency                 String              @default("IDR") @db.Char(3)
   /// Warn when a category's committed spend reaches this % of its allocation. CHECK 1..100.
-  budgetWarningPercent Int                 @default(80) @map("budget_warning_percent")
-  status               WeddingStatus       @default(PLANNING)
-  coupleNote           String?             @map("couple_note") @db.VarChar(280)
-  coupleNoteUpdatedAt  DateTime?           @map("couple_note_updated_at") @db.Timestamptz(3)
+  budgetWarningPercent     Int                 @default(80) @map("budget_warning_percent")
+  status                   WeddingStatus       @default(PLANNING)
+  coupleNote               String?             @map("couple_note") @db.VarChar(280)
+  coupleNoteUpdatedAt      DateTime?           @map("couple_note_updated_at") @db.Timestamptz(3)
   /// Set once template tasks have been generated; guards against generating twice.
-  checklistGeneratedAt DateTime?           @map("checklist_generated_at") @db.Timestamptz(3)
+  checklistGeneratedAt     DateTime?           @map("checklist_generated_at") @db.Timestamptz(3)
   /// Set once default budget categories have been created.
-  budgetInitializedAt  DateTime?           @map("budget_initialized_at") @db.Timestamptz(3)
-  createdById          String?             @map("created_by_id") @db.Uuid
-  createdAt            DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt            DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
-  deletedAt            DateTime?           @map("deleted_at") @db.Timestamptz(3)
+  budgetInitializedAt      DateTime?           @map("budget_initialized_at") @db.Timestamptz(3)
+  /// Set once default guest groups have been created.
+  guestGroupsInitializedAt DateTime?           @map("guest_groups_initialized_at") @db.Timestamptz(3)
+  createdById              String?             @map("created_by_id") @db.Uuid
+  createdAt                DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt                DateTime?           @map("deleted_at") @db.Timestamptz(3)
 
   eventType          EventType?          @relation(fields: [eventTypeId], references: [id], onDelete: Restrict)
   marriageProcess    MarriageProcess?    @relation(fields: [marriageProcessId], references: [id], onDelete: Restrict)
@@ -228,6 +246,9 @@ model Wedding {
   payments           Payment[]
   vendorResearch     VendorResearch[]
   vendors            Vendor[]
+  guestGroups        GuestGroup[]
+  guests             Guest[]
+  guestImportBatches GuestImportBatch[]
 
   @@index([weddingDate])
   @@map("weddings")
@@ -577,4 +598,99 @@ model Vendor {
   @@unique([researchId, weddingId])
   @@index([weddingId, categoryId])
   @@map("vendors")
+}
+
+// ─── Phase 6: guests ─────────────────────────────────────────────────────────
+
+/// Admin-configurable default guest groups, copied into each new workspace.
+model GuestGroupTemplate {
+  id        String   @id @default(uuid()) @db.Uuid
+  code      String   @unique @db.VarChar(50)
+  name      String   @db.VarChar(80)
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("guest_group_templates")
+}
+
+model GuestGroup {
+  id        String   @id @default(uuid()) @db.Uuid
+  weddingId String   @map("wedding_id") @db.Uuid
+  name      String   @db.VarChar(80)
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  wedding Wedding @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  guests  Guest[]
+
+  @@unique([weddingId, name])
+  @@unique([id, weddingId])
+  @@index([weddingId, sortOrder])
+  @@map("guest_groups")
+}
+
+/// One invitation. It can cover several people: invitation count != guest (seat) count.
+model Guest {
+  id               String                @id @default(uuid()) @db.Uuid
+  weddingId        String                @map("wedding_id") @db.Uuid
+  groupId          String?               @map("group_id") @db.Uuid
+  guestName        String                @map("guest_name") @db.VarChar(120)
+  /// How the invitation is addressed, e.g. "Keluarga Bapak Ahmad".
+  invitationName   String                @map("invitation_name") @db.VarChar(160)
+  phone            String?               @db.VarChar(25)
+  /// Digits with country code, for duplicate detection.
+  phoneNormalized  String?               @map("phone_normalized") @db.VarChar(20)
+  email            String?               @db.VarChar(254)
+  address          String?               @db.VarChar(500)
+  /// CHECK (seat_count BETWEEN 1 AND 50).
+  seatCount        Int                   @default(1) @map("seat_count")
+  invitationStatus GuestInvitationStatus @default(NOT_SENT) @map("invitation_status")
+  rsvpStatus       GuestRsvpStatus       @default(PENDING) @map("rsvp_status")
+  /// CHECK: 0 <= attending_count <= seat_count, 0 unless ATTENDING/MAYBE, >= 1 when ATTENDING.
+  attendingCount   Int                   @default(0) @map("attending_count")
+  notes            String?               @db.VarChar(1000)
+  /// Random, unguessable token for the personalized invitation link (/i/{token}).
+  invitationToken  String                @unique @map("invitation_token") @db.VarChar(32)
+  importBatchId    String?               @map("import_batch_id") @db.Uuid
+  createdById      String?               @map("created_by_id") @db.Uuid
+  createdAt        DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  wedding     Wedding           @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  group       GuestGroup?       @relation(fields: [groupId, weddingId], references: [id, weddingId], onDelete: NoAction)
+  importBatch GuestImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  createdBy   User?             @relation("GuestCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([weddingId, groupId])
+  @@index([weddingId, rsvpStatus])
+  @@index([weddingId, invitationStatus])
+  @@index([weddingId, phoneNormalized])
+  @@index([weddingId, invitationName])
+  @@map("guests")
+}
+
+/// A parsed import file awaiting confirmation (preview → commit). Rows are re-validated on commit.
+model GuestImportBatch {
+  id            String    @id @default(uuid()) @db.Uuid
+  weddingId     String    @map("wedding_id") @db.Uuid
+  /// Sanitized, display-only original file name.
+  fileName      String    @map("file_name") @db.VarChar(120)
+  rowCount      Int       @map("row_count")
+  rows          Json
+  importedCount Int?      @map("imported_count")
+  skippedCount  Int?      @map("skipped_count")
+  committedAt   DateTime? @map("committed_at") @db.Timestamptz(3)
+  expiresAt     DateTime  @map("expires_at") @db.Timestamptz(3)
+  createdById   String?   @map("created_by_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  wedding   Wedding @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  createdBy User?   @relation("GuestImportCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  guests    Guest[]
+
+  @@index([weddingId, createdAt])
+  @@map("guest_import_batches")
 }

@@ -25,7 +25,16 @@ Wedding planning workspace for couples (Indonesia-first). Built phase by phase f
   derived from linked expenses/payments, composite FKs keeping vendors/expenses/research in one wedding,
   safe contact links (wa.me, tel:, instagram, http/https only), dashboard vendor summary.
 
-Nothing beyond Phase 5 is implemented yet.
+- Phase 6 (Guests): guest groups (from admin-configurable templates, created with each workspace),
+  guests where **one invitation can cover several people** — invitations and seats are always counted
+  separately, RSVP (`attending_count <= seat_count`, enforced in validation and by CHECK constraints),
+  invitation status with bulk updates ("Dibuka" is never set by hand and never downgraded), filters,
+  search, sorting and pagination, a two-step CSV/XLSX import (upload → analyzed preview with per-row
+  errors and duplicate detection → confirm, row-locked so a batch imports exactly once) with a CSV
+  template, per-guest invitation tokens for the upcoming public invitation, dashboard guest summary,
+  and a mobile bottom navigation (Beranda/Checklist/Budget/Tamu/Lainnya) with a `/more` page.
+
+Nothing beyond Phase 6 is implemented yet.
 
 ## Stack
 

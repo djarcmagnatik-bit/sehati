@@ -1,5 +1,6 @@
 /** Activity feed vocabulary and presentation (pure, client-safe). */
 import { formatDateTime, formatIsoDateLong, isValidIsoDate } from "@/lib/dates";
+import { GUEST_INVITATION_LABEL, type GuestInvitationStatusValue } from "@/lib/guests";
 import { formatRupiah } from "@/lib/money";
 import { VENDOR_RESEARCH_STATUS_LABEL, type VendorResearchStatusValue } from "@/lib/vendors";
 
@@ -35,6 +36,15 @@ export const ACTIVITY_ACTIONS = [
   "vendor.created",
   "vendor.updated",
   "vendor.deleted",
+  "guests.groups_initialized",
+  "guest_group.created",
+  "guest_group.updated",
+  "guest_group.deleted",
+  "guest.created",
+  "guest.updated",
+  "guest.deleted",
+  "guests.imported",
+  "guests.bulk_status_updated",
 ] as const;
 
 export type ActivityAction = (typeof ACTIVITY_ACTIONS)[number];
@@ -71,6 +81,8 @@ export function describeActivity(entry: { action: string; actorName: string; met
   const title = readText(meta, "title");
   const name = readText(meta, "name");
   const money = readMoney(meta, "amount");
+  const count = readNumber(meta, "count");
+  const seats = readNumber(meta, "seats");
   const task = title ? `tugas “${title}”` : "sebuah tugas";
 
   switch (entry.action) {
@@ -85,10 +97,8 @@ export function describeActivity(entry: { action: string; actorName: string; met
     }
     case "couple_note.updated":
       return `${actor} memperbarui catatan untuk berdua`;
-    case "checklist.generated": {
-      const count = readNumber(meta, "count");
+    case "checklist.generated":
       return count !== null ? `${actor} membuat checklist otomatis (${count} tugas)` : `${actor} membuat checklist otomatis`;
-    }
     case "task.created":
       return `${actor} menambahkan ${task}`;
     case "task.updated":
@@ -134,8 +144,7 @@ export function describeActivity(entry: { action: string; actorName: string; met
     case "vendor_research.created":
       return `${actor} menambahkan kandidat vendor ${quoted(name, "baru")}`;
     case "vendor_research.updated": {
-      const status = readText(meta, "status") as VendorResearchStatusValue;
-      const label = VENDOR_RESEARCH_STATUS_LABEL[status];
+      const label = VENDOR_RESEARCH_STATUS_LABEL[readText(meta, "status") as VendorResearchStatusValue];
       return `${actor} memperbarui kandidat vendor ${quoted(name, "")}${label ? ` (${label})` : ""}`.replace("  ", " ");
     }
     case "vendor_research.deleted":
@@ -148,6 +157,28 @@ export function describeActivity(entry: { action: string; actorName: string; met
       return `${actor} mengubah data vendor ${quoted(name, "")}`.trimEnd();
     case "vendor.deleted":
       return `${actor} menghapus vendor ${quoted(name, "")}`.trimEnd();
+    case "guests.groups_initialized":
+      return `${actor} menyiapkan grup tamu`;
+    case "guest_group.created":
+      return `${actor} menambahkan grup tamu ${quoted(name, "baru")}`;
+    case "guest_group.updated":
+      return `${actor} mengubah grup tamu ${quoted(name, "")}`.trimEnd();
+    case "guest_group.deleted":
+      return `${actor} menghapus grup tamu ${quoted(name, "")}`.trimEnd();
+    case "guest.created":
+      return `${actor} menambahkan tamu ${quoted(name, "baru")}${seats ? ` (${seats} kursi)` : ""}`;
+    case "guest.updated":
+      return `${actor} mengubah data tamu ${quoted(name, "")}`.trimEnd();
+    case "guest.deleted":
+      return `${actor} menghapus tamu ${quoted(name, "")}`.trimEnd();
+    case "guests.imported":
+      return count !== null
+        ? `${actor} mengimpor ${count} undangan tamu${seats ? ` (${seats} kursi)` : ""}`
+        : `${actor} mengimpor daftar tamu`;
+    case "guests.bulk_status_updated": {
+      const label = GUEST_INVITATION_LABEL[readText(meta, "status") as GuestInvitationStatusValue];
+      return `${actor} menandai ${count ?? "beberapa"} undangan sebagai ${label ? `“${label}”` : "diperbarui"}`;
+    }
     default:
       return `${actor} melakukan perubahan`;
   }

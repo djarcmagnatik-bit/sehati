@@ -48,6 +48,8 @@ describe("isPrivatePath", () => {
     expect(isPrivatePath("/dashboard")).toBe(true);
     expect(isPrivatePath("/settings/security")).toBe(true);
     expect(isPrivatePath("/onboarding")).toBe(true);
+    expect(isPrivatePath("/guests/import")).toBe(true);
+    expect(isPrivatePath("/more")).toBe(true);
     expect(isPrivatePath("/dashboardx")).toBe(false);
     expect(isPrivatePath("/login")).toBe(false);
     expect(isPrivatePath("/")).toBe(false);
