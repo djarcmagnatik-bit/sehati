@@ -62,6 +62,9 @@
       "esbuild",
       "sharp",
       "unrs-resolver"
-    ]
+    ],
+    "overrides": {
+      "mysql2": "^3.23.1"
+    }
   }
 }

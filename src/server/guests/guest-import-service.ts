@@ -16,6 +16,7 @@ import {
   type RawCell,
 } from "@/lib/guest-import";
 import { normalizeGuestName } from "@/lib/guests";
+import { inspectZip } from "@/lib/zip-inspect";
 import { recordActivity } from "@/server/activity/activity-service";
 import { memberWeddingWhere, WeddingAccessError } from "@/server/authz/wedding-access";
 import { requireWeddingFeature } from "@/server/billing/access";
@@ -58,6 +59,9 @@ export async function readGuestFile(file: UploadedFile): Promise<ReadFileResult>
     if (!XLSX_ALLOWED_MIME.has(type)) return { ok: false, reason: "unsupported_type" };
     // XLSX is a ZIP container: "PK\x03\x04".
     if (file.bytes[0] !== 0x50 || file.bytes[1] !== 0x4b) return { ok: false, reason: "invalid_file" };
+    // Check the declared sizes before inflating anything (decompression bombs).
+    const zipProblem = inspectZip(file.bytes);
+    if (zipProblem) return { ok: false, reason: zipProblem === "not_zip" ? "invalid_file" : "too_large" };
     try {
       // First worksheet only. The library types a date cell as `typeof Date` although it yields a Date.
       const rows = (await readSheet(file.bytes)) as unknown as RawCell[][];

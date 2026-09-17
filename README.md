@@ -165,7 +165,21 @@ as-is. Audio has no HTTP range support, so seeking inside a long track may not w
     budget are chosen per share. Budget is off by default and shows percentages; rupiah amounts need
     a separate, explicit choice. Download or share through the system share sheet.
 
-Nothing beyond Phase 13 is implemented yet. Email, WhatsApp and web push delivery are not built.
+- Phase 14 (Security audit): see [docs/security-audit.md](docs/security-audit.md) for the method,
+  evidence per PRD item and residual risks. Hardening added in this phase:
+  - Nonce-based Content Security Policy on every page (`src/proxy.ts`), COOP, HSTS in production.
+  - Uploaded images lose EXIF/GPS and text metadata before storage (orientation and colour
+    profiles kept); file extensions must match the content; XLSX imports are checked for
+    decompression bombs before unpacking.
+  - Rate limits read the client IP only from trusted proxies (`TRUSTED_PROXY_COUNT`).
+  - Webhook size is checked before the body is read; couple Instagram handles are validated.
+  - Public note fields are labelled as public; `mysql2` (transitive) pinned to a patched version.
+  - Regression guards: every Server Action checks the session, every route handler authenticates or
+    is public by design, no raw SQL/HTML/eval in `src` (`tests/unit/security.test.ts`); an IDOR matrix
+    and public-DTO leak checks (`tests/integration/security.test.ts`); CSP, XSS, CSRF, IDOR-by-URL,
+    login lockout and open-redirect checks in the browser (`tests/e2e/security.spec.ts`).
+
+Nothing beyond Phase 14 is implemented yet. Email, WhatsApp and web push delivery are not built.
 
 ## Stack
 

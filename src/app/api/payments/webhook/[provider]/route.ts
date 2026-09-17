@@ -15,8 +15,11 @@ export async function POST(request: NextRequest, context: { params: Promise<{ pr
   const provider = getPaymentProviderByCode(code);
   if (!provider) return Response.json({ error: "unknown_provider" }, { status: 404 });
 
+  // Refuse oversized calls before reading them into memory; the second check covers chunked bodies.
+  const declared = Number(request.headers.get("content-length") ?? "0");
+  if (declared > MAX_BODY_BYTES) return Response.json({ error: "payload_too_large" }, { status: 413 });
   const body = await request.text();
-  if (body.length > MAX_BODY_BYTES) return Response.json({ error: "payload_too_large" }, { status: 413 });
+  if (Buffer.byteLength(body) > MAX_BODY_BYTES) return Response.json({ error: "payload_too_large" }, { status: 413 });
 
   const notification = await provider.parseNotification({ headers: request.headers, body });
   if ("error" in notification) {

@@ -1,6 +1,7 @@
 import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
+import { extensionMatchesType, stripImageMetadata } from "@/lib/image-metadata";
 import { audioRejection, imageRejection, readAudioType, readImageInfo, type AudioRejection, type ImageRejection } from "@/lib/media";
 import { requireWeddingMember, WeddingAccessError } from "@/server/authz/wedding-access";
 import { weddingHasFeature } from "@/server/billing/access";
@@ -15,8 +16,8 @@ export type UploadedImage = { name: string; type: string; bytes: Buffer };
 export type UploadResult = { ok: true; assetId: string; reused: boolean } | { ok: false; reason: ImageRejection };
 
 /**
- * Validates the bytes, stores them under a generated key and records the metadata. Re-uploading the
- * same image inside one wedding reuses the existing asset instead of storing it twice.
+ * Validates the bytes, removes metadata (EXIF/GPS, text chunks), stores the result under a generated
+ * key and records it. Re-uploading the same image inside one wedding reuses the existing asset.
  */
 export async function uploadImage(userId: string, weddingId: string, file: UploadedImage): Promise<UploadResult> {
   const membership = await requireWeddingMember(userId, weddingId);
@@ -24,10 +25,14 @@ export async function uploadImage(userId: string, weddingId: string, file: Uploa
   if (rejection) return { ok: false, reason: rejection };
 
   const info = readImageInfo(file.bytes);
-  if (!info) return { ok: false, reason: "unsupported_type" };
+  if (!info || !extensionMatchesType(file.name, info.mimeType)) return { ok: false, reason: "unsupported_type" };
+  // Invitation images are public: what is stored must not reveal where or with what they were taken.
+  const cleaned = stripImageMetadata(file.bytes, info.mimeType);
+  if (!cleaned) return { ok: false, reason: "unsupported_type" };
+  const bytes = Buffer.from(cleaned);
 
   const db = getDb();
-  const checksum = createHash("sha256").update(file.bytes).digest("hex");
+  const checksum = createHash("sha256").update(bytes).digest("hex");
   const existing = await db.mediaAsset.findUnique({
     where: { weddingId_checksum: { weddingId: membership.weddingId, checksum } },
     select: { id: true },
@@ -36,7 +41,7 @@ export async function uploadImage(userId: string, weddingId: string, file: Uploa
 
   const assetId = randomUUID();
   const storageKey = `${membership.weddingId}/${assetId}.${MIME_EXTENSION[info.mimeType]}`;
-  await getMediaStore().put(storageKey, file.bytes);
+  await getMediaStore().put(storageKey, bytes);
 
   const asset = await db.mediaAsset.create({
     data: {
@@ -45,7 +50,7 @@ export async function uploadImage(userId: string, weddingId: string, file: Uploa
       storageKey,
       fileName: file.name.split(/[\\/]/).pop()?.slice(0, 120) || "gambar",
       mimeType: info.mimeType,
-      byteSize: file.bytes.byteLength,
+      byteSize: bytes.byteLength,
       width: info.width,
       height: info.height,
       checksum,
@@ -64,7 +69,7 @@ export async function uploadAudio(userId: string, weddingId: string, file: Uploa
   const rejection = audioRejection(file.bytes, file.type);
   if (rejection) return { ok: false, reason: rejection };
   const mimeType = readAudioType(file.bytes);
-  if (!mimeType) return { ok: false, reason: "unsupported_type" };
+  if (!mimeType || !extensionMatchesType(file.name, mimeType)) return { ok: false, reason: "unsupported_type" };
 
   const db = getDb();
   const checksum = createHash("sha256").update(file.bytes).digest("hex");

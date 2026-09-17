@@ -2,8 +2,6 @@ import type { Metadata } from "next";
 import { Brand } from "@/components/brand";
 import { buttonClassName } from "@/components/ui/button";
 
-export const dynamic = "force-static";
-
 export const metadata: Metadata = {
   title: "Sedang offline",
   robots: { index: false, follow: false },

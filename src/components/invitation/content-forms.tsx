@@ -142,7 +142,14 @@ export function GiftAccountForm(
           errors={state.fieldErrors?.accountHolder}
         />
       </div>
-      <TextField label="Catatan" name="notes" maxLength={200} defaultValue={value("notes")} errors={state.fieldErrors?.notes} />
+      <TextField
+        label="Catatan untuk tamu"
+        name="notes"
+        maxLength={200}
+        hint="Tampil di undangan publik bersama nomor rekening."
+        defaultValue={value("notes")}
+        errors={state.fieldErrors?.notes}
+      />
       <SubmitButton pendingLabel="Menyimpan…">{props.mode === "create" ? "Tambah info hadiah" : "Simpan"}</SubmitButton>
     </form>
   );

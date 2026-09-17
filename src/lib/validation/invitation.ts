@@ -8,7 +8,7 @@ import {
   type InvitationSectionTypeValue,
 } from "@/lib/invitation";
 import { COVER_LAYOUTS, isThemeCode } from "@/lib/invitation-themes";
-import { normalizeWebsite } from "@/lib/vendors";
+import { normalizeInstagram, normalizeWebsite } from "@/lib/vendors";
 
 const emptyToNull = (value: string | null | undefined) => (value ? value : null);
 
@@ -18,6 +18,23 @@ const emptyToNull = (value: string | null | undefined) => (value ? value : null)
  */
 const optionalText = (label: string, max: number) =>
   z.string().trim().max(max, `${label} maksimal ${max} karakter`).nullish().transform(emptyToNull);
+
+/** "@putri.ayu" or an instagram.com link → "putri.ayu". Shown as a public link, so only real handles pass. */
+const instagramHandle = (label: string) =>
+  z
+    .string()
+    .trim()
+    .max(100, `${label} terlalu panjang`)
+    .nullish()
+    .transform((value, ctx): string | null => {
+      if (!value) return null;
+      const handle = normalizeInstagram(value);
+      if (!/^[A-Za-z0-9._]{1,30}$/.test(handle)) {
+        ctx.addIssue({ code: "custom", message: `${label}: username tidak valid` });
+        return z.NEVER;
+      }
+      return handle;
+    });
 
 // ─── Sections ────────────────────────────────────────────────────────────────
 
@@ -30,10 +47,10 @@ export const SECTION_CONTENT_SCHEMAS = {
     intro: optionalText("Pengantar", 300),
     brideFullName: optionalText("Nama lengkap mempelai wanita", 120),
     brideParents: optionalText("Orang tua mempelai wanita", 200),
-    brideInstagram: optionalText("Instagram mempelai wanita", 40),
+    brideInstagram: instagramHandle("Instagram mempelai wanita"),
     groomFullName: optionalText("Nama lengkap mempelai pria", 120),
     groomParents: optionalText("Orang tua mempelai pria", 200),
-    groomInstagram: optionalText("Instagram mempelai pria", 40),
+    groomInstagram: instagramHandle("Instagram mempelai pria"),
   }),
   QUOTE: z.object({ text: optionalText("Kutipan", 600), source: optionalText("Sumber", 120) }),
   EVENTS: introOnly,

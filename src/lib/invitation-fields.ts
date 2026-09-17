@@ -29,10 +29,10 @@ export const SECTION_FIELDS: Record<InvitationSectionTypeValue, SectionField[]> 
     { ...INTRO, hint: "Contoh: Assalamualaikum Wr. Wb. Dengan memohon rahmat Allah SWT…" },
     { name: "brideFullName", label: "Nama lengkap mempelai wanita", type: "text", maxLength: 120 },
     { name: "brideParents", label: "Orang tua mempelai wanita", type: "textarea", rows: 2, maxLength: 200 },
-    { name: "brideInstagram", label: "Instagram mempelai wanita", type: "text", maxLength: 40, placeholder: "tanpa @" },
+    { name: "brideInstagram", label: "Instagram mempelai wanita", type: "text", maxLength: 100, placeholder: "tanpa @" },
     { name: "groomFullName", label: "Nama lengkap mempelai pria", type: "text", maxLength: 120 },
     { name: "groomParents", label: "Orang tua mempelai pria", type: "textarea", rows: 2, maxLength: 200 },
-    { name: "groomInstagram", label: "Instagram mempelai pria", type: "text", maxLength: 40, placeholder: "tanpa @" },
+    { name: "groomInstagram", label: "Instagram mempelai pria", type: "text", maxLength: 100, placeholder: "tanpa @" },
   ],
   QUOTE: [
     { name: "text", label: "Kutipan", type: "textarea", rows: 4, maxLength: 600 },

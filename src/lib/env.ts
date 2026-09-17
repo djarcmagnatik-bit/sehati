@@ -26,6 +26,11 @@ const envSchema = z.object({
   MIDTRANS_IS_PRODUCTION: z.enum(["true", "false"]).default("false"),
   /** Enables POST /api/jobs/run for schedulers when no long-running worker is available. */
   JOBS_CRON_SECRET: optionalSecret(32),
+  /**
+   * Reverse proxies in front of the app that append to X-Forwarded-For (e.g. 1 for nginx or a load
+   * balancer). 0 ignores forwarding headers: per-IP limits then share one bucket.
+   */
+  TRUSTED_PROXY_COUNT: z.coerce.number().int().min(0).max(5).default(1),
 });
 
 export type Env = z.infer<typeof envSchema>;

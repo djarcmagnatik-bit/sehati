@@ -8,6 +8,7 @@ import { dbDateToIso, formatIsoDateLong, zonedTimeToUtcMs } from "@/lib/dates";
 import { GIFT_ACCOUNT_LABEL, SECTION_LABEL, type InvitationSectionTypeValue } from "@/lib/invitation";
 import { getTheme, themeStyle } from "@/lib/invitation-themes";
 import { mapEmbedUrl, mapsLink } from "@/lib/maps";
+import { instagramUrl } from "@/lib/vendors";
 import { mediaPath } from "@/lib/media";
 import type { PublicInvitation, PublicSection } from "@/server/invitation/public-invitation-service";
 
@@ -125,9 +126,9 @@ function CoupleSection({ section }: { section: PublicSection }) {
               {side.parents}
             </p>
           ) : null}
-          {side.instagram ? (
+          {instagramUrl(side.instagram) ? (
             <a
-              href={`https://instagram.com/${side.instagram}`}
+              href={instagramUrl(side.instagram)!}
               rel="noopener noreferrer nofollow"
               target="_blank"
               className="mt-3 inline-block text-sm font-semibold underline underline-offset-4"

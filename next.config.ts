@@ -5,6 +5,12 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+  // Pages opened from here (e.g. wa.me, maps) cannot reach back into this window.
+  { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+  // Browsers ignore HSTS over plain HTTP, so it is safe to send everywhere in production.
+  ...(process.env.NODE_ENV === "production"
+    ? [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" }]
+    : []),
 ];
 
 const nextConfig: NextConfig = {

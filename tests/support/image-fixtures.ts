@@ -55,3 +55,39 @@ export function webpHeaderFixture(width = 640, height = 480): Buffer {
   bytes.writeUInt16LE(height, 28);
   return bytes;
 }
+
+/** JPEG: SOI, APP0, APP1 EXIF (orientation + a GPS-like marker), COM, SOF0, SOS + data, EOI. */
+export function jpegWithExifFixture(orientation = 6): Buffer {
+  const segment = (marker: number, payload: Buffer) => {
+    const header = Buffer.alloc(4);
+    header.writeUInt16BE(marker, 0);
+    header.writeUInt16BE(payload.length + 2, 2);
+    return Buffer.concat([header, payload]);
+  };
+  const tiff = Buffer.alloc(8 + 2 + 24 + 4 + 32);
+  tiff.write("II", 0, "ascii");
+  tiff.writeUInt16LE(42, 2);
+  tiff.writeUInt32LE(8, 4);
+  tiff.writeUInt16LE(2, 8);
+  tiff.writeUInt16LE(0x0112, 10); // Orientation
+  tiff.writeUInt16LE(3, 12);
+  tiff.writeUInt32LE(1, 14);
+  tiff.writeUInt16LE(orientation, 18);
+  tiff.writeUInt16LE(0x8825, 22); // GPS IFD pointer
+  tiff.writeUInt16LE(4, 24);
+  tiff.writeUInt32LE(1, 26);
+  tiff.writeUInt32LE(38, 30);
+  tiff.write("GPS-6.914744,107.609810", 38, "ascii");
+  const sof = Buffer.from([0x08, 0x02, 0x58, 0x03, 0x20, 0x03, 0x01, 0x22, 0x00, 0x02, 0x11, 0x01, 0x03, 0x11, 0x01]);
+  const sos = Buffer.from([0x03, 0x01, 0x00, 0x02, 0x11, 0x03, 0x11, 0x00, 0x3f, 0x00]);
+  return Buffer.concat([
+    Buffer.from([0xff, 0xd8]),
+    segment(0xffe0, Buffer.from("JFIF\0\x01\x01\0\0\x01\0\x01\0\0", "binary")),
+    segment(0xffe1, Buffer.concat([Buffer.from("Exif\0\0", "binary"), tiff])),
+    segment(0xfffe, Buffer.from("Taken at Jl. Rahasia 12", "ascii")),
+    segment(0xffc0, sof),
+    segment(0xffda, sos),
+    Buffer.from([0x12, 0x34, 0xff, 0x00, 0x56]),
+    Buffer.from([0xff, 0xd9]),
+  ]);
+}

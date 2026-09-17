@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Plus_Jakarta_Sans } from "next/font/google";
+import { connection } from "next/server";
 import type { ReactNode } from "react";
 import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-registration";
 import { PWA_THEME_COLOR, pwaIconPath } from "@/lib/pwa";
@@ -39,7 +40,9 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  // Every page is rendered per request so Next.js can put the CSP nonce on its scripts (src/proxy.ts).
+  await connection();
   return (
     <html lang="id" className={`${display.variable} ${sans.variable}`}>
       <body className="min-h-dvh font-sans antialiased">

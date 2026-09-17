@@ -66,7 +66,15 @@ export function WeddingEventForm(props: Props) {
         </div>
       </fieldset>
 
-      <TextareaField label="Catatan" name="notes" rows={2} maxLength={1000} defaultValue={value("notes")} errors={errors.notes} />
+      <TextareaField
+        label="Catatan untuk tamu"
+        name="notes"
+        rows={2}
+        maxLength={1000}
+        hint="Tampil di undangan publik, misalnya info parkir. Jangan isi catatan pribadi."
+        defaultValue={value("notes")}
+        errors={errors.notes}
+      />
 
       <div className="flex flex-wrap items-center justify-end gap-3">
         <Link href="/invitation/events" className={buttonClassName("ghost")}>
