@@ -19,6 +19,7 @@ export const RATE_LIMITS = {
   rsvpPerIp: { limit: 40, windowSeconds: 60 * 60 },
   wishPerIp: { limit: 15, windowSeconds: 60 * 60 },
   checkoutPerUser: { limit: 20, windowSeconds: 60 * 60 },
+  exportPerUser: { limit: 60, windowSeconds: 60 * 60 },
 } as const satisfies Record<string, RateLimitRule>;
 
 /**

@@ -56,12 +56,17 @@ export default async function ExpensesPage({
           <h1 className="mt-2 font-display text-3xl font-semibold">Pengeluaran</h1>
           <p className="mt-1 text-ink-700">Kontrak, tagihan, dan status pembayarannya.</p>
         </div>
-        <Link
-          href={filters.categoryId ? `/budget/expenses/new?category=${filters.categoryId}` : "/budget/expenses/new"}
-          className={buttonClassName("primary")}
-        >
-          + Tambah pengeluaran
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/reports/budget" className={buttonClassName("ghost")}>
+            Laporan & unduh
+          </Link>
+          <Link
+            href={filters.categoryId ? `/budget/expenses/new?category=${filters.categoryId}` : "/budget/expenses/new"}
+            className={buttonClassName("primary")}
+          >
+            + Tambah pengeluaran
+          </Link>
+        </div>
       </header>
 
       {params.notice === "expense_deleted" ? <Alert tone="success">Pengeluaran dihapus.</Alert> : null}

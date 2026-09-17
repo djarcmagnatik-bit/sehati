@@ -81,6 +81,9 @@ export default async function GuestsPage({
           <p className="mt-1 text-ink-700">Satu undangan bisa untuk beberapa orang, jadi undangan dan kursi dihitung terpisah.</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link href="/reports/guests" className={buttonClassName("ghost")}>
+            Laporan & unduh
+          </Link>
           <Link href="/guests/groups" className={buttonClassName("ghost")}>
             Kelola grup
           </Link>

@@ -37,6 +37,7 @@
     "react-dom": "19.3.0",
     "read-excel-file": "9.3.10",
     "server-only": "0.0.1",
+    "write-excel-file": "4.1.1",
     "zod": "4.6.5"
   },
   "devDependencies": {
@@ -52,8 +53,7 @@
     "tailwindcss": "4.3.3",
     "tsx": "4.23.13",
     "typescript": "5.9.3",
-    "vitest": "4.1.11",
-    "write-excel-file": "4.1.1"
+    "vitest": "4.1.11"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

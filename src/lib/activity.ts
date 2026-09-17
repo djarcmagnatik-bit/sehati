@@ -85,6 +85,7 @@ export const ACTIVITY_ACTIONS = [
   "invitation.music_updated",
   "billing.payment_paid",
   "billing.payment_refunded",
+  "data.exported",
 ] as const;
 
 export type ActivityAction = (typeof ACTIVITY_ACTIONS)[number];
@@ -306,6 +307,10 @@ export function describeActivity(entry: { action: string; actorName: string; met
       return `Pembayaran ${quoted(name, "paket")}${money ? ` sebesar ${money}` : ""} dikembalikan; aksesnya dicabut`;
     case "invitation.music_updated":
       return `${actor} mengatur musik latar undangan`;
+    case "data.exported": {
+      const format = readText(meta, "format");
+      return `${actor} mengunduh data ${name.toLowerCase() || "workspace"}${format ? ` (${format})` : ""}`;
+    }
     default:
       return `${actor} melakukan perubahan`;
   }

@@ -145,7 +145,27 @@ as-is. Audio has no HTTP range support, so seeking inside a long track may not w
   - Run `pnpm worker` next to the app (several may run at once). Hosts without a long-running
     process can instead call `POST /api/jobs/run` with `Authorization: Bearer $JOBS_CRON_SECRET`.
 
-Nothing beyond Phase 12 is implemented yet. Email, WhatsApp and web push delivery are not built.
+- Phase 13 (Reports & export):
+  - **Reports** (`/reports`, PRD §39): tasks (total, completed, overdue, per category — free),
+    budget (target, allocated, committed, paid, unpaid, per category), guests (invitations, seats,
+    attending, maybe, declined, pending, per group) and vendors (contract, paid, outstanding, next
+    due date). Paid sections show a locked note instead of data when the wedding lacks access.
+  - **Print-friendly** (PRD §40): the report pages, the full guest list (`/reports/guests`), the
+    budget summary (`/reports/budget`) and the rundown hide the app chrome when printed and carry
+    the couple's name and print time.
+  - **CSV/XLSX export** of guests, vendors, expenses, payments and rundown at
+    `/exports/{dataset}?format=csv|xlsx`. Same access rules as the pages (membership, then the
+    feature), `Cache-Control: private, no-store`, 60 downloads per account per hour, and each
+    download is written to the activity log. Guest exports never include the personal invitation
+    token. CSV is UTF-8 with BOM; text starting with `= + - @` is prefixed with an apostrophe
+    (formula injection). XLSX cells are typed: amounts are numbers, dates are dates, text is never a
+    formula.
+  - **Progress card** (`/reports/share`, PRD §33): a 1080×1350 PNG rendered on the server for the
+    signed-in member only. Names, date and countdown always; checklist, next tasks, guest RSVP and
+    budget are chosen per share. Budget is off by default and shows percentages; rupiah amounts need
+    a separate, explicit choice. Download or share through the system share sheet.
+
+Nothing beyond Phase 13 is implemented yet. Email, WhatsApp and web push delivery are not built.
 
 ## Stack
 

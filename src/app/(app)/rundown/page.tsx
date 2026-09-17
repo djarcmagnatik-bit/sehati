@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ExportLinks } from "@/components/reports/export-links";
 import { Alert } from "@/components/ui/alert";
 import { buttonClassName } from "@/components/ui/button";
 import { PrintButton } from "@/components/ui/print-button";
@@ -84,6 +85,7 @@ export default async function RundownPage({
         </div>
         <div className="flex flex-wrap gap-2 print:hidden">
           {total > 0 ? <PrintButton label="Cetak rundown" /> : null}
+          {total > 0 ? <ExportLinks dataset="rundown" /> : null}
           <Link href="/rundown/new" className={buttonClassName("primary")}>
             + Tambah kegiatan
           </Link>

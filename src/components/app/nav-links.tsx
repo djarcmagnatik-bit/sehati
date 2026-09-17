@@ -23,7 +23,7 @@ const DESKTOP_ITEMS: NavItem[] = [
   { href: "/budget", match: ["/budget"], label: "Budget", icon: ICONS.budget },
   { href: "/vendors", match: ["/vendors"], label: "Vendor", icon: ICONS.vendor },
   { href: "/guests", match: ["/guests"], label: "Tamu", icon: ICONS.guests },
-  { href: "/more", match: ["/more", "/settings", "/activity", "/invitation", "/calendar", "/savings", "/seserahan", "/rundown", "/billing", "/payments"], label: "Lainnya", icon: ICONS.more },
+  { href: "/more", match: ["/more", "/settings", "/activity", "/invitation", "/calendar", "/savings", "/seserahan", "/rundown", "/billing", "/payments", "/reports", "/notifications"], label: "Lainnya", icon: ICONS.more },
 ];
 
 // PRD mobile navigation: Home, Checklist, Budget, Guests, More.
@@ -32,7 +32,7 @@ const MOBILE_ITEMS: NavItem[] = [
   { href: "/checklist", match: ["/checklist"], label: "Checklist", icon: ICONS.checklist },
   { href: "/budget", match: ["/budget"], label: "Budget", icon: ICONS.budget },
   { href: "/guests", match: ["/guests"], label: "Tamu", icon: ICONS.guests },
-  { href: "/more", match: ["/more", "/vendors", "/settings", "/activity", "/invitation", "/calendar", "/savings", "/seserahan", "/rundown", "/billing", "/payments"], label: "Lainnya", icon: ICONS.more },
+  { href: "/more", match: ["/more", "/vendors", "/settings", "/activity", "/invitation", "/calendar", "/savings", "/seserahan", "/rundown", "/billing", "/payments", "/reports", "/notifications"], label: "Lainnya", icon: ICONS.more },
 ];
 
 function isActive(pathname: string, match: readonly string[]): boolean {

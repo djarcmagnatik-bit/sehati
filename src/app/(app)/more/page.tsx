@@ -17,6 +17,7 @@ const SECTIONS = [
       { href: "/savings", label: "Tabungan", description: "Setoran dana pernikahan dan targetnya." },
       { href: "/vendors", label: "Vendor", description: "Vendor dibooking, kontrak, dan pembayarannya." },
       { href: "/vendors/research", label: "Riset vendor", description: "Kandidat vendor dan perbandingan." },
+      { href: "/reports", label: "Laporan & export", description: "Ringkasan tugas, budget, tamu, dan vendor; unduh Excel/CSV dan kartu progres." },
       { href: "/activity", label: "Aktivitas", description: "Riwayat perubahan di workspace berdua." },
     ],
   },

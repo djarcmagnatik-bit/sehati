@@ -61,6 +61,9 @@ export default async function VendorsPage({
           <p className="mt-1 text-ink-700">Vendor yang sudah dibooking beserta kontrak dan pembayarannya.</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link href="/reports/vendors" className={buttonClassName("ghost")}>
+            Laporan & unduh
+          </Link>
           <Link href="/vendors/research" className={buttonClassName("secondary")}>
             Riset vendor
           </Link>
