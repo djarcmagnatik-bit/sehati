@@ -7,7 +7,16 @@
  * Paid features (PRD §41 "Full Access"). Checklist, dashboard, onboarding, account settings, savings
  * and the calendar stay free; the calendar only shows sources the wedding may use.
  */
-export const FEATURES = ["vendors", "budget", "guests", "invitation", "rundown", "seserahan", "collaboration"] as const;
+export const FEATURES = [
+  "vendors",
+  "budget",
+  "guests",
+  "invitation",
+  "premium_themes",
+  "rundown",
+  "seserahan",
+  "collaboration",
+] as const;
 export type Feature = (typeof FEATURES)[number];
 
 export const FEATURE_LABEL: Record<Feature, string> = {
@@ -15,6 +24,7 @@ export const FEATURE_LABEL: Record<Feature, string> = {
   budget: "Budget & pembayaran",
   guests: "Tamu & RSVP",
   invitation: "Undangan digital",
+  premium_themes: "Tema undangan premium",
   rundown: "Rundown",
   seserahan: "Seserahan",
   collaboration: "Kolaborasi pasangan",
@@ -25,6 +35,7 @@ export const FEATURE_PATH: Record<Feature, string> = {
   budget: "/budget",
   guests: "/guests",
   invitation: "/invitation",
+  premium_themes: "/invitation/design",
   rundown: "/rundown",
   seserahan: "/seserahan",
   collaboration: "/settings/partner",

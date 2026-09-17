@@ -23,6 +23,7 @@ export const PRIVATE_PATH_PREFIXES = [
   "/payments",
   "/activity",
   "/more",
+  "/admin",
 ] as const;
 
 export function isPrivatePath(pathname: string): boolean {

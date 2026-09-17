@@ -50,12 +50,12 @@ export async function validateSessionToken(token: string, now: Date = new Date()
       expiresAt: true,
       remember: true,
       lastSeenAt: true,
-      user: { select: { id: true, name: true, email: true, role: true } },
+      user: { select: { id: true, name: true, email: true, role: true, suspendedAt: true } },
     },
   });
   if (!session) return null;
 
-  if (session.expiresAt.getTime() <= now.getTime()) {
+  if (session.expiresAt.getTime() <= now.getTime() || session.user.suspendedAt) {
     await db.session.deleteMany({ where: { id: session.id } });
     return null;
   }
@@ -64,7 +64,8 @@ export async function validateSessionToken(token: string, now: Date = new Date()
     await db.session.updateMany({ where: { id: session.id }, data: { lastSeenAt: now } });
   }
 
-  return { sessionId: session.id, expiresAt: session.expiresAt, remember: session.remember, user: session.user };
+  const { id, name, email, role } = session.user;
+  return { sessionId: session.id, expiresAt: session.expiresAt, remember: session.remember, user: { id, name, email, role } };
 }
 
 export async function revokeSessionByToken(token: string): Promise<void> {

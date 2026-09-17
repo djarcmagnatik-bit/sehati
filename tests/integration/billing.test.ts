@@ -177,7 +177,7 @@ describe("payment webhooks", () => {
     expect(await processPaymentNotification(paid(orderId, transaction.amount))).toBe("applied");
     expect(await getTransactionForUser(owner.userId, orderId)).toMatchObject({ status: "PAID" });
     expect([...(await getWeddingFeatures(weddingId, new Date()))].sort()).toEqual(
-      ["budget", "collaboration", "guests", "invitation", "rundown", "seserahan", "vendors"],
+      ["budget", "collaboration", "guests", "invitation", "premium_themes", "rundown", "seserahan", "vendors"],
     );
     await expect(getBudgetOverview(owner.userId, weddingId)).resolves.toBeDefined();
 

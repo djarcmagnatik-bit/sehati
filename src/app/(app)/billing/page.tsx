@@ -108,7 +108,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
                 ))}
               </ul>
               <div className="mt-5">
-                <CheckoutButton weddingId={wedding.id} kind="PLAN" code={plan.code} label={`Beli ${plan.name}`} />
+                <CheckoutButton weddingId={wedding.id} kind="PLAN" code={plan.code} label={`Beli ${plan.name}`} allowPromo />
               </div>
             </Card>
           ))

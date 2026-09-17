@@ -117,7 +117,14 @@ export async function updateInvitationThemeAction(_prev: FormState, formData: Fo
   const parsed = invitationThemeSchema.safeParse(values);
   if (!parsed.success) return { status: "error", message: INVALID_INPUT, fieldErrors: fieldErrorsFromZod(parsed.error), values };
   try {
-    await updateInvitationTheme(session.user.id, readString(formData, "weddingId"), parsed.data);
+    const result = await updateInvitationTheme(session.user.id, readString(formData, "weddingId"), parsed.data);
+    if (!result.ok) {
+      const message =
+        result.reason === "premium"
+          ? "Tema ini termasuk tema premium. Aktifkan fitur tema premium di halaman Akses & pembayaran."
+          : "Tema ini sedang tidak tersedia. Pilih tema lain.";
+      return { status: "error", message, fieldErrors: { themeCode: [message] }, values };
+    }
   } catch (error) {
     return failure(error, "invitation.theme_failed", values);
   }

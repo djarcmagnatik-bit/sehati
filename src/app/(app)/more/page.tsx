@@ -30,12 +30,17 @@ const SECTIONS = [
 ] as const;
 
 export default async function MorePage() {
-  await requireSession();
+  const session = await requireSession();
+  // Role is read with the session on every request, so a demoted admin loses this link at once.
+  const sections =
+    session.user.role === "ADMIN"
+      ? [...SECTIONS, { title: "Admin", links: [{ href: "/admin", label: "Panel admin", description: "Pengguna, paket, promo, template, dan audit log." }] }]
+      : SECTIONS;
 
   return (
     <div className="space-y-6">
       <h1 className="font-display text-3xl font-semibold">Lainnya</h1>
-      {SECTIONS.map((section) => (
+      {sections.map((section) => (
         <section key={section.title} aria-labelledby={`more-${section.title}`} className="space-y-2">
           <h2 id={`more-${section.title}`} className="text-sm font-semibold uppercase tracking-wider text-ink-500">
             {section.title}

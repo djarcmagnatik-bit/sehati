@@ -46,7 +46,7 @@ function getDummyHash(): Promise<string> {
 export async function authenticateUser(email: string, password: string): Promise<{ id: string } | null> {
   const user = await getDb().user.findUnique({
     where: { email: normalizeEmail(email) },
-    select: { id: true, passwordHash: true },
+    select: { id: true, passwordHash: true, suspendedAt: true },
   });
 
   if (!user) {
@@ -55,5 +55,6 @@ export async function authenticateUser(email: string, password: string): Promise
   }
 
   const valid = await verifyPassword(user.passwordHash, password);
-  return valid ? { id: user.id } : null;
+  // Same answer as a wrong password: a suspended account is not confirmed to exist.
+  return valid && !user.suspendedAt ? { id: user.id } : null;
 }

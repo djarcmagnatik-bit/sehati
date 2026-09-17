@@ -95,8 +95,33 @@ as-is. Audio has no HTTP range support, so seeking inside a long track may not w
     contract but has **not** been exercised against the live Midtrans sandbox (no credentials).
   - Support tool: `pnpm access:grant -- --email <email>` grants Full Access as an admin grant.
 
-Nothing beyond Phase 10 is implemented yet. Promo codes and plan management UI come with the admin
-phase.
+- Phase 11 (Admin, `/admin`):
+  - **Admins only**: the role is read from the database on every page, action and service call, so a
+    demotion or suspension applies immediately. Everyone else gets a plain 404; the area is noindex
+    and disallowed in robots.txt.
+  - **Dashboard**: users, weddings, active and paid weddings, conversion, revenue (paid orders),
+    published invitations and RSVPs — aggregate counts only, cached for 5 minutes.
+  - **Users**: search, suspend (blocks sign-in and ends every session) / unsuspend, promote / demote.
+    Nobody acts on their own account, and suspensions and demotions are serialized with a re-check
+    of the acting admin, so two admins cannot remove each other at the same moment.
+  - **Weddings**: access status, members, recent orders; grant a plan by hand or revoke an access
+    (the history is kept).
+  - **Transactions**: read-only list and detail with the webhook history (payloads are not shown);
+    status still only changes through verified webhooks.
+  - **Plans, add-ons and promo codes**: prices and features are editable (codes are fixed; existing
+    orders keep their price). Promo codes: percent (1–99) or fixed rupiah, optional plan restriction,
+    Jakarta-day validity window, total and per-user limits. They are checked at checkout under a row
+    lock; a use counts while its order is paid or still open, and the price never drops below
+    Rp1.000. Add-ons are never discounted.
+  - **Task templates**: create and edit the checklist templates (category, priority, deadline
+    offset, event types, marriage processes). Existing checklists are never changed.
+  - **Invitation themes**: themes stay in code; admins set name, order, availability and premium
+    status, with a preview built from sample data. Premium themes need the `premium_themes` feature
+    (part of Full Access); a wedding may always keep the theme it already uses.
+  - **Audit log**: every admin change is written in the same transaction as the change itself.
+  - First admin: `pnpm admin:set -- --email <email>` (after that, admins manage roles in the UI).
+
+Nothing beyond Phase 11 is implemented yet.
 
 ## Stack
 
@@ -138,6 +163,7 @@ Requirements: Node.js ≥ 24, pnpm 10, PostgreSQL 16.
 | `pnpm db:migrate` | Create a new migration during development |
 | `pnpm db:deploy` / `db:status` / `db:seed` | Apply migrations / status / seed reference data |
 | `pnpm access:grant -- --email <email> [--plan CODE]` | Give an account's weddings a plan without payment (admin grant) |
+| `pnpm admin:set -- --email <email> [--revoke]` | Make an existing account an admin (or remove the role); audited |
 
 ## Architecture notes
 

@@ -17,7 +17,8 @@ import {
 import type { InvitationMusicInput } from "@/lib/validation/planning";
 import { recordActivity } from "@/server/activity/activity-service";
 import { memberWeddingWhere, WeddingAccessError } from "@/server/authz/wedding-access";
-import { requireWeddingFeature } from "@/server/billing/access";
+import { requireWeddingFeature, weddingHasFeature } from "@/server/billing/access";
+import { themeChoiceProblem, type ThemeChoiceProblem } from "./theme-catalog";
 import { getDb } from "@/server/db";
 
 type Tx = Prisma.TransactionClient;
@@ -226,8 +227,16 @@ export async function updateInvitationSettings(
   }
 }
 
-export async function updateInvitationTheme(userId: string, weddingId: string, input: InvitationThemeInput): Promise<void> {
+export type ThemeUpdateResult = { ok: true } | { ok: false; reason: ThemeChoiceProblem };
+
+export async function updateInvitationTheme(userId: string, weddingId: string, input: InvitationThemeInput): Promise<ThemeUpdateResult> {
   const { invitation, membership } = await requireInvitation(userId, weddingId);
+  const problem = await themeChoiceProblem(input.themeCode, {
+    currentThemeCode: invitation.themeCode,
+    hasPremiumThemes: await weddingHasFeature(membership.weddingId, "premium_themes"),
+  });
+  if (problem) return { ok: false, reason: problem };
+
   await getDb().$transaction(async (tx) => {
     await tx.invitation.update({
       where: { id: invitation.id },
@@ -243,6 +252,7 @@ export async function updateInvitationTheme(userId: string, weddingId: string, i
       metadata: { name: getTheme(input.themeCode).name },
     });
   });
+  return { ok: true };
 }
 
 async function findSectionScope(userId: string, sectionId: string) {

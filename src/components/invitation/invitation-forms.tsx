@@ -8,7 +8,7 @@ import { TextareaField } from "@/components/ui/textarea-field";
 import { cn } from "@/lib/cn";
 import { initialFormState, type FormState } from "@/lib/form-state";
 import { slugify } from "@/lib/invitation";
-import { COVER_LAYOUT_LABEL, COVER_LAYOUTS, INVITATION_THEMES, type CoverLayout } from "@/lib/invitation-themes";
+import { COVER_LAYOUT_LABEL, COVER_LAYOUTS, type CoverLayout } from "@/lib/invitation-themes";
 import { IMAGE_MAX_BYTES, IMAGE_MIME_TYPES } from "@/lib/media";
 import {
   updateGiftAddressAction,
@@ -66,14 +66,26 @@ export function InvitationSettingsForm({
   );
 }
 
+export type ThemeOption = {
+  code: string;
+  name: string;
+  description: string;
+  swatches: string[];
+  isPremium: boolean;
+  /** Premium and the wedding lacks the premium themes feature. */
+  locked: boolean;
+};
+
 export function ThemePicker({
   weddingId,
   themeCode,
   coverLayout,
+  themes,
 }: {
   weddingId: string;
   themeCode: string;
   coverLayout: CoverLayout;
+  themes: ThemeOption[];
 }) {
   const [state, formAction] = useActionState(updateInvitationThemeAction, initialFormState);
   const [selected, setSelected] = useState(themeCode);
@@ -86,7 +98,7 @@ export function ThemePicker({
       <fieldset>
         <legend className="text-sm font-medium text-ink-900">Tema</legend>
         <ul className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {INVITATION_THEMES.map((theme) => {
+          {themes.map((theme) => {
             const active = selected === theme.code;
             return (
               <li key={theme.code}>
@@ -101,14 +113,22 @@ export function ThemePicker({
                     name="themeCode"
                     value={theme.code}
                     checked={active}
+                    disabled={theme.locked}
                     onChange={() => setSelected(theme.code)}
                     className="mt-1 size-4 accent-clay-600"
                   />
                   <span className="min-w-0">
-                    <span className="block font-medium">{theme.name}</span>
+                    <span className="block font-medium">
+                      {theme.name}
+                      {theme.isPremium ? (
+                        <span className="ml-2 rounded-full bg-clay-50 px-2 py-0.5 text-xs font-semibold text-clay-700">
+                          {theme.locked ? "🔒 Premium" : "Premium"}
+                        </span>
+                      ) : null}
+                    </span>
                     <span className="mt-0.5 block text-xs text-ink-500">{theme.description}</span>
                     <span aria-hidden="true" className="mt-2 flex gap-1">
-                      {[theme.tokens.background, theme.tokens.surface, theme.tokens.accent, theme.tokens.ink].map((color) => (
+                      {theme.swatches.map((color) => (
                         <span key={color} className="size-5 rounded-full ring-1 ring-black/10" style={{ background: color }} />
                       ))}
                     </span>

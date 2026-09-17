@@ -141,14 +141,17 @@ enum GuestRsvpStatus {
 // ─── Phase 1: identity & workspace ───────────────────────────────────────────
 
 model User {
-  id           String   @id @default(uuid()) @db.Uuid
-  name         String   @db.VarChar(80)
+  id              String    @id @default(uuid()) @db.Uuid
+  name            String    @db.VarChar(80)
   /// Always stored trimmed + lowercased.
-  email        String   @unique @db.VarChar(254)
-  passwordHash String   @map("password_hash")
-  role         UserRole @default(USER)
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  email           String    @unique @db.VarChar(254)
+  passwordHash    String    @map("password_hash")
+  role            UserRole  @default(USER)
+  /// Suspended accounts cannot sign in; their sessions are revoked at suspension.
+  suspendedAt     DateTime? @map("suspended_at") @db.Timestamptz(3)
+  suspendedReason String?   @map("suspended_reason") @db.VarChar(200)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   sessions                   Session[]
   passwordResetTokens        PasswordResetToken[]
@@ -172,6 +175,9 @@ model User {
   createdCalendarEvents      CalendarEvent[]      @relation("CalendarEventCreatedBy")
   grantedEntitlements        WeddingEntitlement[] @relation("EntitlementGrantedBy")
   paymentTransactions        PaymentTransaction[] @relation("PaymentTransactionUser")
+  adminAuditLogs             AdminAuditLog[]      @relation("AdminAuditActor")
+  createdPromoCodes          PromoCode[]          @relation("PromoCodeCreatedBy")
+  promoRedemptions           PromoRedemption[]    @relation("PromoRedemptionUser")
 
   @@map("users")
 }
@@ -322,6 +328,7 @@ model Wedding {
   paymentTransactions PaymentTransaction[]
   addonPurchases      AddonPurchase[]
   addonUsages         AddonUsage[]
+  promoRedemptions    PromoRedemption[]
 
   @@index([weddingDate])
   @@map("weddings")
@@ -1167,6 +1174,7 @@ model Plan {
 
   entitlements WeddingEntitlement[]
   transactions PaymentTransaction[]
+  promoCodes   PromoCode[]
 
   @@map("plans")
 }
@@ -1209,6 +1217,10 @@ model PaymentTransaction {
   itemName          String        @map("item_name") @db.VarChar(120)
   /// Whole rupiah. CHECK (amount > 0).
   amount            BigInt
+  /// Catalogue price before any promo; amount = original_amount - discount_amount.
+  originalAmount    BigInt?       @map("original_amount")
+  discountAmount    BigInt        @default(0) @map("discount_amount")
+  promoCodeId       String?       @map("promo_code_id") @db.Uuid
   currency          String        @default("IDR") @db.Char(3)
   status            PaymentStatus @default(PENDING)
   provider          String        @db.VarChar(20)
@@ -1221,13 +1233,15 @@ model PaymentTransaction {
   createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  wedding       Wedding               @relation(fields: [weddingId], references: [id], onDelete: Cascade)
-  user          User?                 @relation("PaymentTransactionUser", fields: [userId], references: [id], onDelete: SetNull)
-  plan          Plan?                 @relation(fields: [planId], references: [id], onDelete: Restrict)
-  addon         Addon?                @relation(fields: [addonId], references: [id], onDelete: Restrict)
-  entitlement   WeddingEntitlement?
-  addonPurchase AddonPurchase?
-  webhookEvents PaymentWebhookEvent[]
+  wedding         Wedding               @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  user            User?                 @relation("PaymentTransactionUser", fields: [userId], references: [id], onDelete: SetNull)
+  plan            Plan?                 @relation(fields: [planId], references: [id], onDelete: Restrict)
+  addon           Addon?                @relation(fields: [addonId], references: [id], onDelete: Restrict)
+  promoCode       PromoCode?            @relation(fields: [promoCodeId], references: [id], onDelete: SetNull)
+  promoRedemption PromoRedemption?
+  entitlement     WeddingEntitlement?
+  addonPurchase   AddonPurchase?
+  webhookEvents   PaymentWebhookEvent[]
 
   @@index([weddingId, createdAt])
   @@index([status, expiresAt])
@@ -1311,4 +1325,94 @@ model AddonUsage {
 
   @@index([weddingId, addonId])
   @@map("addon_usages")
+}
+
+// ─── Administration ──────────────────────────────────────────────────────────
+
+enum PromoDiscountType {
+  PERCENT
+  FIXED
+}
+
+/// Every admin change, written in the same transaction as the change itself. Never secrets.
+model AdminAuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String?  @map("actor_id") @db.Uuid
+  /// Snapshot, so the log stays readable after the admin account changes.
+  actorEmail String   @map("actor_email") @db.VarChar(254)
+  action     String   @db.VarChar(60)
+  targetType String   @map("target_type") @db.VarChar(40)
+  targetId   String?  @map("target_id") @db.VarChar(80)
+  /// Flat, non-secret before/after values.
+  summary    Json     @default("{}")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  actor User? @relation("AdminAuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([targetType, targetId])
+  @@index([action, createdAt])
+  @@map("admin_audit_logs")
+}
+
+/// Admin-controlled metadata for a theme that lives in code. Missing row = defaults from code.
+model InvitationThemeSetting {
+  code        String   @id @db.VarChar(40)
+  isEnabled   Boolean  @default(true) @map("is_enabled")
+  /// Premium themes need the "premium_themes" feature.
+  isPremium   Boolean  @default(false) @map("is_premium")
+  displayName String?  @map("display_name") @db.VarChar(60)
+  description String?  @db.VarChar(200)
+  sortOrder   Int      @default(0) @map("sort_order")
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("invitation_theme_settings")
+}
+
+model PromoCode {
+  id            String            @id @default(uuid()) @db.Uuid
+  /// Stored uppercase; matched case-insensitively by normalizing input.
+  code          String            @unique @db.VarChar(40)
+  description   String?           @db.VarChar(200)
+  discountType  PromoDiscountType @map("discount_type")
+  /// PERCENT: 1-99. FIXED: whole rupiah. CHECK enforces both.
+  discountValue BigInt            @map("discount_value")
+  /// Null = every plan. Add-ons are never discounted.
+  planId        String?           @map("plan_id") @db.Uuid
+  startsAt      DateTime?         @map("starts_at") @db.Timestamptz(3)
+  expiresAt     DateTime?         @map("expires_at") @db.Timestamptz(3)
+  /// Null = unlimited. Counts paid redemptions plus checkouts still open.
+  usageLimit    Int?              @map("usage_limit")
+  perUserLimit  Int?              @map("per_user_limit")
+  isActive      Boolean           @default(true) @map("is_active")
+  createdById   String?           @map("created_by_id") @db.Uuid
+  createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  plan         Plan?                @relation(fields: [planId], references: [id], onDelete: SetNull)
+  createdBy    User?                @relation("PromoCodeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  redemptions  PromoRedemption[]
+  transactions PaymentTransaction[]
+
+  @@map("promo_codes")
+}
+
+/// One promo use, tied to exactly one checkout.
+model PromoRedemption {
+  id             String   @id @default(uuid()) @db.Uuid
+  promoCodeId    String   @map("promo_code_id") @db.Uuid
+  transactionId  String   @unique @map("transaction_id") @db.Uuid
+  userId         String?  @map("user_id") @db.Uuid
+  weddingId      String   @map("wedding_id") @db.Uuid
+  discountAmount BigInt   @map("discount_amount")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  promoCode   PromoCode          @relation(fields: [promoCodeId], references: [id], onDelete: Restrict)
+  transaction PaymentTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  user        User?              @relation("PromoRedemptionUser", fields: [userId], references: [id], onDelete: SetNull)
+  wedding     Wedding            @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+
+  @@index([promoCodeId, createdAt])
+  @@index([promoCodeId, userId])
+  @@map("promo_redemptions")
 }

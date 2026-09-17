@@ -7,6 +7,8 @@ import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
 import { mediaPath } from "@/lib/media";
 import { removeCoverImageAction } from "@/server/actions/invitation-actions";
 import { requireSession } from "@/server/auth/session-cookie";
+import { weddingHasFeature } from "@/server/billing/access";
+import { getThemeCatalog } from "@/server/invitation/theme-catalog";
 import { coverLayoutOf, getInvitationForUser } from "@/server/invitation/invitation-service";
 import { getActiveWeddingForUser } from "@/server/wedding/wedding-service";
 
@@ -19,6 +21,18 @@ export default async function InvitationDesignPage() {
 
   const invitation = await getInvitationForUser(session.user.id, membership.wedding.id);
   if (!invitation) redirect("/invitation");
+  const [catalog, hasPremium] = await Promise.all([getThemeCatalog(), weddingHasFeature(membership.wedding.id, "premium_themes")]);
+  // Disabled themes disappear from the picker, except the one this invitation already uses.
+  const themes = catalog
+    .filter((entry) => entry.isEnabled || entry.code === invitation.themeCode)
+    .map((entry) => ({
+      code: entry.code,
+      name: entry.name,
+      description: entry.description,
+      swatches: [entry.theme.tokens.background, entry.theme.tokens.surface, entry.theme.tokens.accent, entry.theme.tokens.ink],
+      isPremium: entry.isPremium,
+      locked: entry.isPremium && !hasPremium && entry.code !== invitation.themeCode,
+    }));
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
@@ -61,6 +75,7 @@ export default async function InvitationDesignPage() {
           weddingId={membership.wedding.id}
           themeCode={invitation.themeCode}
           coverLayout={coverLayoutOf(invitation.themeOptions, invitation.themeCode)}
+          themes={themes}
         />
       </Card>
     </div>

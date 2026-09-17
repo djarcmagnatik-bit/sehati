@@ -13,6 +13,7 @@ import {
   type PaymentStatusValue,
 } from "@/lib/billing";
 import { getEnv } from "@/lib/env";
+import { computeDiscount, normalizePromoCode, promoWindowProblem, type PromoDiscountTypeValue } from "@/lib/promo";
 import { logger } from "@/lib/logger";
 import { recordActivity } from "@/server/activity/activity-service";
 import { memberWeddingWhere, requireWeddingMember } from "@/server/authz/wedding-access";
@@ -115,9 +116,63 @@ export async function getBillingOverview(userId: string, weddingId: string, now:
 
 export type CheckoutItem = { kind: "PLAN" | "ADDON"; code: string };
 
+export type PromoProblem = "promo_invalid" | "promo_expired" | "promo_exhausted" | "promo_not_applicable" | "promo_too_large";
+
 export type StartCheckoutResult =
   | { ok: true; orderId: string; checkoutUrl: string; reused: boolean }
-  | { ok: false; reason: "unknown_item" | "already_active" | "provider_unavailable" };
+  | { ok: false; reason: "unknown_item" | "already_active" | "provider_unavailable" | PromoProblem };
+
+type LockedPromo = {
+  id: string;
+  discount_type: PromoDiscountTypeValue;
+  discount_value: bigint;
+  plan_id: string | null;
+  starts_at: Date | null;
+  expires_at: Date | null;
+  usage_limit: number | null;
+  per_user_limit: number | null;
+  is_active: boolean;
+};
+
+/**
+ * Validates a promo under a lock on its row, so two buyers racing for the last use cannot both get
+ * it. A use counts while its checkout is paid or still open; failed, expired and refunded orders
+ * give the use back.
+ */
+async function reservePromo(
+  tx: Tx,
+  input: { code: string; planId: string; price: bigint; userId: string; now: Date },
+): Promise<{ ok: true; promoId: string; discount: bigint; final: bigint } | { ok: false; reason: PromoProblem }> {
+  const rows = await tx.$queryRaw<LockedPromo[]>`
+    SELECT id, discount_type, discount_value, plan_id, starts_at, expires_at, usage_limit, per_user_limit, is_active
+    FROM promo_codes WHERE code = ${input.code} FOR UPDATE
+  `;
+  const promo = rows[0];
+  if (!promo) return { ok: false, reason: "promo_invalid" };
+
+  const window = promoWindowProblem(
+    { isActive: promo.is_active, startsAt: promo.starts_at, expiresAt: promo.expires_at },
+    input.now,
+  );
+  if (window === "inactive" || window === "not_started") return { ok: false, reason: "promo_invalid" };
+  if (window === "expired") return { ok: false, reason: "promo_expired" };
+  if (promo.plan_id && promo.plan_id !== input.planId) return { ok: false, reason: "promo_not_applicable" };
+
+  const inUse = {
+    promoCodeId: promo.id,
+    transaction: { OR: [{ status: "PAID" as const }, { status: "PENDING" as const, expiresAt: { gt: input.now } }] },
+  };
+  if (promo.usage_limit !== null && (await tx.promoRedemption.count({ where: inUse })) >= promo.usage_limit) {
+    return { ok: false, reason: "promo_exhausted" };
+  }
+  if (promo.per_user_limit !== null && (await tx.promoRedemption.count({ where: { ...inUse, userId: input.userId } })) >= promo.per_user_limit) {
+    return { ok: false, reason: "promo_exhausted" };
+  }
+
+  const discount = computeDiscount(input.price, promo.discount_type, BigInt(promo.discount_value));
+  if ("error" in discount) return { ok: false, reason: "promo_too_large" };
+  return { ok: true, promoId: promo.id, discount: discount.discount, final: discount.final };
+}
 
 /**
  * Creates a pending transaction and a provider checkout. Nothing is granted here: access only
@@ -128,8 +183,13 @@ export async function startCheckout(
   weddingId: string,
   item: CheckoutItem,
   now: Date = new Date(),
+  options: { promoCode?: string | null } = {},
 ): Promise<StartCheckoutResult> {
   const membership = await requireWeddingMember(userId, weddingId);
+  const rawPromo = options.promoCode?.trim() ?? "";
+  const promoCode = rawPromo ? normalizePromoCode(rawPromo) : null;
+  if (rawPromo && !promoCode) return { ok: false, reason: "promo_invalid" };
+  if (promoCode && item.kind !== "PLAN") return { ok: false, reason: "promo_not_applicable" };
   const db = getDb();
 
   const catalogue: { id: string; name: string; price: bigint; features: string[] } | null =
@@ -158,44 +218,68 @@ export async function startCheckout(
   }
 
   // Double-clicks and "back" buttons reuse the open checkout instead of creating a second order.
+  // A checkout with a promo is always new, so the promo is validated again under its lock.
   const itemFilter = item.kind === "PLAN" ? { planId: catalogue.id } : { addonId: catalogue.id };
-  const open = await db.paymentTransaction.findFirst({
-    where: {
-      weddingId: membership.weddingId,
-      ...itemFilter,
-      provider: provider.code,
-      status: "PENDING",
-      expiresAt: { gt: new Date(now.getTime() + 10 * 60_000) },
-      amount: catalogue.price,
-      checkoutUrl: { not: null },
-    },
-    orderBy: { createdAt: "desc" },
-    select: { orderId: true, checkoutUrl: true },
-  });
-  if (open?.checkoutUrl) return { ok: true, orderId: open.orderId, checkoutUrl: open.checkoutUrl, reused: true };
+  if (!promoCode) {
+    const open = await db.paymentTransaction.findFirst({
+      where: {
+        weddingId: membership.weddingId,
+        ...itemFilter,
+        provider: provider.code,
+        status: "PENDING",
+        expiresAt: { gt: new Date(now.getTime() + 10 * 60_000) },
+        amount: catalogue.price,
+        promoCodeId: null,
+        checkoutUrl: { not: null },
+      },
+      orderBy: { createdAt: "desc" },
+      select: { orderId: true, checkoutUrl: true },
+    });
+    if (open?.checkoutUrl) return { ok: true, orderId: open.orderId, checkoutUrl: open.checkoutUrl, reused: true };
+  }
 
   const user = await db.user.findUniqueOrThrow({ where: { id: userId }, select: { name: true, email: true } });
   const orderId = formatOrderId(now, randomOrderSuffix());
   const expiresAt = new Date(now.getTime() + CHECKOUT_TTL_MS);
-  const transaction = await db.paymentTransaction.create({
-    data: {
-      orderId,
-      weddingId: membership.weddingId,
-      userId,
-      kind: item.kind,
-      ...itemFilter,
-      itemName: catalogue.name,
-      amount: catalogue.price,
-      provider: provider.code,
-      expiresAt,
-    },
-    select: { id: true },
+
+  const created = await db.$transaction(async (tx) => {
+    const promo = promoCode
+      ? await reservePromo(tx, { code: promoCode, planId: catalogue.id, price: catalogue.price, userId, now })
+      : null;
+    if (promo && !promo.ok) return promo;
+
+    const amount = promo?.ok ? promo.final : catalogue.price;
+    const transaction = await tx.paymentTransaction.create({
+      data: {
+        orderId,
+        weddingId: membership.weddingId,
+        userId,
+        kind: item.kind,
+        ...itemFilter,
+        itemName: catalogue.name,
+        amount,
+        originalAmount: catalogue.price,
+        discountAmount: promo?.ok ? promo.discount : 0n,
+        promoCodeId: promo?.ok ? promo.promoId : null,
+        provider: provider.code,
+        expiresAt,
+      },
+      select: { id: true },
+    });
+    if (promo?.ok) {
+      await tx.promoRedemption.create({
+        data: { promoCodeId: promo.promoId, transactionId: transaction.id, userId, weddingId: membership.weddingId, discountAmount: promo.discount },
+      });
+    }
+    return { ok: true as const, transactionId: transaction.id, amount };
   });
+  if (!created.ok) return created;
+  const transaction = { id: created.transactionId };
 
   try {
     const session = await provider.createCheckout({
       orderId,
-      amount: catalogue.price,
+      amount: created.amount,
       itemName: catalogue.name,
       customer: { name: user.name, email: user.email },
       expiresAt,
