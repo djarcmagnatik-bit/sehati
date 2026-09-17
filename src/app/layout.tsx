@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Plus_Jakarta_Sans } from "next/font/google";
 import type { ReactNode } from "react";
+import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-registration";
+import { PWA_THEME_COLOR, pwaIconPath } from "@/lib/pwa";
 import { SITE } from "@/lib/site";
 import "./globals.css";
 
@@ -12,6 +14,11 @@ export const metadata: Metadata = {
   title: { default: `${SITE.name} — Wedding Planner untuk Berdua`, template: `%s · ${SITE.name}` },
   description: SITE.description,
   applicationName: SITE.name,
+  icons: {
+    icon: [{ url: pwaIconPath("192"), sizes: "192x192", type: "image/png" }],
+    apple: [{ url: pwaIconPath("apple"), sizes: "180x180", type: "image/png" }],
+  },
+  appleWebApp: { capable: true, title: SITE.name, statusBarStyle: "default" },
   openGraph: {
     type: "website",
     locale: "id_ID",
@@ -27,7 +34,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#fdfbf8",
+  themeColor: PWA_THEME_COLOR,
   width: "device-width",
   initialScale: 1,
 };
@@ -40,6 +47,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           Langsung ke konten
         </a>
         {children}
+        <ServiceWorkerRegistration />
       </body>
     </html>
   );

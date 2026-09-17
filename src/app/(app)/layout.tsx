@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { DesktopNav, MobileNav } from "@/components/app/nav-links";
+import { NotificationBell } from "@/components/app/notification-bell";
 import { Brand } from "@/components/brand";
 import { buttonClassName } from "@/components/ui/button";
 import { logoutAction } from "@/server/actions/auth-actions";
 import { requireSession } from "@/server/auth/session-cookie";
+import { countUnreadNotifications } from "@/server/notifications/notification-service";
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
@@ -14,6 +16,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   // Layouts are not a security boundary (they don't re-run on every navigation);
   // each page and action re-checks the session itself.
   const session = await requireSession();
+  const unread = await countUnreadNotifications(session.user.id);
 
   return (
     <div className="min-h-dvh">
@@ -22,6 +25,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           <Brand href="/dashboard" />
           <DesktopNav />
           <div className="flex items-center gap-2">
+            <NotificationBell unread={unread} />
             <span className="hidden text-sm text-ink-700 md:inline">{session.user.name}</span>
             <form action={logoutAction}>
               <button type="submit" className={buttonClassName("ghost", "min-h-10 px-3")}>

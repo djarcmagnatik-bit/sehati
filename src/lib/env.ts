@@ -24,6 +24,8 @@ const envSchema = z.object({
   ALLOW_SANDBOX_PAYMENTS: z.enum(["true", "false"]).default("false"),
   MIDTRANS_SERVER_KEY: optionalSecret(1),
   MIDTRANS_IS_PRODUCTION: z.enum(["true", "false"]).default("false"),
+  /** Enables POST /api/jobs/run for schedulers when no long-running worker is available. */
+  JOBS_CRON_SECRET: optionalSecret(32),
 });
 
 export type Env = z.infer<typeof envSchema>;

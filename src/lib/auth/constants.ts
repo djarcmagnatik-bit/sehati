@@ -23,6 +23,7 @@ export const PRIVATE_PATH_PREFIXES = [
   "/payments",
   "/activity",
   "/more",
+  "/notifications",
   "/admin",
 ] as const;
 

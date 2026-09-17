@@ -7,6 +7,7 @@ import { recordActivity } from "@/server/activity/activity-service";
 import { memberWeddingWhere, WeddingAccessError } from "@/server/authz/wedding-access";
 import { requireWeddingFeature, weddingHasFeature } from "@/server/billing/access";
 import { getDb } from "@/server/db";
+import { enqueueJob } from "@/server/jobs/queue";
 
 const uuidSchema = z.uuid();
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{16,32}$/;
@@ -100,7 +101,7 @@ export async function submitRsvp(
         invitationOpenedAt: guest.rsvpStatus === "PENDING" ? now : undefined,
       },
     });
-    await tx.rsvpSubmission.create({
+    const submission = await tx.rsvpSubmission.create({
       data: {
         weddingId: guest.weddingId,
         guestId: guest.id,
@@ -111,6 +112,7 @@ export async function submitRsvp(
         ipHash,
         createdAt: now,
       },
+      select: { id: true },
     });
     await recordActivity(tx, {
       weddingId: guest.weddingId,
@@ -121,6 +123,8 @@ export async function submitRsvp(
       entityId: guest.id,
       metadata: { name: guest.invitationName, status: input.rsvpStatus, count: attendingCount },
     });
+    // Telling the couple happens in the background; the guest never waits for it.
+    await enqueueJob(tx, "notify.rsvp_received", { submissionId: submission.id });
     return { ok: true, guestId: guest.id, rsvpStatus: input.rsvpStatus, attendingCount } as const;
   });
 }

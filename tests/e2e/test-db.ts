@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { config } from "dotenv";
 import { PrismaClient } from "../../src/generated/prisma/client";
@@ -32,4 +33,21 @@ export async function grantFullAccess(email: string): Promise<void> {
       data: { weddingId, planId: plan.id, source: "ADMIN_GRANT", startsAt: new Date(), note: "e2e" },
     });
   }
+}
+
+/**
+ * Runs one background-worker cycle against the TEST database, the way `pnpm worker` would in
+ * production. Notifications are asynchronous, so specs call this where a worker would have run.
+ */
+export function runWorkerOnce(): string {
+  const testUrl = process.env["DATABASE_URL_TEST"];
+  if (!testUrl) throw new Error("DATABASE_URL_TEST belum diisi");
+  const result = spawnSync("pnpm", ["worker", "--", "--once"], {
+    env: { ...process.env, DATABASE_URL: testUrl },
+    shell: process.platform === "win32",
+    encoding: "utf8",
+    timeout: 120_000,
+  });
+  if (result.status !== 0) throw new Error(`worker failed (${result.status}): ${result.stderr || result.stdout}`);
+  return result.stdout;
 }

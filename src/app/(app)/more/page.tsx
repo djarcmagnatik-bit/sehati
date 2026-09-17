@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { InstallAppButton } from "@/components/pwa/install-app-button";
+import { SITE } from "@/lib/site";
 import { requireSession } from "@/server/auth/session-cookie";
 
 export const metadata: Metadata = { title: "Lainnya" };
@@ -62,6 +64,15 @@ export default async function MorePage() {
           </ul>
         </section>
       ))}
+      <section aria-labelledby="more-app" className="space-y-2">
+        <h2 id="more-app" className="text-sm font-semibold uppercase tracking-wider text-ink-500">
+          Aplikasi
+        </h2>
+        <div className="rounded-3xl border border-cream-200 bg-white px-5 py-4">
+          <p className="mb-3 text-sm text-ink-700">Pasang {SITE.name} di layar utama supaya bisa dibuka seperti aplikasi.</p>
+          <InstallAppButton />
+        </div>
+      </section>
     </div>
   );
 }

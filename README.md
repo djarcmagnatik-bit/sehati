@@ -121,7 +121,31 @@ as-is. Audio has no HTTP range support, so seeking inside a long track may not w
   - **Audit log**: every admin change is written in the same transaction as the change itself.
   - First admin: `pnpm admin:set -- --email <email>` (after that, admins manage roles in the UI).
 
-Nothing beyond Phase 11 is implemented yet.
+- Phase 12 (PWA & notifications):
+  - **Installable PWA**: web app manifest (`/manifest.webmanifest`, start at `/dashboard`,
+    standalone), app icons generated at build time (192, 512, maskable 512, Apple touch), an
+    install button on "Lainnya" (Chrome/Android prompt, manual steps for Safari).
+  - **Safe caching** (`public/sw.js`, production builds only): hashed `/_next/static` assets
+    (cache-first), manifest and icons (stale-while-revalidate) and an `/offline` page. Pages, Server
+    Actions, RSC payloads, API routes, invitation media and payments always go to the network and
+    are never stored. The offline page's "Coba lagi" works without JavaScript.
+  - **In-app notifications** (PRD §37) for: tasks due within 3 days (grouped per due date), tasks
+    that became overdue in the last 7 days, payments due within 3 days, partner invitations (only to
+    an existing account with that email, never with the secret link), partner joined, RSVP received,
+    and budget exceeded (total target or a category allocation; once per limit). Bell with unread
+    count in the header, `/notifications` inbox, open marks read, mark all as read. Payment and
+    RSVP notifications respect the wedding's access. Links are internal paths only (also a CHECK).
+  - **Asynchronous delivery / background jobs**: a durable job queue in PostgreSQL
+    (`background_jobs`). The event and its job are written in the same transaction; workers claim
+    jobs with `FOR UPDATE SKIP LOCKED`, retry with exponential backoff (30 s … 1 h, then DEAD),
+    reclaim jobs from crashed workers after a 5-minute lease, and collapse repeated requests with a
+    dedupe key. Every notification has a per-user dedupe key, so replays never notify twice.
+    Reminders are scanned hourly; finished jobs and old notifications are purged daily.
+    Redis/BullMQ is not used yet: PostgreSQL covers the current volume without another service.
+  - Run `pnpm worker` next to the app (several may run at once). Hosts without a long-running
+    process can instead call `POST /api/jobs/run` with `Authorization: Bearer $JOBS_CRON_SECRET`.
+
+Nothing beyond Phase 12 is implemented yet. Email, WhatsApp and web push delivery are not built.
 
 ## Stack
 
@@ -149,6 +173,7 @@ Requirements: Node.js ≥ 24, pnpm 10, PostgreSQL 16.
    pnpm db:test:deploy   # apply migrations (test DB)
    pnpm db:test:seed
    pnpm dev
+   pnpm worker           # in a second terminal: notifications & reminders
    ```
 
 ## Scripts
@@ -164,6 +189,7 @@ Requirements: Node.js ≥ 24, pnpm 10, PostgreSQL 16.
 | `pnpm db:deploy` / `db:status` / `db:seed` | Apply migrations / status / seed reference data |
 | `pnpm access:grant -- --email <email> [--plan CODE]` | Give an account's weddings a plan without payment (admin grant) |
 | `pnpm admin:set -- --email <email> [--revoke]` | Make an existing account an admin (or remove the role); audited |
+| `pnpm worker [-- --once]` | Background worker: reminders, notifications, housekeeping (`--once` = one cycle) |
 
 ## Architecture notes
 
@@ -178,6 +204,8 @@ Requirements: Node.js ≥ 24, pnpm 10, PostgreSQL 16.
   in each page and action.
 - CSRF: mutations use Server Actions (POST + Origin/Host check by Next.js) with `SameSite=Lax` cookies.
 - Rate limiting uses an atomic PostgreSQL upsert (`rate_limit_buckets`), so no Redis is needed yet.
+- Background jobs: `src/server/jobs` (queue + runner). Enqueue with `enqueueJob(tx, …)` inside the
+  transaction of the change; handlers re-read the database and must be safe to run twice.
 - Email: only a development `file` driver exists (writes JSON to `MAIL_FILE_DIR`). A production email
   provider is still to be chosen.
 - Uploaded images: bytes go to the media store (`MEDIA_FILE_DIR`), metadata to PostgreSQL. `/media/{id}`

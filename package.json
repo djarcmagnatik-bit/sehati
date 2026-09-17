@@ -25,6 +25,7 @@
     "db:test:deploy": "tsx scripts/with-test-db.ts prisma migrate deploy",
     "access:grant": "tsx scripts/grant-access.ts",
     "admin:set": "tsx scripts/set-admin.ts",
+    "worker": "tsx --conditions=react-server scripts/worker.ts",
     "db:test:seed": "tsx scripts/with-test-db.ts tsx prisma/seed.ts"
   },
   "dependencies": {

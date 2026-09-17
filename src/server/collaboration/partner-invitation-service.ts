@@ -9,6 +9,7 @@ import { generateToken, hashToken } from "@/server/auth/tokens";
 import { requireWeddingMember } from "@/server/authz/wedding-access";
 import { requireWeddingFeature } from "@/server/billing/access";
 import { getDb } from "@/server/db";
+import { enqueueJob } from "@/server/jobs/queue";
 import type { Mailer } from "@/server/mail/mailer";
 
 export const PARTNER_INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -86,6 +87,7 @@ export async function createPartnerInvitation(
       entityId: invitation.id,
       metadata: { email: maskEmail(email) },
     });
+    await enqueueJob(tx, "notify.partner_invited", { invitationId: invitation.id });
 
     return { ok: true, invitation, wedding } as const;
   });
@@ -278,6 +280,7 @@ export async function acceptPartnerInvitation(
         entityType: "wedding_member",
         entityId: member.id,
       });
+      await enqueueJob(tx, "notify.partner_joined", { memberId: member.id });
 
       return { ok: true, weddingId: invitation.weddingId } as const;
     },

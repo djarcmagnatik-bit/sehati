@@ -9,6 +9,7 @@ import { recordActivity } from "@/server/activity/activity-service";
 import { memberWeddingWhere, WeddingAccessError } from "@/server/authz/wedding-access";
 import { requireWeddingFeature } from "@/server/billing/access";
 import { getDb } from "@/server/db";
+import { enqueueJob } from "@/server/jobs/queue";
 
 type Tx = Prisma.TransactionClient;
 
@@ -79,7 +80,14 @@ export async function initializeBudgetIfMissing(
 
 export async function getBudgetOverview(userId: string, weddingId: string) {
   const membership = await requireWeddingFeature("budget", userId, weddingId);
-  const id = membership.weddingId;
+  return loadBudgetFigures(membership.weddingId);
+}
+
+/**
+ * Budget figures for a wedding, with NO access check. Only for callers that already decided the
+ * wedding may be read (the overview above, background jobs).
+ */
+export async function loadBudgetFigures(id: string) {
   const db = getDb();
 
   const [wedding, categories, committedRows, paidRows] = await Promise.all([
@@ -156,6 +164,7 @@ export async function updateBudgetSettings(userId: string, weddingId: string, in
       entityId: membership.weddingId,
       metadata: { amount: input.targetBudget?.toString() ?? null, warningPercent: input.warningPercent },
     });
+    await enqueueJob(tx, "budget.check", { weddingId: membership.weddingId }, { dedupeKey: `budget.check:${membership.weddingId}` });
   });
 }
 
@@ -260,6 +269,7 @@ export async function updateBudgetCategory(
         entityId: category.id,
         metadata: { name: input.name, amount: input.allocatedAmount.toString() },
       });
+      await enqueueJob(tx, "budget.check", { weddingId: category.weddingId }, { dedupeKey: `budget.check:${category.weddingId}` });
       return { ok: true, categoryId: category.id } as const;
     });
   } catch (error) {
@@ -473,6 +483,7 @@ export async function createExpense(userId: string, weddingId: string, input: Ex
       entityId: expense.id,
       metadata: { title: input.title, amount: input.totalAmount.toString() },
     });
+    await enqueueJob(tx, "budget.check", { weddingId: membership.weddingId }, { dedupeKey: `budget.check:${membership.weddingId}` });
     return { ok: true, expenseId: expense.id } as const;
   });
 }
@@ -518,6 +529,7 @@ export async function updateExpense(userId: string, expenseId: string, input: Ex
       entityId: expense.id,
       metadata: { title: input.title, amount: input.totalAmount.toString() },
     });
+    await enqueueJob(tx, "budget.check", { weddingId: expense.weddingId }, { dedupeKey: `budget.check:${expense.weddingId}` });
     return { ok: true, expenseId: expense.id } as const;
   });
 }
