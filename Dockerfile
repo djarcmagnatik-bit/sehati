@@ -23,8 +23,12 @@ RUN NEXT_OUTPUT=standalone pnpm build \
  && rm -f .next/standalone/.env*
 
 # ─── One-off commands ────────────────────────────────────────────────────────
-FROM build AS tools
+# Dependencies, sources and the Prisma client only: no Next.js build output or build cache, which
+# none of the scripts use (and which made this image several hundred MB larger to pull).
+FROM deps AS tools
 ENV NODE_ENV=production
+COPY . .
+RUN pnpm exec prisma generate
 # e.g. `pnpm db:deploy`, `pnpm db:seed`, `pnpm admin:set -- --email …`
 CMD ["pnpm", "db:status"]
 
