@@ -1,4 +1,5 @@
 /** Deployment readiness rules for a production environment (pure; values are never echoed). */
+import { parseMailbox } from "./mail-address";
 
 export type CheckLevel = "error" | "warning";
 export type CheckResult = { level: CheckLevel; variable: string; message: string };
@@ -39,8 +40,22 @@ export function checkProductionEnv(env: Env): CheckResult[] {
     if (env["MIDTRANS_IS_PRODUCTION"] !== "true") warning("MIDTRANS_IS_PRODUCTION", "is not true: payments go to the Midtrans sandbox");
   }
 
-  if ((env["MAIL_DRIVER"] ?? "file") === "file") {
+  const mailDriver = env["MAIL_DRIVER"] || "file";
+  if (mailDriver === "file") {
     warning("MAIL_DRIVER", "is the development file driver: password-reset and partner-invite emails are written to disk, not sent");
+  } else if (mailDriver === "smtp") {
+    for (const name of ["SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD", "MAIL_FROM"]) {
+      if (!set(env, name)) error(name, "is required when MAIL_DRIVER is smtp");
+    }
+    const from = parseMailbox(env["MAIL_FROM"]);
+    if (set(env, "MAIL_FROM") && !from) error("MAIL_FROM", "must be an address or `Name <address>`");
+    else if (from && set(env, "SMTP_USER") && from.address !== env["SMTP_USER"]!.trim().toLowerCase()) {
+      warning("MAIL_FROM", "differs from SMTP_USER: most servers reject or spam-flag a sender the account does not own");
+    }
+    const port = env["SMTP_PORT"] || "465";
+    if (env["SMTP_SECURE"] === "false" && port === "465") error("SMTP_SECURE", "must not be false on port 465 (implicit TLS)");
+  } else {
+    error("MAIL_DRIVER", "must be file or smtp");
   }
   if (!env["TRUSTED_PROXY_COUNT"]) warning("TRUSTED_PROXY_COUNT", "not set; defaults to 1 reverse proxy in front of the app");
   if (!set(env, "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY")) {

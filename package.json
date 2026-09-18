@@ -29,6 +29,7 @@
     "worker": "tsx --conditions=react-server scripts/worker.ts",
     "media:variants": "tsx --conditions=react-server scripts/media-variants.ts",
     "verify:env": "tsx scripts/verify-production-env.ts",
+    "mail:test": "tsx --conditions=react-server scripts/mail-test.ts",
     "db:test:seed": "tsx scripts/with-test-db.ts tsx prisma/seed.ts",
     "verify:migrations": "tsx scripts/verify-migrations.ts"
   },
@@ -37,6 +38,7 @@
     "@prisma/adapter-pg": "7.10.0",
     "@prisma/client": "7.10.0",
     "next": "16.3.5",
+    "nodemailer": "10.0.10",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "read-excel-file": "9.3.10",
@@ -49,6 +51,7 @@
     "@playwright/test": "1.63.0",
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "24.13.4",
+    "@types/nodemailer": "8.0.2",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "dotenv": "17.4.2",

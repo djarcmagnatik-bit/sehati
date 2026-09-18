@@ -10,6 +10,11 @@ const READY = {
   MIDTRANS_SERVER_KEY: "server-key",
   MIDTRANS_IS_PRODUCTION: "true",
   MAIL_DRIVER: "smtp",
+  SMTP_HOST: "mail.sehati.example",
+  SMTP_PORT: "465",
+  SMTP_USER: "halo@sehati.example",
+  SMTP_PASSWORD: "mail-password",
+  MAIL_FROM: "Sehati <halo@sehati.example>",
   TRUSTED_PROXY_COUNT: "1",
   NEXT_SERVER_ACTIONS_ENCRYPTION_KEY: "k",
   JOBS_CRON_SECRET: "s".repeat(32),
@@ -34,6 +39,17 @@ describe("production environment checks", () => {
     expect(variables({ ...READY, NODE_ENV: "development" }, "error")).toEqual(["NODE_ENV"]);
   });
 
+  it("requires a complete SMTP configuration", () => {
+    expect(variables({ ...READY, SMTP_HOST: "", SMTP_PASSWORD: undefined }, "error")).toEqual(["SMTP_HOST", "SMTP_PASSWORD"]);
+    expect(variables({ ...READY, MAIL_FROM: "Sehati <not-an-address>" }, "error")).toEqual(["MAIL_FROM"]);
+    expect(variables({ ...READY, MAIL_FROM: "Sehati <halo@sehati.example>\r\nBcc: x@y.example" }, "error")).toEqual(["MAIL_FROM"]);
+    expect(variables({ ...READY, SMTP_SECURE: "false" }, "error")).toEqual(["SMTP_SECURE"]);
+    expect(variables({ ...READY, SMTP_PORT: "587", SMTP_SECURE: "false" }, "error")).toEqual([]);
+    expect(variables({ ...READY, MAIL_DRIVER: "sendgrid" }, "error")).toEqual(["MAIL_DRIVER"]);
+    expect(variables({ ...READY, MAIL_FROM: "halo@sehati.example" }, "warning")).toEqual([]);
+    expect(variables({ ...READY, MAIL_FROM: "Sehati <noreply@other.example>" }, "warning")).toEqual(["MAIL_FROM"]);
+  });
+
   it("warns about decisions the operator must make", () => {
     expect(variables({ ...READY, MAIL_DRIVER: "file" }, "warning")).toEqual(["MAIL_DRIVER"]);
     expect(variables({ ...READY, PAYMENT_PROVIDER: "sandbox" }, "warning")).toEqual(["PAYMENT_PROVIDER"]);
@@ -45,8 +61,10 @@ describe("production environment checks", () => {
   });
 
   it("never echoes a value", () => {
-    const output = JSON.stringify(checkProductionEnv({ ...READY, APP_URL: "http://secret-host.example", MIDTRANS_SERVER_KEY: "" }));
+    const output = JSON.stringify(checkProductionEnv({ ...READY, APP_URL: "http://secret-host.example", MIDTRANS_SERVER_KEY: "", SMTP_HOST: "" }));
     expect(output).not.toContain("secret-host");
     expect(output).not.toContain("postgresql://");
+    expect(output).not.toContain("mail-password");
+    expect(output).not.toContain("halo@sehati.example");
   });
 });

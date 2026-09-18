@@ -201,7 +201,13 @@ as-is. Audio has no HTTP range support, so seeking inside a long track may not w
   - `pnpm verify:env` checks a production environment (names only, never values); `/api/health`
     is the load-balancer probe.
 
-Nothing beyond Phase 16 is implemented yet. Email, WhatsApp and web push delivery are not built.
+- **Email delivery (after Phase 16):** `MAIL_DRIVER=smtp` sends through an authenticated SMTP server
+  (implicit TLS on 465, or STARTTLS enforced on other ports; 30 s connect/greeting timeouts).
+  Password-reset emails are sent after the response (`after()`), so response time does not reveal
+  whether an account exists. `pnpm mail:test [-- --to <address>]` checks the settings. See
+  [docs/email.md](docs/email.md).
+
+Nothing else beyond Phase 16 is implemented yet. WhatsApp and web push delivery are not built.
 
 ## Stack
 
@@ -248,6 +254,7 @@ Requirements: Node.js ≥ 24, pnpm 10, PostgreSQL 16.
 | `pnpm admin:set -- --email <email> [--revoke]` | Make an existing account an admin (or remove the role); audited |
 | `pnpm verify:migrations` | Apply all migrations to an empty schema, check drift, run the seed twice (test DB) |
 | `pnpm verify:env [-- --file .env.production]` | Production configuration check (exit 1 on errors) |
+| `pnpm mail:test [-- --to <address>]` | Connect and authenticate to SMTP from `.env`; optionally send one test email (password never printed) |
 | `pnpm media:variants` | Create resized WebP copies for images uploaded before Phase 15 |
 | `pnpm worker [-- --once]` | Background worker: reminders, notifications, housekeeping (`--once` = one cycle) |
 
@@ -266,8 +273,8 @@ Requirements: Node.js ≥ 24, pnpm 10, PostgreSQL 16.
 - Rate limiting uses an atomic PostgreSQL upsert (`rate_limit_buckets`), so no Redis is needed yet.
 - Background jobs: `src/server/jobs` (queue + runner). Enqueue with `enqueueJob(tx, …)` inside the
   transaction of the change; handlers re-read the database and must be safe to run twice.
-- Email: only a development `file` driver exists (writes JSON to `MAIL_FILE_DIR`). A production email
-  provider is still to be chosen.
+- Email: `src/server/mail/mailer.ts` — `file` driver for development (JSON in `MAIL_FILE_DIR`) and an
+  `smtp` driver (nodemailer). Services take a `Mailer`, so tests pass a fake one.
 - Uploaded images: bytes go to the media store (`MEDIA_FILE_DIR`), metadata to PostgreSQL. `/media/{id}`
   serves them, publicly only while the owning invitation is published. Maps need no API key: a link is
   built from coordinates or the address, and the embedded preview is a lazy OpenStreetMap frame.

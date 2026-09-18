@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { getEnv } from "@/lib/env";
 import type { FormState } from "@/lib/form-state";
 import { logger } from "@/lib/logger";
@@ -115,7 +116,16 @@ export async function forgotPasswordAction(_prev: FormState, formData: FormData)
     if (!ipLimit.allowed || !emailLimit.allowed) {
       return { status: "error", message: TOO_MANY_ATTEMPTS, values: input };
     }
-    await requestPasswordReset(parsed.data.email, { mailer: getMailer(), appUrl: getEnv().APP_URL });
+    const email = parsed.data.email;
+    // After the response: an SMTP round trip only happens for existing accounts, so awaiting it
+    // here would let response times reveal which emails are registered.
+    after(async () => {
+      try {
+        await requestPasswordReset(email, { mailer: getMailer(), appUrl: getEnv().APP_URL });
+      } catch (error) {
+        logger.error("auth.forgot_password_failed", { error });
+      }
+    });
   } catch (error) {
     // Same response as success: the page must not reveal whether the account exists.
     logger.error("auth.forgot_password_failed", { error });

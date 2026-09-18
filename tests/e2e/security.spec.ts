@@ -105,6 +105,8 @@ test("security: stored XSS payloads render as text, on private and public pages"
   await guestPage.getByLabel(/^Nama$/).fill(XSS_IMG);
   await guestPage.getByLabel(/^Ucapan & doa/).fill(XSS_SCRIPT);
   await guestPage.getByRole("button", { name: "Kirim ucapan" }).click();
+  // Reloading before the action finishes would drop the wish.
+  await expect(guestPage.getByText("Terima kasih atas ucapan dan doanya.")).toBeVisible();
   await guestPage.reload();
   await expect(guestPage.getByText(XSS_SCRIPT).first()).toBeVisible();
   expect(await guestPage.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBeUndefined();
