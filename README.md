@@ -88,11 +88,13 @@ as-is. Audio has no HTTP range support, so seeking inside a long track may not w
     and sends the buyer to the provider. Only a verified webhook changes the order
     (pending / paid / failed / expired / refunded): the transaction row is locked, each event is
     stored under a unique key so replays are no-ops, amounts must match, a paid order never moves
-    backwards, and a refund revokes what it granted. The return page only reports the database.
+    backwards, and a refund revokes what it granted.
   - **Providers**: `sandbox` (a local hosted-page stand-in that sends a real HMAC-signed webhook over
     HTTP; refused in production unless `ALLOW_SANDBOX_PAYMENTS=true`) and `midtrans` (Snap checkout,
-    SHA-512 notification signature). The Midtrans code is unit-tested against its documented
-    contract but has **not** been exercised against the live Midtrans sandbox (no credentials).
+    SHA-512 notification signature). Midtrans webhooks are confirmed with Midtrans' Status API
+    before anything is applied; the return page and a 10-minute worker job (`billing.reconcile`)
+    use the same API to catch delayed or lost webhooks. See [docs/payments-midtrans.md](docs/payments-midtrans.md)
+    (a full payment against the live Midtrans sandbox is still NOT VERIFIED).
   - Support tool: `pnpm access:grant -- --email <email>` grants Full Access as an admin grant.
 
 - Phase 11 (Admin, `/admin`):
@@ -254,6 +256,7 @@ Requirements: Node.js ≥ 24, pnpm 10, PostgreSQL 16.
 | `pnpm admin:set -- --email <email> [--revoke]` | Make an existing account an admin (or remove the role); audited |
 | `pnpm verify:migrations` | Apply all migrations to an empty schema, check drift, run the seed twice (test DB) |
 | `pnpm verify:env [-- --file .env.production]` | Production configuration check (exit 1 on errors) |
+| `pnpm payment:check [-- --order <id>]` | Check `MIDTRANS_SERVER_KEY` against Midtrans (creates nothing), or sync one order with the Midtrans Status API |
 | `pnpm mail:test [-- --to <address>]` | Connect and authenticate to SMTP from `.env`; optionally send one test email (password never printed) |
 | `pnpm media:variants` | Create resized WebP copies for images uploaded before Phase 15 |
 | `pnpm worker [-- --once]` | Background worker: reminders, notifications, housekeeping (`--once` = one cycle) |

@@ -19,6 +19,8 @@ export const RATE_LIMITS = {
   rsvpPerIp: { limit: 40, windowSeconds: 60 * 60 },
   wishPerIp: { limit: 15, windowSeconds: 60 * 60 },
   checkoutPerUser: { limit: 20, windowSeconds: 60 * 60 },
+  // Status API calls to the payment provider from the return page ("Periksa lagi").
+  paymentSyncPerOrder: { limit: 30, windowSeconds: 10 * 60 },
   exportPerUser: { limit: 60, windowSeconds: 60 * 60 },
 } as const satisfies Record<string, RateLimitRule>;
 

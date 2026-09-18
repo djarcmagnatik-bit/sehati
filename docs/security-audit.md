@@ -47,9 +47,9 @@ The PRD checklist (Phase 14) and where each item is covered:
   landing page. Measure in Phase 15.
 - **Deployment**: set `TRUSTED_PROXY_COUNT` to the real number of proxies. With 0, per-IP limits
   share one bucket (per-account limits still apply). Serve over HTTPS only; HSTS is sent in production.
-- **Midtrans**: signatures are verified, but the payment status is not re-queried from the Midtrans
-  API before granting access. Add that reconciliation before going live (still NOT VERIFIED against the
-  live sandbox).
+- **Midtrans**: signatures are verified, and (since the Midtrans sandbox work) the status is
+  re-queried from the Midtrans Status API before anything is applied; see
+  [payments-midtrans.md](payments-midtrans.md). A full payment against the live sandbox is still NOT VERIFIED.
 - **Media storage** is the local disk driver; when moving to object storage keep the bucket private and
   keep serving through `/media`.
 - **Server Action body limit is 7 MB** (Phase 15, so photo uploads work). The framework parses a

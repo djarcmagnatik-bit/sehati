@@ -31,10 +31,18 @@ export type PaymentNotification = {
 
 export type NotificationRejection = "invalid_signature" | "invalid_payload" | "not_configured";
 
+/**
+ * A server-to-server status reading. "not_found": the provider has no such order yet (e.g. the buyer
+ * never chose a payment method). "unhandled_status": a status we deliberately do not act on.
+ */
+export type StatusLookup = PaymentNotification | { error: "not_found" } | { error: "unhandled_status"; reportedStatus: string };
+
 export interface PaymentProvider {
   readonly code: ProviderCode;
   createCheckout(request: CheckoutRequest): Promise<CheckoutSession>;
   parseNotification(input: { headers: Headers; body: string }): Promise<PaymentNotification | { error: NotificationRejection }>;
+  /** Asks the provider directly; absent when it has no status API. Throws PaymentProviderError. */
+  fetchStatus?(orderId: string): Promise<StatusLookup>;
 }
 
 export class PaymentProviderError extends Error {

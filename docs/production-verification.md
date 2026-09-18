@@ -165,8 +165,9 @@ of Full Access.
   authenticated and was accepted by `mail.wuzzgate.my.id`. **Open:** Gmail puts the mail in spam
   (SPF/DKIM/DMARC pass; the shared hosting IP has a poor reputation). Deferred by the owner; options
   are in [email.md](email.md#deliverability-open-decision-deferred).
-- **Payments:** Midtrans is verified only against its documented contract, never against the live
-  Midtrans sandbox; the status is not re-queried from Midtrans before access is granted.
+- **Payments:** added after this report: webhooks are confirmed with the Midtrans Status API, and the
+  return page and a worker job reconcile pending orders ([payments-midtrans.md](payments-midtrans.md)).
+  A full payment against the live Midtrans sandbox is still NOT VERIFIED (needs the owner's sandbox key).
 - **Hosting:** no deployment to a real host, domain or TLS certificate was performed; every number
   here comes from one local machine.
 - **Load:** no concurrent-user load test was run.

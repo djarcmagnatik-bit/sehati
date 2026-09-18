@@ -17,6 +17,10 @@ process.env["DATABASE_URL"] = testUrl;
 process.env["MEDIA_FILE_DIR"] = ".data/media-test";
 process.env["PAYMENT_PROVIDER"] = "sandbox";
 process.env["PAYMENT_SANDBOX_SECRET"] = "integration-sandbox-secret-0123456789";
+// Never reach real services from tests, whatever .env holds for development.
+delete process.env["MIDTRANS_SERVER_KEY"];
+process.env["MAIL_DRIVER"] = "file";
+process.env["MAIL_FILE_DIR"] = ".data/mail-test";
 
 afterAll(async () => {
   const { getDb } = await import("@/server/db");

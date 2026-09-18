@@ -165,6 +165,52 @@ describe("midtrans provider", () => {
     expect(await provider.parseNotification({ headers: new Headers(), body: JSON.stringify(forged) })).toEqual({ error: "invalid_signature" });
   });
 
+  describe("status API", () => {
+    const ORDER = "SHT-20260918-BBBBBBBBBB";
+    const withAnswer = (status: number, body: unknown, isProduction = false) => {
+      const fetchImpl = vi.fn(async () => new Response(JSON.stringify(body), { status }));
+      return { fetchImpl, provider: new MidtransPaymentProvider({ serverKey, isProduction, fetchImpl: fetchImpl as unknown as typeof fetch }) };
+    };
+
+    it("reads a settlement with our own authenticated GET", async () => {
+      const { fetchImpl, provider } = withAnswer(200, { ...notification(), signature_key: "ignored" });
+      const reading = await provider.fetchStatus(ORDER);
+      expect(reading).toMatchObject({ orderId: ORDER, status: "PAID", amount: 149_000n, eventId: "tx-123:settlement", reference: "tx-123" });
+      expect("payload" in reading && "signature_key" in reading.payload).toBe(false);
+      const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+      expect(url).toBe(`https://api.sandbox.midtrans.com/v2/${ORDER}/status`);
+      expect(init.method).toBe("GET");
+      expect((init.headers as Record<string, string>)["Authorization"]).toBe(`Basic ${Buffer.from(`${serverKey}:`).toString("base64")}`);
+      expect(init.signal).toBeInstanceOf(AbortSignal);
+    });
+
+    it("uses the production API when asked", async () => {
+      const { fetchImpl, provider } = withAnswer(200, notification(), true);
+      await provider.fetchStatus(ORDER);
+      expect((fetchImpl.mock.calls[0] as unknown as [string])[0]).toBe(`https://api.midtrans.com/v2/${ORDER}/status`);
+    });
+
+    it("reports unknown orders and unmapped statuses without acting", async () => {
+      expect(await withAnswer(404, { status_code: "404", status_message: "Transaction doesn't exist." }).provider.fetchStatus(ORDER)).toEqual({ error: "not_found" });
+      expect(await withAnswer(200, { status_code: "404" }).provider.fetchStatus(ORDER)).toEqual({ error: "not_found" });
+      expect(await withAnswer(200, notification({ transaction_status: "authorize" })).provider.fetchStatus(ORDER)).toEqual({
+        error: "unhandled_status",
+        reportedStatus: "authorize",
+      });
+    });
+
+    it("throws on a rejected key, a server error or another order's answer", async () => {
+      await expect(withAnswer(401, { status_code: "401" }).provider.fetchStatus(ORDER)).rejects.toMatchObject({ reason: "not_configured" });
+      await expect(withAnswer(500, {}).provider.fetchStatus(ORDER)).rejects.toMatchObject({ reason: "provider_error" });
+      await expect(withAnswer(200, notification({ order_id: "SHT-20260918-CCCCCCCCCC" })).provider.fetchStatus(ORDER)).rejects.toMatchObject({
+        reason: "provider_error",
+      });
+      await expect(new MidtransPaymentProvider({ serverKey: undefined, isProduction: false }).fetchStatus(ORDER)).rejects.toMatchObject({
+        reason: "not_configured",
+      });
+    });
+  });
+
   it("creates a Snap checkout with basic auth and the order details", async () => {
     const fetchImpl = vi.fn(async () => Response.json({ token: "snap-token", redirect_url: "https://app.sandbox.midtrans.com/snap/v4/redirection/x" }));
     const withFetch = new MidtransPaymentProvider({ serverKey, isProduction: false, fetchImpl: fetchImpl as unknown as typeof fetch });

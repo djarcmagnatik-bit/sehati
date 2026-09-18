@@ -19,7 +19,8 @@ import { recordActivity } from "@/server/activity/activity-service";
 import { memberWeddingWhere, requireWeddingMember } from "@/server/authz/wedding-access";
 import { getDb } from "@/server/db";
 import { getWeddingFeatures } from "./access";
-import { getActivePaymentProvider, PaymentProviderError } from "./providers";
+import { consumeRateLimit, RATE_LIMITS } from "@/server/auth/rate-limit";
+import { getActivePaymentProvider, getPaymentProviderByCode, PaymentProviderError, type PaymentProvider } from "./providers";
 
 type Tx = Prisma.TransactionClient;
 
@@ -569,4 +570,95 @@ async function applyNotification(input: NotificationInput, now: Date): Promise<W
     await record("applied");
     return "applied" as const;
   });
+}
+
+// ─── Status re-query (provider status API) ───────────────────────────────────
+
+/** Providers whose status API is used to confirm webhooks and catch missed ones. */
+const STATUS_API_PROVIDERS = ["midtrans"];
+const RECONCILE_MIN_AGE_MS = 5 * 60_000;
+const RECONCILE_MAX_AGE_AFTER_EXPIRY_MS = 24 * 60 * 60_000;
+
+/** The same provider event yields the same key from a webhook or a status query, so it applies once. */
+export function paymentEventKey(provider: string, reading: { orderId: string; status: PaymentStatusValue; eventId: string | null }, fallback: string) {
+  return `${provider}:${reading.orderId}:${reading.status}:${reading.eventId ?? fallback}`.slice(0, 200);
+}
+
+export type SyncOutcome = WebhookOutcome | "not_found" | "unhandled_status" | "unsupported";
+
+/**
+ * Asks the provider for the order's current status (our own authenticated call) and applies it like
+ * a verified webhook. Throws PaymentProviderError when the provider cannot be reached.
+ */
+export async function syncPaymentStatus(provider: PaymentProvider, orderId: string, now: Date = new Date()): Promise<SyncOutcome> {
+  if (!provider.fetchStatus) return "unsupported";
+  const reading = await provider.fetchStatus(orderId);
+  if ("error" in reading) return reading.error;
+  return processPaymentNotification(
+    {
+      provider: provider.code,
+      orderId: reading.orderId,
+      status: reading.status,
+      reportedStatus: reading.reportedStatus,
+      amount: reading.amount,
+      eventKey: paymentEventKey(provider.code, reading, `status:${reading.reportedStatus}`),
+      reference: reading.reference,
+      payload: reading.payload,
+    },
+    now,
+  );
+}
+
+/**
+ * The buyer is back from the hosted checkout: ask the provider instead of waiting for the webhook
+ * (which cannot reach a local machine, and may be delayed). Only for members, only while pending.
+ */
+export async function syncPaymentForUser(userId: string, orderId: string, now: Date = new Date()): Promise<SyncOutcome | "skipped" | "rate_limited"> {
+  const transaction = await getTransactionForUser(userId, orderId, now);
+  if (!transaction || transaction.status !== "PENDING" || !STATUS_API_PROVIDERS.includes(transaction.provider)) return "skipped";
+  const provider = getPaymentProviderByCode(transaction.provider);
+  if (!provider) return "skipped";
+  const limit = await consumeRateLimit(`payment-sync:order:${orderId}`, RATE_LIMITS.paymentSyncPerOrder);
+  if (!limit.allowed) return "rate_limited";
+  return syncPaymentStatus(provider, orderId, now);
+}
+
+export type ReconcileSummary = { checked: number; applied: number; failed: number };
+
+/**
+ * Worker job: re-queries recent pending orders so a lost webhook cannot leave a paid order pending.
+ * Newest first; orders the provider never saw stop being asked a day after they expire.
+ */
+export async function reconcilePendingPayments(
+  now: Date = new Date(),
+  options: { limit?: number; providerFor?: (code: string) => PaymentProvider | null } = {},
+): Promise<ReconcileSummary> {
+  const providerFor = options.providerFor ?? getPaymentProviderByCode;
+  const summary: ReconcileSummary = { checked: 0, applied: 0, failed: 0 };
+  const pending = await getDb().paymentTransaction.findMany({
+    where: {
+      status: "PENDING",
+      provider: { in: STATUS_API_PROVIDERS },
+      createdAt: { lt: new Date(now.getTime() - RECONCILE_MIN_AGE_MS) },
+      expiresAt: { gt: new Date(now.getTime() - RECONCILE_MAX_AGE_AFTER_EXPIRY_MS) },
+    },
+    orderBy: { createdAt: "desc" },
+    take: options.limit ?? 50,
+    select: { orderId: true, provider: true },
+  });
+
+  for (const transaction of pending) {
+    const provider = providerFor(transaction.provider);
+    if (!provider) continue;
+    summary.checked += 1;
+    try {
+      if ((await syncPaymentStatus(provider, transaction.orderId, now)) === "applied") summary.applied += 1;
+    } catch (error) {
+      summary.failed += 1;
+      logger.warn("billing.reconcile_failed", { orderId: transaction.orderId, error });
+      // A missing or rejected key fails every order the same way.
+      if (error instanceof PaymentProviderError && error.reason === "not_configured") break;
+    }
+  }
+  return summary;
 }

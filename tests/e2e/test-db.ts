@@ -43,7 +43,8 @@ export function runWorkerOnce(): string {
   const testUrl = process.env["DATABASE_URL_TEST"];
   if (!testUrl) throw new Error("DATABASE_URL_TEST belum diisi");
   const result = spawnSync("pnpm", ["worker", "--", "--once"], {
-    env: { ...process.env, DATABASE_URL: testUrl },
+    // Same isolation as the E2E server: no real payment provider or SMTP from .env.
+    env: { ...process.env, DATABASE_URL: testUrl, MIDTRANS_SERVER_KEY: "", MAIL_DRIVER: "file", MAIL_FILE_DIR: ".data/mail-e2e" },
     shell: process.platform === "win32",
     encoding: "utf8",
     timeout: 120_000,

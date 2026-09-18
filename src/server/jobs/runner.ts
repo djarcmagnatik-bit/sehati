@@ -1,5 +1,6 @@
 import "server-only";
 import { logger } from "@/lib/logger";
+import { reconcilePendingPayments } from "@/server/billing/billing-service";
 import {
   handleBudgetCheck,
   handleMaintenanceCleanup,
@@ -30,12 +31,17 @@ const HANDLERS: { [T in JobType]: Handler<T> } = {
   "budget.check": handleBudgetCheck,
   "reminders.scan": handleRemindersScan,
   "maintenance.cleanup": handleMaintenanceCleanup,
+  "billing.reconcile": (_payload, now) => reconcilePendingPayments(now),
 };
 
-/** Reminders run hourly (dedupe keys keep them to one per event); housekeeping daily. */
+/**
+ * Reminders run hourly (dedupe keys keep them to one per event); housekeeping daily; pending
+ * payments are re-checked with the provider every 10 minutes in case a webhook was lost.
+ */
 export const RECURRING_JOBS: ReadonlyArray<{ type: JobType; intervalMs: number }> = [
   { type: "reminders.scan", intervalMs: 60 * 60 * 1000 },
   { type: "maintenance.cleanup", intervalMs: 24 * 60 * 60 * 1000 },
+  { type: "billing.reconcile", intervalMs: 10 * 60 * 1000 },
 ];
 
 async function runOne(job: ClaimedJob, now: Date): Promise<void> {

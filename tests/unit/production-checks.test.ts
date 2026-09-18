@@ -35,6 +35,8 @@ describe("production environment checks", () => {
     expect(variables({ ...READY, APP_URL: "https://localhost:3000" }, "error")).toEqual(["APP_URL"]);
     expect(variables({ ...READY, DATABASE_URL: READY.DATABASE_URL_TEST }, "error")).toEqual(["DATABASE_URL"]);
     expect(variables({ ...READY, MIDTRANS_SERVER_KEY: "" }, "error")).toEqual(["MIDTRANS_SERVER_KEY"]);
+    expect(variables({ ...READY, MIDTRANS_SERVER_KEY: "SB-Mid-server-abc" }, "error")).toEqual(["MIDTRANS_SERVER_KEY"]);
+    expect(variables({ ...READY, MIDTRANS_SERVER_KEY: "SB-Mid-server-abc", MIDTRANS_IS_PRODUCTION: "false" }, "error")).toEqual([]);
     expect(variables({ ...READY, PAYMENT_PROVIDER: "sandbox", ALLOW_SANDBOX_PAYMENTS: "true" }, "error")).toEqual(["ALLOW_SANDBOX_PAYMENTS"]);
     expect(variables({ ...READY, NODE_ENV: "development" }, "error")).toEqual(["NODE_ENV"]);
   });

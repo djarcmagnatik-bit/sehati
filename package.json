@@ -30,6 +30,7 @@
     "media:variants": "tsx --conditions=react-server scripts/media-variants.ts",
     "verify:env": "tsx scripts/verify-production-env.ts",
     "mail:test": "tsx --conditions=react-server scripts/mail-test.ts",
+    "payment:check": "tsx --conditions=react-server scripts/payment-check.ts",
     "db:test:seed": "tsx scripts/with-test-db.ts tsx prisma/seed.ts",
     "verify:migrations": "tsx scripts/verify-migrations.ts"
   },

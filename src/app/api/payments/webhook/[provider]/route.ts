@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { NextRequest } from "next/server";
 import { logger } from "@/lib/logger";
-import { processPaymentNotification } from "@/server/billing/billing-service";
+import { paymentEventKey, processPaymentNotification, syncPaymentStatus } from "@/server/billing/billing-service";
 import { getPaymentProviderByCode } from "@/server/billing/providers";
 
 const MAX_BODY_BYTES = 64 * 1024;
@@ -28,14 +28,28 @@ export async function POST(request: NextRequest, context: { params: Promise<{ pr
     return Response.json({ error: notification.error }, { status });
   }
 
-  const fingerprint = notification.eventId ?? createHash("sha256").update(body).digest("hex").slice(0, 40);
+  // With a status API, the signed call is only a hint: the status comes from our own query, so a
+  // leaked or replayed notification cannot report anything the provider does not confirm.
+  if (provider.fetchStatus) {
+    try {
+      const outcome = await syncPaymentStatus(provider, notification.orderId);
+      logger.info("billing.webhook_processed", { provider: code, orderId: notification.orderId, outcome, confirmed: true });
+      return Response.json({ outcome });
+    } catch (error) {
+      // 503 makes the provider retry later.
+      logger.error("billing.webhook_status_check_failed", { provider: code, orderId: notification.orderId, error });
+      return Response.json({ error: "status_check_failed" }, { status: 503 });
+    }
+  }
+
+  const fingerprint = createHash("sha256").update(body).digest("hex").slice(0, 40);
   const outcome = await processPaymentNotification({
     provider: provider.code,
     orderId: notification.orderId,
     status: notification.status,
     reportedStatus: notification.reportedStatus,
     amount: notification.amount,
-    eventKey: `${provider.code}:${notification.orderId}:${notification.status}:${fingerprint}`.slice(0, 200),
+    eventKey: paymentEventKey(provider.code, notification, fingerprint),
     reference: notification.reference,
     payload: notification.payload,
   });

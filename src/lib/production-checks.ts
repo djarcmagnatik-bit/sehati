@@ -36,7 +36,9 @@ export function checkProductionEnv(env: Env): CheckResult[] {
     if (env["ALLOW_SANDBOX_PAYMENTS"] === "true") error("ALLOW_SANDBOX_PAYMENTS", "lets anyone unlock paid features for free; only for tests");
     else warning("PAYMENT_PROVIDER", "is sandbox: checkout is refused in production until a real provider is configured");
   } else if (provider === "midtrans") {
+    const sandboxKey = env["MIDTRANS_SERVER_KEY"]?.trim().startsWith("SB-") ?? false;
     if (!set(env, "MIDTRANS_SERVER_KEY")) error("MIDTRANS_SERVER_KEY", "is required for Midtrans");
+    else if (env["MIDTRANS_IS_PRODUCTION"] === "true" && sandboxKey) error("MIDTRANS_SERVER_KEY", "is a sandbox key (SB-…) but MIDTRANS_IS_PRODUCTION is true");
     if (env["MIDTRANS_IS_PRODUCTION"] !== "true") warning("MIDTRANS_IS_PRODUCTION", "is not true: payments go to the Midtrans sandbox");
   }
 

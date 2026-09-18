@@ -7,18 +7,32 @@ import { Card } from "@/components/ui/card";
 import { PAYMENT_STATUS_LABEL } from "@/lib/billing";
 import { formatRupiah } from "@/lib/money";
 import { requireSession } from "@/server/auth/session-cookie";
-import { getTransactionForUser } from "@/server/billing/billing-service";
+import { logger } from "@/lib/logger";
+import { getTransactionForUser, syncPaymentForUser } from "@/server/billing/billing-service";
 
 export const metadata: Metadata = { title: "Status pembayaran" };
 
 /**
- * Where the provider sends the buyer back. Arriving here proves nothing: the page only reports what
- * the webhook has already written to the database.
+ * Where the provider sends the buyer back. Arriving here proves nothing by itself: while the order is
+ * pending, the page asks the provider's status API (our own authenticated call) and applies that.
  */
-export default async function BillingReturnPage({ searchParams }: { searchParams: Promise<{ order?: string | string[] }> }) {
+export default async function BillingReturnPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ order?: string | string[]; order_id?: string | string[] }>;
+}) {
   const session = await requireSession();
-  const { order } = await searchParams;
-  const transaction = typeof order === "string" ? await getTransactionForUser(session.user.id, order) : null;
+  const params = await searchParams;
+  // Midtrans appends its own order_id to the finish URL; both name the same order.
+  const order = typeof params.order === "string" ? params.order : typeof params.order_id === "string" ? params.order_id : null;
+  if (order) {
+    try {
+      await syncPaymentForUser(session.user.id, order);
+    } catch (error) {
+      logger.warn("billing.return_status_check_failed", { orderId: order, error });
+    }
+  }
+  const transaction = order ? await getTransactionForUser(session.user.id, order) : null;
   if (!transaction) notFound();
 
   return (

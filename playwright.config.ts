@@ -40,6 +40,8 @@ export default defineConfig({
       PAYMENT_PROVIDER: "sandbox",
       PAYMENT_SANDBOX_SECRET: "e2e-sandbox-webhook-secret-0123456789",
       ALLOW_SANDBOX_PAYMENTS: "true",
+      // A Midtrans key in .env (development) must never be used by tests.
+      MIDTRANS_SERVER_KEY: "",
     },
   },
 });

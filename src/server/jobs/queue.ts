@@ -14,6 +14,7 @@ export const JOB_PAYLOAD_SCHEMAS = {
   "budget.check": z.object({ weddingId: z.uuid() }),
   "reminders.scan": z.object({}),
   "maintenance.cleanup": z.object({}),
+  "billing.reconcile": z.object({}),
 } as const;
 
 export type JobType = keyof typeof JOB_PAYLOAD_SCHEMAS;
