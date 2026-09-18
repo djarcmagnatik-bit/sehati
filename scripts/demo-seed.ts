@@ -54,15 +54,24 @@ const GUESTS: Array<[name: string, group: string, seats: number, rsvp: "PENDING"
   ["Bapak Kepala Dinas", "VIP", 2, "ATTENDING", 2],
 ];
 
-/** A soft gradient "photo" (no real people): the app needs real image bytes for cover and gallery. */
-async function placeholderPhoto(sharp: typeof import("sharp"), hueA: string, hueB: string, label: string): Promise<Buffer> {
+/**
+ * A soft gradient "photo" (no real people): the app needs real image bytes for cover and gallery.
+ * Shapes only, no text: the tools image has no fonts, so text would render as empty boxes.
+ */
+async function placeholderPhoto(sharp: typeof import("sharp"), hueA: string, hueB: string, variant: number): Promise<Buffer> {
+  const layouts = [
+    [[1250, 260, 220, 0.18], [330, 820, 300, 0.12], [820, 530, 120, 0.1]],
+    [[300, 250, 260, 0.16], [1300, 800, 320, 0.12], [900, 400, 90, 0.14]],
+    [[800, 180, 200, 0.15], [200, 700, 180, 0.12], [1400, 650, 240, 0.14]],
+    [[1100, 850, 280, 0.16], [450, 300, 150, 0.14], [1450, 150, 110, 0.12]],
+    [[600, 900, 330, 0.14], [1200, 350, 230, 0.16], [250, 150, 100, 0.12]],
+  ];
+  const circles = layouts[variant % layouts.length]!
+    .map(([cx, cy, r, opacity]) => `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#ffffff" fill-opacity="${opacity}"/>`)
+    .join("");
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1067">
     <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${hueA}"/><stop offset="1" stop-color="${hueB}"/></linearGradient></defs>
-    <rect width="1600" height="1067" fill="url(#g)"/>
-    <circle cx="1250" cy="260" r="220" fill="#ffffff" fill-opacity="0.18"/>
-    <circle cx="330" cy="820" r="300" fill="#ffffff" fill-opacity="0.12"/>
-    <circle cx="820" cy="530" r="120" fill="#ffffff" fill-opacity="0.10"/>
-    ${label ? `<text x="800" y="560" font-family="Georgia, serif" font-size="64" fill="#ffffff" fill-opacity="0.85" text-anchor="middle">${label.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</text>` : ""}
+    <rect width="1600" height="1067" fill="url(#g)"/>${circles}
   </svg>`;
   return sharp.default(Buffer.from(svg)).jpeg({ quality: 85 }).toBuffer();
 }
@@ -275,17 +284,16 @@ async function main() {
     address: "Jl. Contoh Melati No. 25, Bandung", latitude: -6.9147, longitude: 107.6098, mapsUrl: null, dressCode: "Batik / formal", notes: null,
   });
   const sharpModule = sharp as unknown as typeof import("sharp");
-  const photos: Array<[string, string, string]> = [
-    // The cover gets no text: the invitation prints the names over it.
-    ["#c98b8b", "#f3d9c7", ""],
-    ["#8fa98b", "#e6efd9", "Prewedding"],
-    ["#b99ac9", "#efe1f5", "Lamaran"],
-    ["#d2a86e", "#f7ebd3", "Kebersamaan"],
-    ["#7f9fbf", "#dfeaf5", "Hari bahagia"],
+  const photos: Array<[string, string]> = [
+    ["#c98b8b", "#f3d9c7"],
+    ["#8fa98b", "#e6efd9"],
+    ["#b99ac9", "#efe1f5"],
+    ["#d2a86e", "#f7ebd3"],
+    ["#7f9fbf", "#dfeaf5"],
   ];
   const assetIds: string[] = [];
-  for (const [index, [a, b, label]] of photos.entries()) {
-    const bytes = await placeholderPhoto(sharpModule, a, b, label);
+  for (const [index, [a, b]] of photos.entries()) {
+    const bytes = await placeholderPhoto(sharpModule, a, b, index);
     assetIds.push(must(`photo ${index}`, await uploadImage(userId, weddingId, { name: `demo-${index}.jpg`, type: "image/jpeg", bytes })).assetId);
   }
   await matchMediaOwnership(getEnv().MEDIA_FILE_DIR);
