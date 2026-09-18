@@ -66,8 +66,18 @@ Consequences:
 - Shared hosting limits outgoing mail per hour. That is fine for resets and invitations, but not for
   bulk sending.
 
+## Verified with the real mailbox (2026-09-18, run by the owner)
+
+```text
+$ pnpm mail:test -- --to <gmail address>
+SMTP mail.wuzzgate.my.id:465 (implicit TLS), sender Sehati <sehati@wuzzgate.my.id>
+OK   connected and authenticated
+OK   test email accepted by the server for <gmail address> (check the inbox and the spam folder)
+```
+
+TLS, authentication and acceptance by the server work with the production settings.
+
 ## Not verified
 
-- Actual delivery with the real password: run `pnpm mail:test -- --to <address>` yourself.
-- Inbox placement at Gmail/Outlook (spam or not).
+- Inbox placement at Gmail/Outlook (inbox or spam).
 - Latency from the production host (only measured from the development workstation).

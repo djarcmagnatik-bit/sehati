@@ -161,8 +161,8 @@ of Full Access.
 ## Not verified / open before going live
 
 - **Email delivery:** added after this report. An `smtp` driver now exists (see [email.md](email.md)).
-  It is tested against a local fake SMTP server; real delivery through `mail.wuzzgate.my.id` still
-  needs `pnpm mail:test -- --to <address>` with the real password.
+  It is tested against a local fake SMTP server, and `pnpm mail:test` with the real mailbox
+  authenticated and was accepted by `mail.wuzzgate.my.id`. Inbox placement is still unchecked.
 - **Payments:** Midtrans is verified only against its documented contract, never against the live
   Midtrans sandbox; the status is not re-queried from Midtrans before access is granted.
 - **Hosting:** no deployment to a real host, domain or TLS certificate was performed; every number
