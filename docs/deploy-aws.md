@@ -56,9 +56,12 @@ Memory budget on the 1 GiB host:
 1. Create a **private** GitHub repository and push this code. The workflow builds on every push to
    `main` and publishes `ghcr.io/<owner>/sehati-app` and `ghcr.io/<owner>/sehati-tools`. Both stay
    private.
-2. On the server, log in once with a token that has only `read:packages`:
+2. On the server, log in once with a classic token that has only `read:packages`. The token is
+   pasted at a hidden prompt, so it never appears on screen or in the shell history. In the browser
+   terminal, paste with Ctrl+Shift+V or right-click.
    ```bash
-   echo "<token>" | sudo docker login ghcr.io -u <github-user> --password-stdin
+   read -rsp "Tempel token GitHub: " T; echo; echo "panjang token: ${#T}"   # expect 40
+   echo "$T" | sudo docker login ghcr.io -u <github-user> --password-stdin; unset T
    ```
 3. In `/opt/sehati/.env`, set `SEHATI_APP_IMAGE` and `SEHATI_TOOLS_IMAGE` to those names.
 
@@ -74,9 +77,12 @@ sudo docker compose build app tools
 ```bash
 sudo mkdir -p /opt/sehati && sudo chown ec2-user: /opt/sehati && cd /opt/sehati
 # copy deploy/docker-compose.yml, backup.sh, Caddyfile.sehati and env.production.example here
+# (SSH closed? see "Copying the files without SSH" below)
 cp env.production.example .env && chmod 600 .env
-openssl rand -hex 32   # run twice: one value for POSTGRES_PASSWORD, one for JOBS_CRON_SECRET
-nano .env              # fill both secrets and SMTP_PASSWORD yourself
+# Write both secrets straight into .env, never on screen:
+sed -i "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$(openssl rand -hex 32)/; s/^JOBS_CRON_SECRET=.*/JOBS_CRON_SECRET=$(openssl rand -hex 32)/" .env
+nano .env              # SMTP_PASSWORD (in '…' if it has $ # " or spaces) and the two image lines
+grep -E '^[A-Z_]+=$' .env | cut -d= -f1   # empty variables; only MIDTRANS_SERVER_KEY may remain
 ```
 
 ```bash
@@ -106,7 +112,8 @@ To undo: restore the `.bak` file and reload. 9router's own blocks are not touche
 
 - **First admin:** register in the app, then run
   `sudo docker compose run --rm tools pnpm admin:set -- --email <email>`.
-- **Backups:** set them up as follows.
+- **Backups:** Amazon Linux 2023 has no cron by default. Install it once with
+  `sudo dnf install -y cronie && sudo systemctl enable --now crond`, then set them up as follows.
   1. Make the script executable: `chmod +x /opt/sehati/backup.sh`.
   2. Add the job with `sudo crontab -e`:
      `30 2 * * * /opt/sehati/backup.sh >> /opt/sehati/backups/backup.log 2>&1`
@@ -132,6 +139,59 @@ sudo docker compose up -d app cron
 sudo docker image prune -f
 ```
 
+## Copying the files without SSH
+
+The Security Group allows SSH only from specific sources. Use **EC2 Instance Connect** (console →
+instance → Connect) and paste the four files as one line: a base64 tarball, followed by `sha256sum`
+to compare with the repository. Pasting multi-line files into the browser terminal can change tabs
+and indentation. The one-liner is produced with:
+
+```bash
+cd deploy && echo "cd /opt/sehati && echo '$(tar -czf - docker-compose.yml backup.sh Caddyfile.sehati env.production.example | base64 -w0)' | base64 -d | tar xzf - && chmod +x backup.sh && sha256sum *"
+```
+
+## Deployment record: 2026-09-19
+
+First deployment to `keter-server`, run by the owner with these commands. The excerpts are copied
+from the server terminal.
+
+```text
+$ sudo docker compose run --rm tools pnpm db:deploy
+All migrations have been successfully applied.
+$ sudo docker compose run --rm tools pnpm db:seed
+Seed selesai: 6 event types, 4 marriage processes, 19 task categories, 108 task templates, 16 budget category templates, 15 vendor categories, 9 guest group templates, 9 gift categories, 1 plans, 1 add-ons.
+$ sudo docker compose run --rm tools pnpm verify:env
+WARNING PAYMENT_PROVIDER: is sandbox: checkout is refused in production until a real provider is configured
+WARNING NEXT_SERVER_ACTIONS_ENCRYPTION_KEY: not set; required when more than one app instance runs behind a load balancer
+OK — 2 warning(s).
+$ sudo docker stats --no-stream
+sehati-cron   2.625MiB / 16MiB
+sehati-app    142.8MiB / 450MiB
+sehati-db     29.02MiB / 220MiB
+$ free -m        # available: 240 MB of 913, with 9router and Caddy running
+$ curl -s -w "  HTTP %{http_code}\n" https://sehati.wuzzgate.my.id/api/health
+{"status":"ok"}  HTTP 200
+```
+
+Checked from outside:
+
+| Check | Result |
+| --- | --- |
+| Certificate | TLS 1.3, Let's Encrypt, valid to 17 Dec 2026 (Caddy renews it) |
+| HTTP | redirects to HTTPS (308) |
+| `/`, `/login` | 200 in about 180–230 ms |
+| `/dashboard` signed out | redirects to login (307) |
+| Security headers | HSTS, CSP with nonce, `X-Frame-Options: DENY` and `nosniff` present; no `Server` or `X-Powered-By` |
+
+Sehati used about **175 MiB** in total, below the estimated 250–330 MiB.
+
+Lessons from this deployment:
+- The Compose plugin had to be installed.
+- SSH was closed, so the files were copied through EC2 Instance Connect.
+- Pulls from GHCR crawled on large layers while GitHub downloads ran at about 44 MB/s. The
+  `tools` image was then slimmed down.
+- `PAYMENT_PROVIDER=sandbox` is used until the Midtrans key exists.
+
 ## Notes
 
 - **Server Actions key:** instances started from the same image share one Server Actions encryption
@@ -142,6 +202,8 @@ sudo docker image prune -f
   - Never ship a locally built `.next/standalone` folder.
 - **Verified locally (2026-09-18):** the standalone server started with `node server.js` passed all
   **66 E2E tests** (mobile and desktop).
-- **NOT VERIFIED:** no Docker was available on the development machine. The images themselves,
-  compose, Caddy and the backup script have not run yet. They are checked on the first deployment
-  with the commands above.
+- **Verified on the server (2026-09-19):**
+  - images, compose, migrations, seed, `verify:env`, the app, cron and Caddy with HTTPS (see the
+    deployment record);
+  - still to check: the backup script, a sign-up and password-reset e-mail in production, and the
+    cron job's first runs.

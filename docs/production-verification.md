@@ -168,9 +168,10 @@ of Full Access.
 - **Payments:** added after this report: webhooks are confirmed with the Midtrans Status API, and the
   return page and a worker job reconcile pending orders ([payments-midtrans.md](payments-midtrans.md)).
   A full payment against the live Midtrans sandbox is still NOT VERIFIED (needs the owner's sandbox key).
-- **Hosting:** the Docker/compose setup for the AWS server was added after this report
-  ([deploy-aws.md](deploy-aws.md)). The standalone server passed all E2E tests locally. The
-  images, the real deployment, the domain and TLS are NOT VERIFIED until the first deployment.
+- **Hosting:** deployed on 2026-09-19 to https://sehati.wuzzgate.my.id (AWS t3.micro, Docker,
+  behind Caddy with a Let's Encrypt certificate). See the deployment record in
+  [deploy-aws.md](deploy-aws.md). Payments stay off until the Midtrans key is set, and the backups
+  are not yet verified.
 - **Load:** added after this report ([load-test.md](load-test.md)). On the development workstation there
   were 0 errors at up to 200 virtual users. The limit is page-rendering CPU (~80 req/s per
   instance, 134 req/s with three), so production needs one instance per core. A load test on
