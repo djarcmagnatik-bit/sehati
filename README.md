@@ -191,7 +191,17 @@ as-is. Audio has no HTTP range support, so seeking inside a long track may not w
   - `pnpm test:perf` seeds the dataset in the test database and checks timings, statement counts
     and query plans; `tests/e2e/performance.spec.ts` covers LCP and the 10,000-guest list.
 
-Nothing beyond Phase 15 is implemented yet. Email, WhatsApp and web push delivery are not built.
+- Phase 16 (Production verification): see [docs/production-verification.md](docs/production-verification.md)
+  for the raw outputs of every check, the MVP checklist (PRD §70) and the deployment checklist.
+  - `tests/e2e/acceptance.spec.ts` runs the PRD §73 acceptance journey end to end (owner, partner
+    and guest in separate browsers).
+  - `pnpm verify:migrations` applies every migration to an empty schema, checks for drift against
+    `schema.prisma` and runs the seed twice. It found and fixed a corrupted Phase 12 migration that
+    would have failed on a fresh database.
+  - `pnpm verify:env` checks a production environment (names only, never values); `/api/health`
+    is the load-balancer probe.
+
+Nothing beyond Phase 16 is implemented yet. Email, WhatsApp and web push delivery are not built.
 
 ## Stack
 
@@ -236,6 +246,8 @@ Requirements: Node.js ≥ 24, pnpm 10, PostgreSQL 16.
 | `pnpm db:deploy` / `db:status` / `db:seed` | Apply migrations / status / seed reference data |
 | `pnpm access:grant -- --email <email> [--plan CODE]` | Give an account's weddings a plan without payment (admin grant) |
 | `pnpm admin:set -- --email <email> [--revoke]` | Make an existing account an admin (or remove the role); audited |
+| `pnpm verify:migrations` | Apply all migrations to an empty schema, check drift, run the seed twice (test DB) |
+| `pnpm verify:env [-- --file .env.production]` | Production configuration check (exit 1 on errors) |
 | `pnpm media:variants` | Create resized WebP copies for images uploaded before Phase 15 |
 | `pnpm worker [-- --once]` | Background worker: reminders, notifications, housekeeping (`--once` = one cycle) |
 

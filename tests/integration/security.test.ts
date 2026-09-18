@@ -641,3 +641,13 @@ describe("account boundaries", () => {
     expect(await getTransactionForUser(a.userId, "SHT-20260917-ABCDEFGHIJ")).toBeNull();
   });
 });
+
+describe("health endpoint", () => {
+  it("reports only whether the database answers", async () => {
+    const { GET } = await import("@/app/api/health/route");
+    const response = await GET();
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(await response.json()).toEqual({ status: "ok" });
+  });
+});

@@ -261,6 +261,8 @@ describe("source code guards", () => {
       "src/app/media/[assetId]/route.ts": /getAssetForDelivery\(/,
       // A fixed CSV header row, no wedding data.
       "src/app/(app)/guests/import/template/route.ts": /IMPORT_TEMPLATE_CSV/,
+      // Load-balancer probe: answers only ok/unavailable.
+      "src/app/api/health/route.ts": /\$queryRaw`SELECT 1`/,
       // Static brand icons.
       "src/app/pwa-icon/[variant]/route.tsx": /ImageResponse/,
     };

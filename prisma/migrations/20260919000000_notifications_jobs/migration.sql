@@ -73,10 +73,3 @@ CREATE UNIQUE INDEX "background_jobs_pending_dedupe_key" ON "background_jobs"("d
 
 -- Claiming scans only waiting or running jobs.
 CREATE INDEX "background_jobs_claimable_idx" ON "background_jobs"("run_at") WHERE "state" IN ('PENDING', 'RUNNING');
-);
-
--- At most one waiting job per dedupe key; running and finished jobs do not block a new request.
-CREATE UNIQUE INDEX "background_jobs_pending_dedupe_key" ON "background_jobs"("dedupe_key") WHERE "state" = 'PENDING' AND "dedupe_key" IS NOT NULL;
-
--- Claiming scans only waiting or running jobs.
-CREATE INDEX "background_jobs_claimable_idx" ON "background_jobs"("run_at") WHERE "state" IN ('PENDING', 'RUNNING');

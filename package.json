@@ -28,7 +28,9 @@
     "admin:set": "tsx scripts/set-admin.ts",
     "worker": "tsx --conditions=react-server scripts/worker.ts",
     "media:variants": "tsx --conditions=react-server scripts/media-variants.ts",
-    "db:test:seed": "tsx scripts/with-test-db.ts tsx prisma/seed.ts"
+    "verify:env": "tsx scripts/verify-production-env.ts",
+    "db:test:seed": "tsx scripts/with-test-db.ts tsx prisma/seed.ts",
+    "verify:migrations": "tsx scripts/verify-migrations.ts"
   },
   "dependencies": {
     "@node-rs/argon2": "2.2.1",
