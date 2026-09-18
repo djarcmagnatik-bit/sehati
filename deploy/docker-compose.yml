@@ -72,7 +72,10 @@ services:
         || echo "$$(date -Iseconds) jobs run failed";
         sleep 300;
         done
-    depends_on: [app]
+    # Start only once the app answers, so the first call after a restart is not refused.
+    depends_on:
+      app:
+        condition: service_healthy
     mem_limit: 16m
     networks: [internal]
 

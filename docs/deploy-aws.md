@@ -116,7 +116,7 @@ To undo: restore the `.bak` file and reload. 9router's own blocks are not touche
   `sudo dnf install -y cronie && sudo systemctl enable --now crond`, then set them up as follows.
   1. Make the script executable: `chmod +x /opt/sehati/backup.sh`.
   2. Add the job with `sudo crontab -e`:
-     `30 2 * * * /opt/sehati/backup.sh >> /opt/sehati/backups/backup.log 2>&1`
+     `30 19 * * * /opt/sehati/backup.sh >> /opt/sehati/backups/backup.log 2>&1` (the server clock is UTC: 19:30 UTC = 02:30 WIB)
   3. Regularly copy the files off the server.
 
   To restore:
@@ -185,6 +185,27 @@ Checked from outside:
 
 Sehati used about **175 MiB** in total, below the estimated 250–330 MiB.
 
+After the first start:
+
+```text
+$ sudo docker compose run --rm tools pnpm admin:set -- --email <owner>
+Akun sekarang admin. Buka /admin setelah masuk.
+$ sudo /opt/sehati/backup.sh
+2026-09-18T17:33:45+00:00 backup ok: db-20260918-1733.dump media-20260918-1733.tgz
+$ sudo ls -lh /opt/sehati/backups
+-rw-r--r--. 1 root root 194K Sep 18 17:33 db-20260918-1733.dump
+-rw-r--r--. 1 root root   88 Sep 18 17:33 media-20260918-1733.tgz      # no uploads yet
+$ SELECT type, state, count(*), max(completed_at), max(locked_by) FROM background_jobs GROUP BY 1,2;
+ billing.reconcile   | DONE  |     2 | 2026-09-18 17:36:29.428+00 | cron:1
+ maintenance.cleanup | DONE  |     1 | 2026-09-18 17:26:29.309+00 | cron:1
+ reminders.scan      | DONE  |     1 | 2026-09-18 17:26:29.301+00 | cron:1
+$ sudo crontab -l
+30 19 * * * /opt/sehati/backup.sh >> /opt/sehati/backups/backup.log 2>&1   # 02:30 WIB (server clock is UTC)
+```
+
+The cron container's first call, 1 s after start, was refused because the app was not listening yet.
+The cron service now waits until the app is healthy.
+
 Lessons from this deployment:
 - The Compose plugin had to be installed.
 - SSH was closed, so the files were copied through EC2 Instance Connect.
@@ -205,5 +226,5 @@ Lessons from this deployment:
 - **Verified on the server (2026-09-19):**
   - images, compose, migrations, seed, `verify:env`, the app, cron and Caddy with HTTPS (see the
     deployment record);
-  - still to check: the backup script, a sign-up and password-reset e-mail in production, and the
-    cron job's first runs.
+  - backups and background jobs (see the deployment record);
+  - still to check: a password-reset e-mail in production.

@@ -1,7 +1,8 @@
 #!/bin/sh
 # Nightly backup of the Sehati database and uploaded images, kept for KEEP_DAYS days.
 #
-#   sudo crontab -e   →   30 2 * * * /opt/sehati/backup.sh >> /opt/sehati/backups/backup.log 2>&1
+#   sudo crontab -e   →   30 19 * * * /opt/sehati/backup.sh >> /opt/sehati/backups/backup.log 2>&1
+#   (server clock is UTC: 19:30 UTC = 02:30 WIB)
 #
 # The copies stay on the same disk: also copy them off the server (download, or S3 with an IAM role).
 set -eu
