@@ -256,6 +256,7 @@ Requirements: Node.js ≥ 24, pnpm 10, PostgreSQL 16.
 | `pnpm admin:set -- --email <email> [--revoke]` | Make an existing account an admin (or remove the role); audited |
 | `pnpm verify:migrations` | Apply all migrations to an empty schema, check drift, run the seed twice (test DB) |
 | `pnpm verify:env [-- --file .env.production]` | Production configuration check (exit 1 on errors) |
+| `pnpm load:seed [-- --clean]` / `pnpm load:run -- --spawn [--instances N] [--stages 10:60,50:60]` | HTTP load test of the production build against the test DB (see [docs/load-test.md](docs/load-test.md)) |
 | `pnpm payment:check [-- --order <id>]` | Check `MIDTRANS_SERVER_KEY` against Midtrans (creates nothing), or sync one order with the Midtrans Status API |
 | `pnpm mail:test [-- --to <address>]` | Connect and authenticate to SMTP from `.env`; optionally send one test email (password never printed) |
 | `pnpm media:variants` | Create resized WebP copies for images uploaded before Phase 15 |

@@ -170,6 +170,9 @@ of Full Access.
   A full payment against the live Midtrans sandbox is still NOT VERIFIED (needs the owner's sandbox key).
 - **Hosting:** no deployment to a real host, domain or TLS certificate was performed; every number
   here comes from one local machine.
-- **Load:** no concurrent-user load test was run.
+- **Load:** added after this report ([load-test.md](load-test.md)). On the development workstation there
+  were 0 errors at up to 200 virtual users. The limit is page-rendering CPU (~80 req/s per
+  instance, 134 req/s with three), so production needs one instance per core. A load test on
+  production hardware is still NOT VERIFIED.
 - **Accepted risks** (see [security-audit.md](security-audit.md)): `deepmerge-ts` in the Prisma CLI,
   account enumeration on the registration form, `style-src 'unsafe-inline'`.
