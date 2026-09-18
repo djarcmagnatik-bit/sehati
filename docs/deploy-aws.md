@@ -143,11 +143,14 @@ All names, addresses and account numbers are fictional. The gift accounts are la
 ```bash
 cd /opt/sehati
 sudo docker compose run --rm tools pnpm demo:seed -- --email <demo address>
+sudo docker compose run --rm tools pnpm demo:seed -- --email <demo address> --ask-password   # choose the password
 sudo docker compose run --rm tools pnpm demo:seed -- --email <demo address> --clean   # remove it
 ```
 
-- **Password:** the command prints a random one **once**, in the server terminal. Do not paste it
-  anywhere.
+- **Password:** without `--ask-password` the command prints a random one **once**, in the server
+  terminal. With `--ask-password` you type your own twice at a hidden prompt. It is at least
+  8 characters, and it is not echoed or stored in the shell history. A mismatch or a short password
+  changes nothing. Do not paste the password anywhere.
 - **Re-running:** it replaces the previous demo.
 - **Safety:** the script refuses to touch any account that is not named "Akun Demo Sehati".
 - **Public link:** the demo invitation is reachable by anyone who has its link.

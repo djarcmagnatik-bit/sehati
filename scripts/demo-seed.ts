@@ -3,8 +3,9 @@
  * feature filled in (checklist progress, budget, vendors, payments, guests with RSVPs, a published
  * invitation with photos, rundown, calendar, savings, seserahan).
  *
- *   pnpm demo:seed -- --email demo@example.com            # (re)creates it; prints a new password once
- *   pnpm demo:seed -- --email demo@example.com --clean    # removes it
+ *   pnpm demo:seed -- --email demo@example.com                  # (re)creates it; prints a random password once
+ *   pnpm demo:seed -- --email demo@example.com --ask-password   # same, with a password typed at a hidden prompt
+ *   pnpm demo:seed -- --email demo@example.com --clean          # removes it
  *
  * Every name, address and account number is fictional. The script only ever modifies an account
  * whose name is DEMO_NAME, so it cannot overwrite or delete a real user.
@@ -20,6 +21,40 @@ const M = 1_000_000n;
 const emailIndex = process.argv.indexOf("--email");
 const email = emailIndex > -1 ? process.argv[emailIndex + 1]?.trim().toLowerCase() : undefined;
 const clean = process.argv.includes("--clean");
+const askPassword = process.argv.includes("--ask-password");
+
+/**
+ * Reads the password twice without echoing it (or, when piped, from the first two input lines), so
+ * it never appears on screen, in the shell history or in the process list.
+ */
+async function readChosenPassword(): Promise<string> {
+  const { newPasswordSchema } = await import("../src/lib/validation/auth");
+  const readline = await import("node:readline");
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: Boolean(process.stdin.isTTY) });
+  (rl as unknown as { _writeToOutput: (text: string) => void })._writeToOutput = () => undefined;
+  rl.on("SIGINT", () => {
+    rl.close();
+    process.stdout.write("\nDibatalkan; tidak ada yang diubah.\n");
+    process.exit(130);
+  });
+  const lines = rl[Symbol.asyncIterator]();
+  const ask = async (question: string) => {
+    process.stdout.write(question);
+    const { value } = await lines.next();
+    process.stdout.write("\n");
+    return typeof value === "string" ? value : "";
+  };
+  try {
+    const first = await ask("Password akun demo (tidak tampil saat diketik): ");
+    const second = await ask("Ulangi password: ");
+    if (first !== second) throw new Error("the two passwords differ; nothing was changed");
+    const parsed = newPasswordSchema.safeParse(first);
+    if (!parsed.success) throw new Error(`${parsed.error.issues[0]?.message ?? "invalid password"}; nothing was changed`);
+    return first;
+  } finally {
+    rl.close();
+  }
+}
 
 const GUESTS: Array<[name: string, group: string, seats: number, rsvp: "PENDING" | "ATTENDING" | "MAYBE" | "DECLINED", attending: number]> = [
   ["Bapak Hendra Wijaya", "Keluarga Mempelai Wanita", 2, "ATTENDING", 2],
@@ -98,7 +133,11 @@ async function matchMediaOwnership(mediaDir: string) {
 }
 
 async function main() {
-  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error("usage: pnpm demo:seed -- --email <address> [--clean]");
+  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    throw new Error("usage: pnpm demo:seed -- --email <address> [--ask-password | --clean]");
+  }
+  // Asked before anything changes, so a typo or a cancel leaves the current demo in place.
+  const chosenPassword = askPassword && !clean ? await readChosenPassword() : null;
 
   const { getDb } = await import("../src/server/db");
   const db = getDb();
@@ -169,7 +208,7 @@ async function main() {
   };
 
   // ─── Account and workspace ────────────────────────────────────────────────
-  const password = randomBytes(12).toString("base64url");
+  const password = chosenPassword ?? randomBytes(12).toString("base64url");
   const account = must("register", await registerUser({ name: DEMO_NAME, email, password }));
   const userId = account.userId;
   const today = todayIsoInTimeZone(new Date());
@@ -391,7 +430,7 @@ async function main() {
 Demo wedding ready (all data is fictional).
   Login:        ${appUrl}/login
   Email:        ${email}
-  Password:     ${password}          <- shown once; change it after logging in if you like
+  Password:     ${chosenPassword ? "(the one you typed)" : `${password}          <- shown once`}
   Invitation:   ${appUrl}/undangan/${published.slug}
   Guest link:   ${appUrl}/i/${guestLink.invitationToken}   (${guestLink.guestName})
   Contents:     ${tasks.length} tasks (${Math.round(tasks.length * 0.4)} done), ${booked.length} booked vendors, ${research.length} vendor candidates,
