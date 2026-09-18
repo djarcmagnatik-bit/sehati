@@ -240,6 +240,13 @@ Requirements: Node.js ≥ 24, pnpm 10, PostgreSQL 16.
    pnpm worker           # in a second terminal: notifications & reminders
    ```
 
+## Deployment
+
+Docker images (`Dockerfile`: standalone `app` + one-off `tools`) and a compose setup for one small
+server behind an existing Caddy (`deploy/`). The steps are in [docs/deploy-aws.md](docs/deploy-aws.md):
+DNS, image build (GitHub Actions to GHCR, or on the server), migrations, Caddy, backups and
+updates. `NEXT_OUTPUT=standalone pnpm build` produces the standalone server that the image runs.
+
 ## Scripts
 
 | Script | Purpose |

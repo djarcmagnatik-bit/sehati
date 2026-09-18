@@ -14,6 +14,8 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // The Docker image runs the minimal standalone server; `next start` (tests, local) is unchanged.
+  output: process.env.NEXT_OUTPUT === "standalone" ? "standalone" : undefined,
   poweredByHeader: false,
   serverExternalPackages: ["@node-rs/argon2"],
   experimental: {

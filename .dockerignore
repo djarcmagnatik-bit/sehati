@@ -1,0 +1,15 @@
+# Never send secrets, local data or build output into the image build.
+.env
+.env.*
+!.env.example
+.data
+.next
+node_modules
+src/generated
+coverage
+test-results
+playwright-report
+.git
+.github
+.claude
+*.log

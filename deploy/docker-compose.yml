@@ -1,0 +1,104 @@
+# Sehati on one small server (e.g. AWS t3.micro, 1 GiB) next to other containers.
+#
+# Lives in /opt/sehati on the server with its .env (see env.production.example). The app joins the
+# existing "web" network so the Caddy container there can proxy to it; nothing is published on the
+# host. See docs/deploy-aws.md.
+name: sehati
+
+services:
+  app:
+    image: ${SEHATI_APP_IMAGE:-sehati-app:latest}
+    build:
+      context: ..
+      target: app
+    container_name: sehati-app
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://sehati:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/sehati
+      # Caddy is the only proxy in front and sets X-Forwarded-For itself.
+      TRUSTED_PROXY_COUNT: "1"
+      NODE_OPTIONS: --max-old-space-size=256
+    volumes:
+      - media:/app/.data/media
+    depends_on:
+      db:
+        condition: service_healthy
+    # When memory runs out, this container is the one that suffers, not the other apps on the host.
+    mem_limit: 450m
+    networks: [internal, web]
+
+  db:
+    image: postgres:16-alpine
+    container_name: sehati-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sehati
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: sehati
+    # Sized for a 1 GiB host; raise shared_buffers/effective_cache_size on a bigger instance.
+    command: >-
+      postgres
+      -c shared_buffers=64MB
+      -c effective_cache_size=192MB
+      -c work_mem=4MB
+      -c maintenance_work_mem=32MB
+      -c max_connections=30
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sehati -d sehati"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    shm_size: 64m
+    mem_limit: 220m
+    networks: [internal]
+
+  # Background jobs (reminders, notifications, payment reconciliation) without a resident worker:
+  # calls POST /api/jobs/run every 5 minutes.
+  cron:
+    image: busybox:1.37
+    container_name: sehati-cron
+    restart: unless-stopped
+    environment:
+      JOBS_CRON_SECRET: ${JOBS_CRON_SECRET:?set JOBS_CRON_SECRET in .env}
+    command:
+      - sh
+      - -c
+      - >-
+        while true; do
+        wget -q -O /dev/null --header "Authorization: Bearer $$JOBS_CRON_SECRET" --post-data "" http://app:3000/api/jobs/run
+        || echo "$$(date -Iseconds) jobs run failed";
+        sleep 300;
+        done
+    depends_on: [app]
+    mem_limit: 16m
+    networks: [internal]
+
+  # One-off commands only (not started by `up`):
+  #   docker compose run --rm tools pnpm db:deploy
+  tools:
+    image: ${SEHATI_TOOLS_IMAGE:-sehati-tools:latest}
+    build:
+      context: ..
+      target: tools
+    profiles: [tools]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://sehati:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/sehati
+      TRUSTED_PROXY_COUNT: "1"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [internal]
+
+volumes:
+  pgdata:
+  media:
+
+networks:
+  internal:
+  # Created by the existing Caddy setup on the host.
+  web:
+    external: true

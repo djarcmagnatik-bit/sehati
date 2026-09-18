@@ -1,0 +1,11 @@
+# Append to /opt/caddy/Caddyfile on the server (the existing Caddy container), then validate and
+# reload — see docs/deploy-aws.md. Caddy obtains the HTTPS certificate automatically once the DNS
+# record points at the server.
+sehati.wuzzgate.my.id {
+	encode zstd gzip
+	# Uploads go through Server Actions (up to 7 MB); refuse anything larger at the edge.
+	request_body {
+		max_size 8MB
+	}
+	reverse_proxy sehati-app:3000
+}
