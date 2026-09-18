@@ -52,4 +52,7 @@ The PRD checklist (Phase 14) and where each item is covered:
   live sandbox).
 - **Media storage** is the local disk driver; when moving to object storage keep the bucket private and
   keep serving through `/media`.
+- **Server Action body limit is 7 MB** (Phase 15, so photo uploads work). The framework parses a
+  request body before an action checks the session, so an anonymous client can make the server read
+  up to 7 MB per request. Put a request-size and rate limit on the reverse proxy.
 - Not in scope yet: 2FA for admins, account deletion/export (privacy requests), dependency audit in CI.

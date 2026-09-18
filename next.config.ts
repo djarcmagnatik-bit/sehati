@@ -16,6 +16,13 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   serverExternalPackages: ["@node-rs/argon2"],
+  experimental: {
+    serverActions: {
+      // Uploads go through Server Actions: images up to 3 MB and music up to 6 MB, plus form overhead.
+      // The services enforce the real per-type limits; this only lifts the framework default (1 MB).
+      bodySizeLimit: "7mb",
+    },
+  },
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },

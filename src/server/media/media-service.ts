@@ -2,16 +2,48 @@ import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { extensionMatchesType, stripImageMetadata } from "@/lib/image-metadata";
-import { audioRejection, imageRejection, readAudioType, readImageInfo, type AudioRejection, type ImageRejection } from "@/lib/media";
+import { logger } from "@/lib/logger";
+import {
+  audioRejection,
+  imageRejection,
+  parseImageVariants,
+  pickVariantWidth,
+  readAudioType,
+  readImageInfo,
+  type AudioRejection,
+  type ImageRejection,
+  type StoredImageVariant,
+} from "@/lib/media";
 import { requireWeddingMember, WeddingAccessError } from "@/server/authz/wedding-access";
 import { weddingHasFeature } from "@/server/billing/access";
 import { getDb } from "@/server/db";
+import { renderImageVariants } from "./image-variants";
 import { getMediaStore, MIME_EXTENSION } from "./media-store";
 
 const uuidSchema = z.uuid();
 const isUuid = (value: string) => uuidSchema.safeParse(value).success;
 
 export type UploadedImage = { name: string; type: string; bytes: Buffer };
+
+/**
+ * Stores resized WebP copies next to the original. A failure only costs the optimization: the
+ * original is still served, so an upload never fails because of it.
+ */
+export async function storeImageVariants(weddingId: string, assetId: string, bytes: Buffer): Promise<StoredImageVariant[]> {
+  try {
+    const rendered = await renderImageVariants(bytes);
+    const stored: StoredImageVariant[] = [];
+    for (const variant of rendered) {
+      const storageKey = `${weddingId}/${assetId}-${variant.width}.webp`;
+      await getMediaStore().put(storageKey, variant.bytes);
+      stored.push({ width: variant.width, height: variant.height, byteSize: variant.bytes.byteLength, storageKey });
+    }
+    return stored;
+  } catch (error) {
+    logger.warn("media.variants_failed", { assetId, error });
+    return [];
+  }
+}
 
 export type UploadResult = { ok: true; assetId: string; reused: boolean } | { ok: false; reason: ImageRejection };
 
@@ -42,6 +74,7 @@ export async function uploadImage(userId: string, weddingId: string, file: Uploa
   const assetId = randomUUID();
   const storageKey = `${membership.weddingId}/${assetId}.${MIME_EXTENSION[info.mimeType]}`;
   await getMediaStore().put(storageKey, bytes);
+  const variants = await storeImageVariants(membership.weddingId, assetId, bytes);
 
   const asset = await db.mediaAsset.create({
     data: {
@@ -54,6 +87,7 @@ export async function uploadImage(userId: string, weddingId: string, file: Uploa
       width: info.width,
       height: info.height,
       checksum,
+      variants,
       createdById: userId,
     },
     select: { id: true },
@@ -105,7 +139,7 @@ export type AssetDelivery = { bytes: Buffer; mimeType: string; byteSize: number;
  * Public delivery rule: an image is served to anyone only while it is part of a published
  * invitation. Otherwise the viewer must be a member of the wedding that owns it.
  */
-export async function getAssetForDelivery(assetId: string, viewerUserId: string | null): Promise<AssetDelivery | null> {
+export async function getAssetForDelivery(assetId: string, viewerUserId: string | null, requestedWidth?: number): Promise<AssetDelivery | null> {
   if (!isUuid(assetId)) return null;
   const asset = await getDb().mediaAsset.findUnique({
     where: { id: assetId },
@@ -116,6 +150,7 @@ export async function getAssetForDelivery(assetId: string, viewerUserId: string 
       mimeType: true,
       byteSize: true,
       checksum: true,
+      variants: true,
       wedding: {
         select: {
           members: { select: { userId: true } },
@@ -144,6 +179,14 @@ export async function getAssetForDelivery(assetId: string, viewerUserId: string 
   }
   if (!allowed) return null;
 
+  // A resized copy when one was asked for and exists; otherwise the original.
+  const variants = parseImageVariants(asset.variants);
+  const width = requestedWidth ? pickVariantWidth(variants.map((variant) => variant.width), requestedWidth) : null;
+  const variant = width ? variants.find((item) => item.width === width) : undefined;
+  if (variant) {
+    const bytes = await getMediaStore().get(variant.storageKey);
+    if (bytes) return { bytes, mimeType: "image/webp", byteSize: bytes.byteLength, checksum: `${asset.checksum}-w${variant.width}` };
+  }
   const bytes = await getMediaStore().get(asset.storageKey);
   if (!bytes) return null;
   return { bytes, mimeType: asset.mimeType, byteSize: asset.byteSize, checksum: asset.checksum };
@@ -164,7 +207,7 @@ export async function deleteAssetIfUnused(userId: string, assetId: string): Prom
   const db = getDb();
   const asset = await db.mediaAsset.findFirst({
     where: { id: assetId, wedding: { members: { some: { userId } } } },
-    select: { id: true, storageKey: true },
+    select: { id: true, storageKey: true, variants: true },
   });
   if (!asset) throw new WeddingAccessError();
 
@@ -179,5 +222,6 @@ export async function deleteAssetIfUnused(userId: string, assetId: string): Prom
 
   await db.mediaAsset.delete({ where: { id: asset.id } });
   await getMediaStore().delete(asset.storageKey);
+  for (const variant of parseImageVariants(asset.variants)) await getMediaStore().delete(variant.storageKey);
   return true;
 }

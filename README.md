@@ -179,7 +179,19 @@ as-is. Audio has no HTTP range support, so seeking inside a long track may not w
     and public-DTO leak checks (`tests/integration/security.test.ts`); CSP, XSS, CSRF, IDOR-by-URL,
     login lockout and open-redirect checks in the browser (`tests/e2e/security.spec.ts`).
 
-Nothing beyond Phase 14 is implemented yet. Email, WhatsApp and web push delivery are not built.
+- Phase 15 (Performance): see [docs/performance-report.md](docs/performance-report.md). Measured
+  with the PRD dataset (10,000 guests, 500 vendors/research entries, 2,000 tasks, 5,000 payments and
+  transactions): common operations 2–68 ms, no N+1 queries, invitation LCP 2.32–2.38 s on slow 4G with a
+  2 MB cover photo.
+  - Responsive images: WebP copies (480/960/1280/1920 px) made at upload, `/media/{id}?w=`,
+    `srcset`/`sizes` on the invitation, cover preloaded. `pnpm media:variants` backfills old images.
+  - Uploads above 1 MB work (Server Action body limit raised to 7 MB; services keep the real limits).
+  - Batched reminder scan, per-request memoized membership/wedding lookups, indexes for admin lists
+    and the cross-wedding reminder scan.
+  - `pnpm test:perf` seeds the dataset in the test database and checks timings, statement counts
+    and query plans; `tests/e2e/performance.spec.ts` covers LCP and the 10,000-guest list.
+
+Nothing beyond Phase 15 is implemented yet. Email, WhatsApp and web push delivery are not built.
 
 ## Stack
 
@@ -218,11 +230,13 @@ Requirements: Node.js ≥ 24, pnpm 10, PostgreSQL 16.
 | `pnpm lint` / `typecheck` | ESLint / `tsc --noEmit` |
 | `pnpm test:unit` | Pure logic tests (no database) |
 | `pnpm test:integration` | Services against `DATABASE_URL_TEST` |
+| `pnpm test:perf` | Performance: PRD-size dataset in the test database, timings, SQL counts, query plans |
 | `pnpm test:e2e` | Playwright against a production build (`next start` on port 3100) using `DATABASE_URL_TEST` (`pnpm exec playwright install chromium` first). Rate-limit buckets in the test database are cleared before each test; app limits are unchanged |
 | `pnpm db:migrate` | Create a new migration during development |
 | `pnpm db:deploy` / `db:status` / `db:seed` | Apply migrations / status / seed reference data |
 | `pnpm access:grant -- --email <email> [--plan CODE]` | Give an account's weddings a plan without payment (admin grant) |
 | `pnpm admin:set -- --email <email> [--revoke]` | Make an existing account an admin (or remove the role); audited |
+| `pnpm media:variants` | Create resized WebP copies for images uploaded before Phase 15 |
 | `pnpm worker [-- --once]` | Background worker: reminders, notifications, housekeeping (`--once` = one cycle) |
 
 ## Architecture notes

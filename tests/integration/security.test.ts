@@ -532,6 +532,7 @@ describe("public and private data separation", () => {
         "brideName",
         "coupleName",
         "coverImageId",
+        "coverImageWidths",
         "coverLayout",
         "defaultGuestLabel",
         "events",

@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { z } from "zod";
 import type { Prisma, WeddingMemberRole } from "@/generated/prisma/client";
 import { getDb } from "@/server/db";
@@ -21,6 +22,17 @@ export type WeddingMembership = {
 const uuidSchema = z.uuid();
 
 /**
+ * One lookup per user and wedding per request: a page that loads nine widgets checks membership
+ * once. Outside a React request (jobs, tests) `cache` is a plain call.
+ */
+const findMembership = cache((userId: string, weddingId: string) =>
+  getDb().weddingMember.findFirst({
+    where: { userId, weddingId, wedding: { deletedAt: null } },
+    select: { id: true, weddingId: true, role: true, displayName: true },
+  }),
+);
+
+/**
  * The single gate for every private wedding operation: the user must be a member of a
  * non-deleted wedding. Pass `ownerOnly` for owner-restricted actions.
  */
@@ -33,17 +45,8 @@ export async function requireWeddingMember(
     throw new WeddingAccessError();
   }
 
-  const membership = await getDb().weddingMember.findFirst({
-    where: {
-      userId,
-      weddingId,
-      wedding: { deletedAt: null },
-      ...(options.ownerOnly ? { role: "OWNER" as const } : {}),
-    },
-    select: { id: true, weddingId: true, role: true, displayName: true },
-  });
-
-  if (!membership) throw new WeddingAccessError();
+  const membership = await findMembership(userId, weddingId);
+  if (!membership || (options.ownerOnly && membership.role !== "OWNER")) throw new WeddingAccessError();
   return membership;
 }
 

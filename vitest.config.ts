@@ -31,6 +31,19 @@ export default defineConfig({
           hookTimeout: 30_000,
         },
       },
+      {
+        extends: true,
+        test: {
+          // Not part of the default run: seeds a large dataset (pnpm test:perf).
+          name: "perf",
+          include: ["tests/perf/**/*.test.ts"],
+          environment: "node",
+          setupFiles: ["tests/support/integration-setup.ts"],
+          fileParallelism: false,
+          testTimeout: 600_000,
+          hookTimeout: 300_000,
+        },
+      },
     ],
   },
 });

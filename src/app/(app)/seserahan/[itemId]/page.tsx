@@ -64,7 +64,7 @@ export default async function GiftItemPage({
             {/* Private: /media serves this only to members of the wedding. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={mediaPath(item.photoId)}
+              src={mediaPath(item.photoId, 480)}
               alt={`Foto ${item.name}`}
               className="mb-4 aspect-square w-full max-w-xs rounded-2xl object-cover"
             />

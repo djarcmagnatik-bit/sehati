@@ -112,12 +112,16 @@ test("invitation: build, publish, and open the public page as a guest", async ({
   await expect(guestPage.getByText("1234567890").first()).toBeVisible();
   await expect(guestPage.getByRole("link", { name: "Buka peta" }).first()).toHaveAttribute("href", /google\.com\/maps/);
 
-  // The gallery image is served publicly.
+  // The gallery image is served publicly, as a resized WebP copy of the uploaded PNG.
   const image = guestPage.locator('img[src^="/media/"]').first();
   await expect(image).toBeVisible();
-  const response = await anonymous.request.get((await image.getAttribute("src")) ?? "");
+  const src = (await image.getAttribute("src")) ?? "";
+  expect(src).toMatch(/\?w=\d+$/);
+  const response = await anonymous.request.get(src);
   expect(response.status()).toBe(200);
-  expect(response.headers()["content-type"]).toBe("image/png");
+  expect(response.headers()["content-type"]).toBe("image/webp");
+  const original = await anonymous.request.get(src.replace(/\?w=\d+$/, ""));
+  expect(original.headers()["content-type"]).toBe("image/png");
 
   // The public page must fit a phone: a wider page makes Chrome zoom the whole invitation out.
   if (isMobile) {

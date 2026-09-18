@@ -13,11 +13,11 @@ import {
   taskDueContent,
   taskOverdueContent,
 } from "@/lib/notifications";
-import { getWeddingFeatures } from "@/server/billing/access";
+import { getFeaturesForWeddings, getWeddingFeatures } from "@/server/billing/access";
 import { loadBudgetFigures } from "@/server/budget/budget-service";
 import { getDb } from "@/server/db";
 import { purgeFinishedJobs, type JobPayload } from "@/server/jobs/queue";
-import { deliverNotification, purgeOldNotifications } from "./notification-service";
+import { deliverNotification, deliverNotifications, purgeOldNotifications, type Delivery } from "./notification-service";
 
 /**
  * Handlers re-read everything from the database: the payload is only a pointer, so a job that runs
@@ -193,21 +193,24 @@ export async function handleRemindersScan(_payload: JobPayload<"reminders.scan">
       AND e.total_amount > COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.expense_id = e.id), 0)
   `;
 
+  // Members and access of every wedding involved, in two queries (no per-row lookups).
+  const weddingIds = [...new Set([...taskGroups.map((row) => row.wedding_id), ...payments.map((row) => row.wedding_id)])];
+  const [memberRows, access] = await Promise.all([
+    db.weddingMember.findMany({ where: { weddingId: { in: weddingIds }, wedding: { deletedAt: null } }, select: { weddingId: true, userId: true } }),
+    getFeaturesForWeddings(payments.map((row) => row.wedding_id), now),
+  ]);
   const members = new Map<string, string[]>();
-  const recipientsOf = async (weddingId: string) => {
-    if (!members.has(weddingId)) members.set(weddingId, await memberIds(weddingId));
-    return members.get(weddingId)!;
-  };
-  let delivered = 0;
+  for (const row of memberRows) members.set(row.weddingId, [...(members.get(row.weddingId) ?? []), row.userId]);
+  const recipientsOf = (weddingId: string) => members.get(weddingId) ?? [];
+  const deliveries: Array<{ recipients: string[]; delivery: Delivery }> = [];
 
   for (const group of taskGroups) {
     const todayIso = todayIsoInTimeZone(now, group.time_zone);
     const dueIso = dbDateToIso(group.due_date);
     const overdue = dueIso < todayIso;
-    delivered += await deliverNotification(
-      db,
-      await recipientsOf(group.wedding_id),
-      {
+    deliveries.push({
+      recipients: recipientsOf(group.wedding_id),
+      delivery: {
         weddingId: group.wedding_id,
         type: overdue ? "TASK_OVERDUE" : "TASK_DUE",
         dedupeKey: `${overdue ? "task_overdue" : "task_due"}:${group.wedding_id}:${dueIso}`,
@@ -215,21 +218,15 @@ export async function handleRemindersScan(_payload: JobPayload<"reminders.scan">
           ? taskOverdueContent({ dueIso, count: group.total, titles: group.titles })
           : taskDueContent({ dueIso, todayIso, count: group.total, titles: group.titles }),
       },
-      now,
-    );
+    });
   }
 
-  const budgetAccess = new Map<string, boolean>();
   for (const payment of payments) {
-    if (!budgetAccess.has(payment.wedding_id)) {
-      budgetAccess.set(payment.wedding_id, (await getWeddingFeatures(payment.wedding_id, now)).has("budget"));
-    }
-    if (!budgetAccess.get(payment.wedding_id)) continue;
+    if (!access.get(payment.wedding_id)?.has("budget")) continue;
     const dueIso = dbDateToIso(payment.due_date);
-    delivered += await deliverNotification(
-      db,
-      await recipientsOf(payment.wedding_id),
-      {
+    deliveries.push({
+      recipients: recipientsOf(payment.wedding_id),
+      delivery: {
         weddingId: payment.wedding_id,
         type: "PAYMENT_DUE",
         dedupeKey: `payment_due:${payment.id}:${dueIso}`,
@@ -241,10 +238,9 @@ export async function handleRemindersScan(_payload: JobPayload<"reminders.scan">
           outstanding: formatRupiah(BigInt(payment.outstanding)),
         }),
       },
-      now,
-    );
+    });
   }
-  return delivered;
+  return deliverNotifications(db, deliveries, now);
 }
 
 export async function handleMaintenanceCleanup(_payload: JobPayload<"maintenance.cleanup">, now: Date): Promise<number> {

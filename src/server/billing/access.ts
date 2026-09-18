@@ -25,6 +25,22 @@ async function loadWeddingFeatures(weddingId: string, now: Date): Promise<Set<Fe
   return features;
 }
 
+/** Access for many weddings in one query (background jobs that look across weddings). */
+export async function getFeaturesForWeddings(weddingIds: readonly string[], now: Date): Promise<Map<string, Set<Feature>>> {
+  const result = new Map<string, Set<Feature>>(weddingIds.map((id) => [id, new Set<Feature>()]));
+  if (weddingIds.length === 0) return result;
+  const entitlements = await getDb().weddingEntitlement.findMany({
+    where: { weddingId: { in: [...new Set(weddingIds)] }, revokedAt: null },
+    select: { weddingId: true, startsAt: true, expiresAt: true, revokedAt: true, plan: { select: { features: true } } },
+  });
+  for (const entitlement of entitlements) {
+    if (!isEntitlementActive(entitlement, now)) continue;
+    const features = result.get(entitlement.weddingId)!;
+    for (const feature of knownFeatures(entitlement.plan.features)) features.add(feature);
+  }
+  return result;
+}
+
 /** Memoized per request inside Next.js; a plain call everywhere else (scripts, tests). */
 const cachedWeddingFeatures = cache((weddingId: string) => loadWeddingFeatures(weddingId, new Date()));
 

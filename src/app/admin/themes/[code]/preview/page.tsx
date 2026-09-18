@@ -25,6 +25,7 @@ function sampleInvitation(themeCode: string, now: Date): PublicInvitation {
     timeZone: "Asia/Jakarta",
     defaultGuestLabel: "Tamu Undangan",
     coverImageId: null,
+    coverImageWidths: [],
     music: null,
     giftAddress: null,
     sections: [

@@ -18,11 +18,20 @@ export type Delivery = {
 
 /** Returns how many notifications were actually new. Unsafe links are dropped rather than stored. */
 export async function deliverNotification(db: Tx, recipients: readonly string[], delivery: Delivery, now: Date = new Date()): Promise<number> {
-  const userIds = [...new Set(recipients)];
-  if (userIds.length === 0) return 0;
-  const link = isSafeInternalLink(delivery.content.link) ? delivery.content.link : null;
-  const { count } = await db.notification.createMany({
-    data: userIds.map((userId) => ({
+  return deliverNotifications(db, [{ recipients, delivery }], now);
+}
+
+const INSERT_BATCH = 1000;
+
+/** Many deliveries in as few statements as possible (periodic scans across all weddings). */
+export async function deliverNotifications(
+  db: Tx,
+  deliveries: ReadonlyArray<{ recipients: readonly string[]; delivery: Delivery }>,
+  now: Date = new Date(),
+): Promise<number> {
+  const rows = deliveries.flatMap(({ recipients, delivery }) => {
+    const link = isSafeInternalLink(delivery.content.link) ? delivery.content.link : null;
+    return [...new Set(recipients)].map((userId) => ({
       userId,
       weddingId: delivery.weddingId,
       type: delivery.type,
@@ -31,10 +40,14 @@ export async function deliverNotification(db: Tx, recipients: readonly string[],
       link,
       dedupeKey: delivery.dedupeKey.slice(0, 160),
       createdAt: now,
-    })),
-    skipDuplicates: true,
+    }));
   });
-  return count;
+  let created = 0;
+  for (let index = 0; index < rows.length; index += INSERT_BATCH) {
+    const { count } = await db.notification.createMany({ data: rows.slice(index, index + INSERT_BATCH), skipDuplicates: true });
+    created += count;
+  }
+  return created;
 }
 
 export async function countUnreadNotifications(userId: string): Promise<number> {

@@ -3,6 +3,7 @@ import { cache } from "react";
 import { formatCoupleName } from "@/lib/couple";
 import { dbDateToIso } from "@/lib/dates";
 import type { GiftAccountTypeValue, InvitationSectionTypeValue } from "@/lib/invitation";
+import { parseImageVariants } from "@/lib/media";
 import { parseSectionContent } from "@/lib/validation/invitation";
 import { weddingHasFeature } from "@/server/billing/access";
 import { getDb } from "@/server/db";
@@ -27,13 +28,15 @@ export type PublicInvitation = {
   timeZone: string;
   defaultGuestLabel: string | null;
   coverImageId: string | null;
+  /** Widths of the cover's resized copies (empty: only the original exists). */
+  coverImageWidths: number[];
   /** Present only when music is switched on and a track is attached. */
   music: { assetId: string; volume: number } | null;
   giftAddress: string | null;
   sections: PublicSection[];
   events: WeddingEventRow[];
   loveStory: Array<{ id: string; title: string; timeLabel: string | null; story: string; imageId: string | null }>;
-  gallery: Array<{ id: string; assetId: string; caption: string | null; width: number; height: number }>;
+  gallery: Array<{ id: string; assetId: string; caption: string | null; width: number; height: number; widths: number[] }>;
   giftAccounts: Array<{
     id: string;
     type: GiftAccountTypeValue;
@@ -58,6 +61,7 @@ export const getPublishedInvitation = cache(async (slug: string): Promise<Public
       themeCode: true,
       themeOptions: true,
       coverImageId: true,
+      coverImage: { select: { variants: true } },
       musicAssetId: true,
       musicEnabled: true,
       musicVolume: true,
@@ -102,7 +106,7 @@ export const getPublishedInvitation = cache(async (slug: string): Promise<Public
       },
       galleryImages: {
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-        select: { id: true, caption: true, asset: { select: { id: true, width: true, height: true } } },
+        select: { id: true, caption: true, asset: { select: { id: true, width: true, height: true, variants: true } } },
       },
       giftAccounts: {
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
@@ -131,6 +135,7 @@ export const getPublishedInvitation = cache(async (slug: string): Promise<Public
     timeZone: wedding.timeZone,
     defaultGuestLabel: invitation.defaultGuestLabel,
     coverImageId: invitation.coverImageId,
+    coverImageWidths: variantWidths(invitation.coverImage?.variants),
     music:
       invitation.musicEnabled && invitation.musicAssetId
         ? { assetId: invitation.musicAssetId, volume: invitation.musicVolume }
@@ -150,12 +155,26 @@ export const getPublishedInvitation = cache(async (slug: string): Promise<Public
     // Gallery rows only ever point at images, which always carry dimensions (CHECK constraint).
     gallery: invitation.galleryImages.flatMap((image) =>
       image.asset.width && image.asset.height
-        ? [{ id: image.id, assetId: image.asset.id, caption: image.caption, width: image.asset.width, height: image.asset.height }]
+        ? [
+            {
+              id: image.id,
+              assetId: image.asset.id,
+              caption: image.caption,
+              width: image.asset.width,
+              height: image.asset.height,
+              widths: variantWidths(image.asset.variants),
+            },
+          ]
         : [],
     ),
     giftAccounts: invitation.giftAccounts.map((account) => ({ ...account, type: account.type as GiftAccountTypeValue })),
   };
 });
+
+/** Only widths reach the page; storage keys stay on the server. */
+function variantWidths(value: unknown): number[] {
+  return parseImageVariants(value).map((variant) => variant.width);
+}
 
 export type GuestGreeting = { invitationName: string; seatCount: number };
 

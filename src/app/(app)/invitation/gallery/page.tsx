@@ -66,7 +66,7 @@ export default async function InvitationGalleryPage() {
                   {/* Served from our own /media route; no external image optimizer is configured. */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={mediaPath(image.asset.id)}
+                    src={mediaPath(image.asset.id, 480)}
                     alt={image.caption ?? image.asset.fileName}
                     width={image.asset.width ?? undefined}
                     height={image.asset.height ?? undefined}

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { preload } from "react-dom";
 import { CountdownTimer } from "@/components/invitation/public/countdown-timer";
 import { CopyValue } from "@/components/invitation/public/copy-value";
 import { MusicPlayer } from "@/components/invitation/public/music-player";
@@ -9,7 +10,7 @@ import { GIFT_ACCOUNT_LABEL, SECTION_LABEL, type InvitationSectionTypeValue } fr
 import { getTheme, themeStyle } from "@/lib/invitation-themes";
 import { mapEmbedUrl, mapsLink } from "@/lib/maps";
 import { instagramUrl } from "@/lib/vendors";
-import { mediaPath } from "@/lib/media";
+import { mediaPath, mediaSrcSet } from "@/lib/media";
 import type { PublicInvitation, PublicSection } from "@/server/invitation/public-invitation-service";
 
 type ViewProps = {
@@ -63,6 +64,10 @@ function Cover({ invitation, guestName }: { invitation: PublicInvitation; guestN
   const note = cover ? text(cover, "note") : "";
   const layout = invitation.coverLayout;
   const align = layout === "bottom" ? "justify-end pb-16" : layout === "split" ? "justify-center" : "justify-center";
+  const coverSrc = invitation.coverImageId ? mediaPath(invitation.coverImageId, invitation.coverImageWidths.length > 0 ? 960 : undefined) : null;
+  const coverSrcSet = invitation.coverImageId ? mediaSrcSet(invitation.coverImageId, invitation.coverImageWidths) : undefined;
+  // The cover is the largest paint: start fetching it from <head>, alongside CSS and scripts.
+  if (coverSrc) preload(coverSrc, { as: "image", fetchPriority: "high", imageSrcSet: coverSrcSet, imageSizes: "100vw" });
 
   return (
     <header
@@ -71,10 +76,12 @@ function Cover({ invitation, guestName }: { invitation: PublicInvitation; guestN
     >
       {invitation.coverImageId ? (
         <>
-          {/* Served by our own /media route with known dimensions; no external image optimizer is configured. */}
+          {/* Resized WebP copies from /media (made at upload); the browser picks one for the screen. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={mediaPath(invitation.coverImageId)}
+            src={coverSrc!}
+            srcSet={coverSrcSet}
+            sizes="100vw"
             alt=""
             aria-hidden="true"
             className="absolute inset-0 size-full object-cover"
@@ -262,7 +269,9 @@ function Gallery({ invitation }: { invitation: PublicInvitation }) {
           <figure>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={mediaPath(image.assetId)}
+              src={mediaPath(image.assetId, image.widths.length > 0 ? 480 : undefined)}
+              srcSet={mediaSrcSet(image.assetId, image.widths)}
+              sizes="(min-width: 640px) 220px, 50vw"
               alt={image.caption ?? ""}
               width={image.width}
               height={image.height}

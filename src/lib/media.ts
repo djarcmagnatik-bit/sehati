@@ -109,8 +109,46 @@ export function formatBytes(size: number): string {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function mediaPath(assetId: string): string {
-  return `/media/${assetId}`;
+/** Widths of the resized WebP copies made at upload (never wider than the original). */
+export const IMAGE_VARIANT_WIDTHS = [480, 960, 1280, 1920] as const;
+
+export type StoredImageVariant = { width: number; height: number; byteSize: number; storageKey: string };
+
+/** Variant rows from the JSON column; anything malformed is ignored rather than trusted. */
+export function parseImageVariants(value: unknown): StoredImageVariant[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(
+      (item): item is StoredImageVariant =>
+        typeof item === "object" &&
+        item !== null &&
+        Number.isInteger((item as StoredImageVariant).width) &&
+        Number.isInteger((item as StoredImageVariant).height) &&
+        Number.isInteger((item as StoredImageVariant).byteSize) &&
+        typeof (item as StoredImageVariant).storageKey === "string",
+    )
+    .sort((a, b) => a.width - b.width);
+}
+
+/** The narrowest variant at least as wide as requested, else the widest one; null without variants. */
+export function pickVariantWidth(widths: readonly number[], requested: number): number | null {
+  if (widths.length === 0) return null;
+  const sorted = [...widths].sort((a, b) => a - b);
+  return sorted.find((width) => width >= requested) ?? sorted[sorted.length - 1]!;
+}
+
+/** `/media/{id}` or a resized copy with `?w=`. */
+export function mediaPath(assetId: string, width?: number): string {
+  return width ? `/media/${assetId}?w=${width}` : `/media/${assetId}`;
+}
+
+/** srcset for an image with resized copies; undefined when there are none (the original is used). */
+export function mediaSrcSet(assetId: string, widths: readonly number[]): string | undefined {
+  if (widths.length === 0) return undefined;
+  return [...widths]
+    .sort((a, b) => a - b)
+    .map((width) => `${mediaPath(assetId, width)} ${width}w`)
+    .join(", ");
 }
 
 // ─── Audio (invitation background music) ─────────────────────────────────────

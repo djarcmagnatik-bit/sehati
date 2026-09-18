@@ -50,7 +50,7 @@ export default async function InvitationDesignPage() {
             {/* Served from our own /media route; no external image optimizer is configured. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={mediaPath(invitation.coverImageId)}
+              src={mediaPath(invitation.coverImageId, 960)}
               alt="Foto sampul undangan"
               className="aspect-3/4 w-full max-w-xs rounded-2xl object-cover"
             />

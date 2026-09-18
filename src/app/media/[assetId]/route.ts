@@ -9,7 +9,10 @@ import { getAssetForDelivery } from "@/server/media/media-service";
 export async function GET(request: NextRequest, context: { params: Promise<{ assetId: string }> }) {
   const { assetId } = await context.params;
   const session = await getCurrentSession();
-  const asset = await getAssetForDelivery(assetId, session?.user.id ?? null);
+  // ?w= picks a resized copy (responsive images); anything else is ignored.
+  const requested = Number.parseInt(request.nextUrl.searchParams.get("w") ?? "", 10);
+  const width = Number.isInteger(requested) && requested > 0 && requested <= 4000 ? requested : undefined;
+  const asset = await getAssetForDelivery(assetId, session?.user.id ?? null, width);
   if (!asset) return new Response("Not found", { status: 404 });
 
   const etag = `"${asset.checksum}"`;

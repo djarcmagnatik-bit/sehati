@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { computeTemplateDueDate } from "@/lib/checklist";
 import { dbDateToIso, isoToDbDate, todayIsoInTimeZone } from "@/lib/dates";
 import type { OnboardingData } from "@/lib/validation/onboarding";
@@ -101,7 +102,8 @@ export async function userHasWedding(userId: string): Promise<boolean> {
 }
 
 /** The wedding workspace the user currently works in, scoped through membership. */
-export function getActiveWeddingForUser(userId: string) {
+/** Memoized per request: the layout and the page both need it. */
+export const getActiveWeddingForUser = cache((userId: string) => {
   return getDb().weddingMember.findFirst({
     where: { userId, wedding: { deletedAt: null } },
     orderBy: { joinedAt: "desc" },
@@ -139,7 +141,7 @@ export function getActiveWeddingForUser(userId: string) {
       },
     },
   });
-}
+});
 
 export async function updateCoupleNote(userId: string, weddingId: string, note: string | null): Promise<void> {
   const membership = await requireWeddingMember(userId, weddingId);

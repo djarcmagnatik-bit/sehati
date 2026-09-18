@@ -180,6 +180,7 @@ model User {
   promoRedemptions           PromoRedemption[]    @relation("PromoRedemptionUser")
   notifications              Notification[]
 
+  @@index([createdAt])
   @@map("users")
 }
 
@@ -333,6 +334,7 @@ model Wedding {
   notifications       Notification[]
 
   @@index([weddingDate])
+  @@index([createdAt])
   @@map("weddings")
 }
 
@@ -956,6 +958,8 @@ model MediaAsset {
   durationSeconds Int?      @map("duration_seconds")
   /// SHA-256 of the bytes, so the same image is stored once per wedding.
   checksum        String    @db.Char(64)
+  /// Resized WebP copies for responsive images: [{ width, height, byteSize, storageKey }], widest last.
+  variants        Json      @default("[]")
   createdById     String?   @map("created_by_id") @db.Uuid
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
 
@@ -1247,6 +1251,8 @@ model PaymentTransaction {
 
   @@index([weddingId, createdAt])
   @@index([status, expiresAt])
+  @@index([createdAt])
+  @@index([userId])
   @@map("payment_transactions")
 }
 
