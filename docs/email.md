@@ -110,7 +110,32 @@ Options when this is picked up again:
 
 After any change: `pnpm mail:test -- --to <address>`, then check inbox vs spam and Gmail "Show original".
 
+## Production password reset (2026-09-19)
+
+The owner requested a reset on https://sehati.wuzzgate.my.id/forgot-password. Gmail received this
+email, with the token left out here:
+
+```text
+From: Sehati        Subject: Atur ulang password kamu
+Halo <name>,
+…
+https://sehati.wuzzgate.my.id/reset-password?token=<token>
+```
+
+So the whole path works in production:
+- form, then the email sent after the response;
+- cPanel SMTP from the AWS server;
+- delivery to Gmail;
+- a link built from the production `APP_URL`.
+
+It landed in the **inbox** only because the owner had marked the earlier test email as "not spam".
+Gmail learns that per mailbox. Other recipients should still expect the spam folder until
+[deliverability](#deliverability-open-decision-deferred) is addressed.
+
+The link was pasted into a chat during the test. The owner was advised to use it at once, or to
+request a new one, which invalidates older unused links.
+
 ## Not verified
 
-- Inbox placement at Outlook/Yahoo (only Gmail was checked: spam).
+- Inbox placement for recipients who have not marked Sehati as "not spam", and at Outlook or Yahoo.
 - Latency from the production host (only measured from the development workstation).

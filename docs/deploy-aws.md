@@ -239,4 +239,4 @@ Lessons from this deployment:
   - images, compose, migrations, seed, `verify:env`, the app, cron and Caddy with HTTPS (see the
     deployment record);
   - backups and background jobs (see the deployment record);
-  - still to check: a password-reset e-mail in production.
+  - a password-reset e-mail sent by the production app (see [email.md](email.md)).
