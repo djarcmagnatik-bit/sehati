@@ -60,9 +60,8 @@ Consequences:
   port 465; if that is too slow in production, switch to 587 + STARTTLS.
 - The TLS certificate expires on **26 Oct 2026**; the hosting provider must renew it, or sending fails
   certificate verification.
-- Deliverability looks reasonable for a shared host (SPF + DKIM). Consider tightening DMARC to
-  `p=quarantine` once reports look clean. Large providers may still file mail from shared hosting as
-  spam, so check the spam folder in the first tests.
+- SPF, DKIM and DMARC all pass (see below), yet Gmail files the mail as spam: see
+  [Deliverability](#deliverability-open-decision-deferred).
 - Shared hosting limits outgoing mail per hour. That is fine for resets and invitations, but not for
   bulk sending.
 
@@ -77,7 +76,41 @@ OK   test email accepted by the server for <gmail address> (check the inbox and 
 
 TLS, authentication and acceptance by the server work with the production settings.
 
+## Deliverability (open, decision deferred)
+
+**Status on 2026-09-18: the test email reached Gmail but landed in the Spam folder.** The owner
+decided to leave it for now and fix it later. Until then, expect password-reset and
+partner-invitation emails to land in spam for many users. Partner invitations still work through the
+copyable link.
+
+Gmail "Show original" for the test email:
+
+```text
+SPF:   PASS with IP 195.88.211.243
+DKIM:  'PASS' with domain wuzzgate.my.id
+DMARC: 'PASS'
+```
+
+So authentication and the app's configuration are correct; the problem is **sender reputation**:
+
+1. The shared hosting IP `195.88.211.243` (`maleo.kencang.com`) was listed on **Spamhaus ZEN**
+   (`127.0.0.3` = CSS, `127.0.0.4` = XBL) in a DNS query on 2026-09-18. SpamCop and Barracuda: not
+   listed. Other customers on the same server affect this IP; the owner cannot delist it. Confirm at
+   <https://check.spamhaus.org>.
+2. The domain is new and has almost no sending history.
+3. The test email was short and generic (minor).
+
+Options when this is picked up again:
+
+| Option | Work | Effect |
+| --- | --- | --- |
+| A. Ask the host (kencang.com) to delist the IP or send from a clean IP | support ticket | depends on the host; can recur on a shared IP |
+| B. **Transactional email service over SMTP** (e.g. Brevo, Amazon SES, Postmark, Mailgun) — recommended before launch | owner creates the account and adds its DKIM/SPF DNS records; the app only needs new `SMTP_*` values in `.env` (no code change) | reliable inbox placement for resets |
+| C. Tighten DMARC from `p=none` to `p=quarantine` in cPanel | one DNS edit | protects the domain from spoofing; small effect on inbox placement |
+
+After any change: `pnpm mail:test -- --to <address>`, then check inbox vs spam and Gmail "Show original".
+
 ## Not verified
 
-- Inbox placement at Gmail/Outlook (inbox or spam).
+- Inbox placement at Outlook/Yahoo (only Gmail was checked: spam).
 - Latency from the production host (only measured from the development workstation).
