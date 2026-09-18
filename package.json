@@ -31,6 +31,7 @@
     "verify:env": "tsx scripts/verify-production-env.ts",
     "mail:test": "tsx --conditions=react-server scripts/mail-test.ts",
     "payment:check": "tsx --conditions=react-server scripts/payment-check.ts",
+    "demo:seed": "tsx --conditions=react-server scripts/demo-seed.ts",
     "load:seed": "tsx --conditions=react-server scripts/load-test/seed.ts",
     "load:run": "tsx scripts/load-test/run.ts",
     "db:test:seed": "tsx scripts/with-test-db.ts tsx prisma/seed.ts",

@@ -129,6 +129,31 @@ To undo: restore the `.bak` file and reload. 9router's own blocks are not touche
   - Run `free -m`, `sudo docker stats --no-stream` and `sudo docker compose logs --tail 100 app`.
   - Rising swap use or a p95 above 500 ms mean it is time for t3.small.
 
+## Demo account
+
+`pnpm demo:seed` creates one couple account with Full Access and every feature filled in:
+- the checklist 40 % done;
+- budget, vendors and payments;
+- 30 guests with RSVPs;
+- a published invitation with photos, events, story, gift accounts and wishes;
+- rundown, calendar, savings and seserahan.
+
+All names, addresses and account numbers are fictional. The gift accounts are labelled "contoh".
+
+```bash
+cd /opt/sehati
+sudo docker compose run --rm tools pnpm demo:seed -- --email <demo address>
+sudo docker compose run --rm tools pnpm demo:seed -- --email <demo address> --clean   # remove it
+```
+
+- **Password:** the command prints a random one **once**, in the server terminal. Do not paste it
+  anywhere.
+- **Re-running:** it replaces the previous demo.
+- **Safety:** the script refuses to touch any account that is not named "Akun Demo Sehati".
+- **Public link:** the demo invitation is reachable by anyone who has its link.
+- **Photos:** they are written to the app's media volume, which the tools service mounts, and are
+  handed to the app's user.
+
 ## Updating
 
 ```bash
