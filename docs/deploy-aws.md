@@ -136,7 +136,9 @@ cd /opt/sehati
 sudo docker compose pull                               # or: build again (option B)
 sudo docker compose run --rm tools pnpm db:deploy      # new migrations, if any
 sudo docker compose up -d app cron
-sudo docker image prune -f
+# Remove only the previous Sehati images. Not `docker image prune`: it deletes every untagged
+# image on the host, including older images of other apps kept for rollback.
+sudo docker images --format '{{.ID}} {{.Repository}}:{{.Tag}}' | awk '$2 ~ /sehati-(app|tools):<none>$/ {print $1}' | xargs -r sudo docker rmi
 ```
 
 ## Copying the files without SSH
@@ -205,6 +207,16 @@ $ sudo crontab -l
 
 The cron container's first call, 1 s after start, was refused because the app was not listening yet.
 The cron service now waits until the app is healthy.
+
+Slimmer `tools` image (no Next.js build output):
+- Size went from 1.33 GB to **1.08 GB**. Most of the rest is development dependencies (Prisma CLI,
+  tsx).
+- A re-pull took 3.1 s.
+
+The clean-up then used `docker image prune -f`, which also deleted an **untagged older 9router
+image**: `decolua/9router@sha256:f00fe389…`, about 705 MB. The running 9router was unaffected. That
+version can be pulled again by digest if a rollback is ever needed. "Updating" now removes only
+Sehati images.
 
 Lessons from this deployment:
 - The Compose plugin had to be installed.
