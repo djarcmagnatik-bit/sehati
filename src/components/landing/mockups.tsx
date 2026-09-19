@@ -1,3 +1,9 @@
+import { invitationFontsClassName } from "@/components/invitation/invitation-fonts";
+import { formatIsoDateLong, zonedTimeToUtcMs } from "@/lib/dates";
+import { getTheme, themeLook } from "@/lib/invitation-themes";
+import { mediaPath, mediaSrcSet } from "@/lib/media";
+import type { LandingDemo } from "@/server/marketing/landing-service";
+
 /**
  * Decorative previews of the app for the landing page, drawn with HTML instead of screenshots so they
  * stay sharp, light and in step with the design. The sample couple matches the demo account. All of
@@ -214,22 +220,76 @@ export function GuestMock() {
   );
 }
 
-export function InvitationMock() {
+/** The countdown as it stands when the page is rendered (Jakarta midnight of the wedding day). */
+function countdownParts(weddingDateIso: string | null): string[] {
+  if (!weddingDateIso) return ["150 hari", "06 jam", "47 menit", "22 detik"];
+  const left = Math.max(0, zonedTimeToUtcMs(weddingDateIso, "Asia/Jakarta", "00:00") - Date.now());
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return [
+    `${Math.floor(left / 86_400_000)} hari`,
+    `${pad(Math.floor(left / 3_600_000) % 24)} jam`,
+    `${pad(Math.floor(left / 60_000) % 60)} menit`,
+    `${pad(Math.floor(left / 1000) % 60)} detik`,
+  ];
+}
+
+/**
+ * The phone preview in the invitation section. With the operator's example invitation it shows that
+ * invitation's real cover photo, names, date and theme; otherwise a drawn stand-in.
+ */
+export function InvitationMock({ demo }: { demo?: LandingDemo | null }) {
+  const theme = demo ? getTheme(demo.themeCode) : null;
+  const look = theme ? themeLook(theme) : null;
+  const cover = demo?.coverImageId
+    ? {
+        src: mediaPath(demo.coverImageId, demo.coverImageWidths.length > 0 ? 480 : undefined),
+        srcSet: mediaSrcSet(demo.coverImageId, demo.coverImageWidths),
+      }
+    : null;
+  const nameStyle = theme && look
+    ? { fontFamily: theme.tokens.displayFont, fontWeight: look.headingWeight, fontStyle: look.headingStyle }
+    : undefined;
+
   return (
-    <div aria-hidden="true" className="mx-auto w-full max-w-xs rounded-[2.5rem] bg-ink-900 p-2.5 shadow-xl">
+    <div aria-hidden="true" className={`mx-auto w-full max-w-xs rounded-[2.5rem] bg-ink-900 p-2.5 shadow-xl ${invitationFontsClassName}`}>
       <div className="overflow-hidden rounded-[2rem] bg-cream-50">
-        <div className="bg-gradient-to-b from-clay-300 to-clay-600 px-5 pb-8 pt-12 text-center text-white">
-          <p className="text-[0.65rem] uppercase tracking-[0.3em]">The Wedding Of</p>
-          <p className="mt-2 font-display text-3xl font-semibold">Anisa &amp; Rizky</p>
-          <p className="mt-1 text-sm">Selasa, 16 Februari 2027</p>
-          <div className="mx-auto mt-6 w-fit rounded-2xl bg-white/90 px-5 py-2 text-ink-900">
-            <p className="text-[0.6rem] uppercase tracking-widest text-ink-500">Kepada Yth.</p>
-            <p className="font-display text-base font-semibold">Bapak Hendra Wijaya</p>
+        <div
+          className={`relative px-5 pb-8 pt-12 text-center text-white ${cover ? "" : "bg-gradient-to-b from-clay-300 to-clay-600"}`}
+          style={theme && !cover ? { background: theme.tokens.accentSoft, color: theme.tokens.ink } : undefined}
+        >
+          {cover ? (
+            <>
+              {/* Served by /media, public only while the example invitation is published. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={cover.src}
+                srcSet={cover.srcSet}
+                sizes="320px"
+                alt=""
+                loading="lazy"
+                decoding="async"
+                className="absolute inset-0 size-full object-cover"
+              />
+              <div className="absolute inset-0" style={{ background: theme?.tokens.coverOverlay ?? "rgba(0,0,0,0.45)" }} />
+            </>
+          ) : null}
+          <div className="relative" style={theme && cover ? { color: theme.tokens.coverInk } : undefined}>
+            <p className="text-[0.65rem] uppercase tracking-[0.3em]">The Wedding Of</p>
+            <p className="mt-2 font-display text-3xl font-semibold text-balance" style={nameStyle}>
+              {demo?.coupleName ?? "Anisa & Rizky"}
+            </p>
+            <p className="mt-1 text-sm">{demo ? formatIsoDateLong(demo.weddingDateIso) : "Selasa, 16 Februari 2027"}</p>
+            <div className="mx-auto mt-6 w-fit rounded-2xl bg-white/90 px-5 py-2 text-ink-900">
+              <p className="text-[0.6rem] uppercase tracking-widest text-ink-500">Kepada Yth.</p>
+              <p className="font-display text-base font-semibold" style={nameStyle}>
+                Bapak Hendra Wijaya
+              </p>
+            </div>
           </div>
         </div>
         <div className="space-y-3 px-5 py-5 text-center">
           <div className="grid grid-cols-4 gap-1.5 text-[0.65rem]">
-            {["150 hari", "06 jam", "47 menit", "22 detik"].map((part) => (
+            {countdownParts(demo?.weddingDateIso ?? null).map((part) => (
               <span key={part} className="rounded-lg bg-clay-50 py-1.5 text-clay-700">{part}</span>
             ))}
           </div>

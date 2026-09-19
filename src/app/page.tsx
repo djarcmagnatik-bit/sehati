@@ -114,8 +114,8 @@ function FeatureRow({
 }
 
 export default async function HomePage() {
-  const { plan, demoInvitationSlug, counts } = await getLandingData();
-  const demoHref = demoInvitationSlug ? `/undangan/${demoInvitationSlug}` : null;
+  const { plan, demo, counts } = await getLandingData();
+  const demoHref = demo ? `/undangan/${demo.slug}` : null;
   const planName = plan?.name ?? "Akses Penuh";
   const free = <TierBadge tier="free" planName={planName} />;
   const full = <TierBadge tier="full" planName={planName} />;
@@ -349,7 +349,7 @@ export default async function HomePage() {
                 </Link>
               ) : null}
             </div>
-            <InvitationMock />
+            <InvitationMock demo={demo} />
           </div>
         </section>
 
