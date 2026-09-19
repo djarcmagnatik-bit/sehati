@@ -49,6 +49,8 @@ const envSchema = z
      * balancer). 0 ignores forwarding headers: per-IP limits then share one bucket.
      */
     TRUSTED_PROXY_COUNT: z.coerce.number().int().min(0).max(5).default(1),
+    /** Slug of a published example invitation that the landing page links to (e.g. the demo account's). */
+    DEMO_INVITATION_SLUG: optionalText,
   })
   .superRefine((env, context) => {
     if (env.MAIL_DRIVER !== "smtp") return;

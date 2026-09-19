@@ -154,6 +154,10 @@ sudo docker compose run --rm tools pnpm demo:seed -- --email <demo address> --cl
 - **Re-running:** it replaces the previous demo.
 - **Safety:** the script refuses to touch any account that is not named "Akun Demo Sehati".
 - **Public link:** the demo invitation is reachable by anyone who has its link.
+- **Landing page button:** set `DEMO_INVITATION_SLUG=<slug>` in `.env` (the slug the script prints)
+  and restart the app. The landing page then shows "Lihat contoh undangan". The slug comes from
+  the server configuration, never from an account name, so a user who calls themselves "demo"
+  cannot get linked.
 - **Photos:** they are written to the app's media volume, which the tools service mounts, and are
   handed to the app's user.
 

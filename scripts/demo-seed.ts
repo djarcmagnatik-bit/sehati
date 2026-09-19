@@ -12,10 +12,11 @@
  */
 import { randomBytes } from "node:crypto";
 import { config } from "dotenv";
+import { DEMO_ACCOUNT_NAME } from "../src/lib/demo";
 
 config({ quiet: true });
 
-const DEMO_NAME = "Akun Demo Sehati";
+const DEMO_NAME = DEMO_ACCOUNT_NAME;
 const M = 1_000_000n;
 
 const emailIndex = process.argv.indexOf("--email");

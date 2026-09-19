@@ -209,6 +209,8 @@ as-is. Audio has no HTTP range support, so seeking inside a long track may not w
   whether an account exists. `pnpm mail:test [-- --to <address>]` checks the settings. See
   [docs/email.md](docs/email.md).
 
+- **Landing page:** `/` explains the product for first-time visitors: what it does, working together, the main features, the digital invitation, how to start, free vs paid plan (price from the database), FAQ. An example-invitation button appears when `DEMO_INVITATION_SLUG` names a published invitation.
+
 Nothing else beyond Phase 16 is implemented yet. WhatsApp and web push delivery are not built.
 
 ## Stack
