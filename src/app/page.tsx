@@ -14,6 +14,9 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
 };
 
+// Copy: short, casual Indonesian for a young audience ("kamu/kalian", everyday words), but every
+// claim still matches what the app does.
+
 const NAV = [
   ["#fitur", "Fitur"],
   ["#undangan", "Undangan"],
@@ -21,32 +24,26 @@ const NAV = [
   ["#faq", "FAQ"],
 ] as const;
 
-const FREE_FEATURES = [
-  "Beranda dengan hitung mundur dan ringkasan persiapan",
-  "Checklist otomatis sesuai jenis acara, bisa ditambah sendiri",
-  "Kalender tenggat tugas dan agenda",
-  "Tabungan pernikahan dengan target bulanan",
-  "Pengingat tugas yang mendekati atau lewat tenggat",
-];
+const FREE_FEATURES = ["Beranda + countdown", "Checklist otomatis", "Kalender", "Tabungan bareng", "Pengingat deadline"];
 
 type Tier = "free" | "full";
 
 const MORE_FEATURES: ReadonlyArray<readonly [title: string, body: string, tier: Tier | null]> = [
-  ["Rundown hari H", "Susun acara per jam lengkap dengan PIC dan lokasi, lalu cetak untuk keluarga dan panitia.", "full"],
-  ["Kalender", "Tenggat tugas, jatuh tempo pembayaran, dan agenda seperti fitting atau food tasting dalam satu tampilan.", "free"],
-  ["Tabungan bersama", "Catat setoran masing-masing dan pantau progres menuju target.", "free"],
-  ["Seserahan", "Daftar barang, perkiraan dan harga asli, penanggung jawab, sampai status siap diserahkan.", "full"],
-  ["Laporan & ekspor", "Ringkasan siap cetak, serta ekspor tamu, vendor, pengeluaran, dan rundown ke CSV atau Excel.", null],
-  ["Impor tamu", "Punya daftar tamu di Excel? Unggah file CSV atau XLSX memakai template yang disediakan.", "full"],
-  ["Pengingat", "Notifikasi saat tugas mendekati atau lewat tenggat, pembayaran jatuh tempo, atau tamu mengirim RSVP.", "free"],
-  ["Bisa dipasang di HP", "Buka dari browser, lalu tambahkan ke layar utama. Tidak perlu unduh dari toko aplikasi.", "free"],
+  ["Rundown hari H", "Jadwal per jam lengkap sama PIC-nya, siap dicetak.", "full"],
+  ["Kalender", "Deadline, jatuh tempo, sampai jadwal fitting dalam satu tampilan.", "free"],
+  ["Tabungan bareng", "Catat setoran masing-masing, pantau progres ke target.", "free"],
+  ["Seserahan", "Dari daftar belanja sampai siap diserahkan.", "full"],
+  ["Laporan & export", "Siap cetak, bisa di-export ke CSV atau Excel.", null],
+  ["Import tamu", "Udah punya list di Excel? Tinggal upload.", "full"],
+  ["Pengingat", "Notif deadline, jatuh tempo, dan RSVP yang masuk.", "free"],
+  ["Pasang di HP", "Add to home screen, nggak perlu download app.", "free"],
 ];
 
 const STEPS = [
-  ["Daftar gratis", "Cukup nama, email, dan password."],
-  ["Isi data pernikahan", "Tanggal, jenis acara, dan proses nikah. Checklist dan kategori anggaran langsung tersusun."],
-  ["Aktifkan & ajak pasangan", "Dengan Akses Penuh, kirim tautan ke pasangan agar kalian bekerja di data yang sama."],
-  ["Terbitkan undangan", "Bagikan tautan pribadi ke tiap tamu, lalu pantau RSVP dan ucapan yang masuk."],
+  ["Daftar gratis", "Nama, email, password. Beres."],
+  ["Isi data nikah", "Checklist dan budget langsung kebentuk sendiri."],
+  ["Ajak pasangan", "Aktifkan Akses Penuh, lalu kirim link ke dia."],
+  ["Sebar undangan", "Link pribadi buat tiap tamu, RSVP-nya tinggal dipantau."],
 ] as const;
 
 /** Which plan a feature belongs to, so nobody discovers a paywall after signing up. */
@@ -120,38 +117,29 @@ export default async function HomePage() {
   const free = <TierBadge tier="free" planName={planName} />;
   const full = <TierBadge tier="full" planName={planName} />;
   const taskCount = counts ? `${Math.floor(counts.taskTemplates / 10) * 10}+` : null;
+  const planPrice = plan ? `${formatRupiah(plan.price)} ${plan.durationDays ? `untuk ${plan.durationDays} hari` : "sekali bayar"}` : null;
   const faqs: Array<[string, string]> = [
     [
-      "Apakah Sehati gratis?",
-      `Ya. Mendaftar dan fitur dasar (checklist, kalender, tabungan, pengingat) gratis tanpa batas waktu. Vendor, anggaran, tamu & RSVP, undangan digital, rundown, seserahan, dan kolaborasi pasangan ada di ${plan?.name ?? "Akses Penuh"}${plan ? `, ${formatRupiah(plan.price)} ${plan.durationDays ? `untuk ${plan.durationDays} hari` : "sekali bayar untuk satu pernikahan"}` : ""}.`,
+      "Sehati gratis?",
+      `Iya. Daftar dan fitur dasar (checklist, kalender, tabungan, pengingat) gratis tanpa batas waktu. Vendor, budget, tamu & RSVP, undangan digital, rundown, seserahan, dan kolaborasi pasangan ada di ${planName}${planPrice ? `, ${planPrice}` : ""}.`,
     ],
     [
-      "Bisa dipakai berdua dengan pasangan?",
-      `Bisa. Setelah ${plan?.name ?? "Akses Penuh"} aktif, undang pasanganmu lewat tautan. Satu pernikahan bisa dikelola ${MAX_COUPLE_MEMBERS} akun, perubahan langsung terlihat keduanya, dan setiap aktivitas tercatat.`,
+      "Bisa dipakai berdua?",
+      `Bisa, pakai ${planName}. Undang pasangan lewat link: maksimal ${MAX_COUPLE_MEMBERS} akun per pernikahan, kalian lihat data yang sama, dan semua aktivitas kecatat.`,
+    ],
+    ["Harus download app?", "Nggak. Buka aja di browser HP atau laptop. Mau kerasa kayak app? Tambahin ke home screen."],
+    [
+      "Tamu RSVP-nya gimana?",
+      "Tiap tamu dapat link pribadi dengan namanya. Mereka pilih hadir, mungkin, atau nggak, plus jumlah orang sesuai jatah kursi. Jawabannya langsung masuk ke list kalian.",
+    ],
+    ["Tanggal nikah berubah?", "Tinggal ganti di pengaturan. Deadline di checklist bisa ikut dihitung ulang otomatis."],
+    [
+      "Bisa buat acara apa aja?",
+      "Akad, akad + resepsi, resepsi aja, lamaran, sampai upacara adat. Mau lewat KUA, upacara keagamaan, atau catatan sipil, checklist-nya ikut nyesuaiin.",
     ],
     [
-      "Apakah perlu mengunduh aplikasi?",
-      "Tidak. Sehati berjalan di browser HP maupun laptop. Di HP kamu bisa menambahkannya ke layar utama supaya terasa seperti aplikasi.",
-    ],
-    [
-      "Bagaimana tamu mengonfirmasi kehadiran?",
-      "Setiap tamu mendapat tautan undangan pribadi berisi namanya. Tamu memilih hadir, mungkin, atau tidak, beserta jumlah orang sesuai jatah kursi. Jawabannya langsung masuk ke daftar tamu kalian.",
-    ],
-    [
-      "Kalau tanggal pernikahan berubah?",
-      "Ubah tanggalnya di pengaturan. Tenggat tugas di checklist bisa dihitung ulang otomatis mengikuti tanggal yang baru.",
-    ],
-    [
-      "Untuk acara apa saja?",
-      "Akad saja, akad dan resepsi, resepsi saja, lamaran, maupun upacara adat, dengan proses nikah di KUA, upacara keagamaan, atau pencatatan sipil. Checklist disusun sesuai pilihan kalian.",
-    ],
-    [
-      "Apakah data kami aman?",
-      "Rencana pernikahan, anggaran, dan daftar tamu hanya bisa dilihat anggota pernikahan itu. Undangan baru tampil untuk umum setelah kalian terbitkan, dan semua koneksi memakai HTTPS.",
-    ],
-    [
-      "Bisa impor daftar tamu dari Excel?",
-      "Bisa. Unggah file CSV atau XLSX memakai template yang tersedia, periksa pratinjaunya, lalu simpan.",
+      "Data kami aman?",
+      "Rencana, budget, dan list tamu cuma bisa dilihat kalian berdua. Undangan baru publik setelah kalian terbitkan, dan semua koneksi pakai HTTPS.",
     ],
   ];
 
@@ -182,13 +170,13 @@ export default async function HomePage() {
         {/* Hero */}
         <section className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-10 md:grid-cols-2 md:py-20">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-widest text-clay-700">Wedding planner untuk berdua</p>
+            <p className="text-sm font-semibold uppercase tracking-widest text-clay-700">Wedding planner buat berdua</p>
             <h1 className="mt-3 font-display text-4xl font-semibold leading-tight text-balance sm:text-5xl">
-              Siapkan pernikahan bersama pasangan, dari checklist sampai undangan.
+              Nikahnya seru, ngurusnya nggak harus ribet.
             </h1>
             <p className="mt-4 text-lg text-ink-700">
-              {SITE.name} menyatukan semua persiapan dalam satu ruang kerja: hitung mundur, tugas, anggaran, vendor, tamu, dan undangan
-              digital dengan RSVP. Kalian berdua melihat data yang sama, kapan pun.
+              Checklist, budget, vendor, tamu, sampai undangan digital, semua di {SITE.name}. Kamu dan pasangan pegang data yang sama,
+              jadi nggak ada lagi &ldquo;eh, yang terbaru yang mana?&rdquo;.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href="/register" className={buttonClassName("primary", "px-6")}>
@@ -196,7 +184,7 @@ export default async function HomePage() {
               </Link>
               {demoHref ? (
                 <Link href={demoHref} className={buttonClassName("secondary", "px-6")}>
-                  Lihat contoh undangan
+                  Intip contoh undangan
                 </Link>
               ) : (
                 <a href="#fitur" className={buttonClassName("secondary", "px-6")}>
@@ -204,7 +192,7 @@ export default async function HomePage() {
                 </a>
               )}
             </div>
-            <p className="mt-4 text-sm text-ink-500">Gratis untuk mulai. Tanpa kartu kredit, tanpa unduh aplikasi.</p>
+            <p className="mt-4 text-sm text-ink-500">Gratis buat mulai. Tanpa kartu kredit, nggak perlu download app.</p>
           </div>
           <DashboardMock />
         </section>
@@ -213,10 +201,10 @@ export default async function HomePage() {
         <section aria-label="Sehati dalam angka" className="border-y border-cream-200 bg-white">
           <dl className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-4 py-8 text-center md:grid-cols-4">
             {[
-              [taskCount ?? "Ratusan", "tugas siap pakai di checklist"],
-              [counts ? String(counts.budgetCategories) : "Belasan", "kategori anggaran bawaan"],
-              [String(INVITATION_THEMES.length), "tema undangan digital"],
-              [String(MAX_COUPLE_MEMBERS), "akun, satu rencana bersama"],
+              [taskCount ?? "Ratusan", "to-do siap pakai"],
+              [counts ? String(counts.budgetCategories) : "Belasan", "kategori budget"],
+              [String(INVITATION_THEMES.length), "tema undangan"],
+              [String(MAX_COUPLE_MEMBERS), "akun, satu rencana"],
             ].map(([value, label]) => (
               <div key={label}>
                 <dt className="sr-only">{label}</dt>
@@ -233,17 +221,12 @@ export default async function HomePage() {
         <section aria-labelledby="bersama-heading" className="mx-auto max-w-6xl px-4 py-16 md:py-24">
           <div className="grid items-center gap-10 md:grid-cols-2 md:gap-12">
             <div>
-              <SectionHeading
-                id="bersama-heading"
-                eyebrow="Dikerjakan bersama"
-                title="Satu mengurus vendor, satu mengurus tamu. Keduanya tetap tahu semuanya."
-              />
+              <SectionHeading id="bersama-heading" eyebrow="Kerja bareng" title="Kamu urus vendor, dia urus tamu. Dua-duanya tetap update." />
               <ul className="mt-6 space-y-3">
                 {[
-                  `Undang pasangan lewat tautan (${planName}); kalian bekerja di data yang sama.`,
-                  "Riwayat aktivitas menunjukkan siapa mengubah apa, dan kapan.",
-                  "Catatan berdua di beranda untuk hal yang tidak boleh terlupa.",
-                  "Pengingat otomatis untuk tenggat tugas dan pembayaran.",
+                  `Ajak pasangan lewat link (${planName}), datanya sama persis.`,
+                  "Kelihatan siapa ngubah apa, dan kapan.",
+                  "Catatan berdua + pengingat otomatis, biar nggak ada yang kelewat.",
                 ].map((point) => (
                   <li key={point} className="flex gap-2 text-ink-700">
                     <Check />
@@ -259,56 +242,42 @@ export default async function HomePage() {
         {/* Core features */}
         <section id="fitur" aria-labelledby="fitur-heading" className="scroll-mt-20 bg-white py-16 md:py-24">
           <div className="mx-auto max-w-6xl px-4">
-            <SectionHeading
-              id="fitur-heading"
-              eyebrow="Fitur utama"
-              title="Semua yang biasanya tercecer di catatan, spreadsheet, dan grup chat."
-            />
+            <SectionHeading id="fitur-heading" eyebrow="Fitur utama" title="Bye catatan tercecer, spreadsheet ruwet, dan chat yang tenggelam." />
             <div className="mt-12 space-y-16 md:space-y-24">
               <FeatureRow
                 badge={free}
-                title="Checklist yang tersusun sendiri"
-                body="Isi tanggal dan jenis acara, lalu daftar tugas lengkap dengan tenggatnya langsung muncul, dari urusan KUA sampai souvenir."
-                points={[
-                  "Disusun sesuai jenis acara dan proses nikah kalian",
-                  "Tambah, ubah, dan tandai tugas; progres terlihat di beranda",
-                  "Tenggat bisa dihitung ulang kalau tanggal pernikahan berubah",
-                ]}
+                title="Checklist yang nyusun sendiri"
+                body="Isi tanggal dan jenis acara, to-do lengkap dengan deadline langsung muncul."
+                points={["Sesuai jenis acara dan proses nikah kalian", "Tanggal geser? Deadline bisa ikut dihitung ulang"]}
                 visual={<ChecklistMock />}
               />
               <FeatureRow
                 reverse
                 badge={full}
-                title="Anggaran tanpa kejutan"
-                body="Tetapkan target, bagi ke kategori, dan catat setiap tagihan serta pembayarannya. Sisa tagihan selalu terhitung dari data, bukan tebakan."
+                title="Budget tanpa plot twist"
+                body="Target, alokasi, DP, sampai pelunasan. Sisa tagihan selalu kelihatan."
                 points={[
-                  counts ? `${counts.budgetCategories} kategori bawaan yang bisa kalian sesuaikan` : "Kategori bawaan yang bisa kalian sesuaikan",
-                  "Catat DP, cicilan, dan pelunasan beserta tanggal jatuh temponya",
-                  "Lihat mana yang sudah lunas dan mana yang masih harus dibayar",
+                  counts ? `${counts.budgetCategories} kategori siap pakai, bebas diubah` : "Kategori siap pakai, bebas diubah",
+                  "Langsung tahu mana yang lunas, mana yang belum",
                 ]}
                 visual={<BudgetMock />}
               />
               <FeatureRow
                 badge={full}
-                title="Vendor: dari riset sampai dipesan"
-                body="Kumpulkan kandidat, bandingkan harga dan kelebihannya, lalu pilih satu. Kontrak dan pembayarannya otomatis masuk ke anggaran."
+                title="Vendor: riset, pilih, beres"
+                body="Kumpulin kandidat, bandingin, pilih satu. Kontrak dan pembayarannya otomatis masuk budget."
                 points={[
-                  counts ? `${counts.vendorCategories} kategori vendor, dari gedung sampai MC` : "Kategori vendor dari gedung sampai MC",
-                  "Rating, catatan kelebihan dan kekurangan, serta jadwal meeting",
-                  "Satu daftar vendor terpesan beserta kontaknya",
+                  counts ? `${counts.vendorCategories} kategori, dari gedung sampai MC` : "Dari gedung sampai MC",
+                  "Rating, plus-minus, dan jadwal meeting",
                 ]}
                 visual={<VendorMock />}
               />
               <FeatureRow
                 reverse
                 badge={full}
-                title="Tamu dan RSVP dalam satu daftar"
-                body="Kelompokkan tamu, atur jatah kursi, dan lihat siapa yang sudah menjawab. Jumlah tamu hadir terhitung otomatis."
-                points={[
-                  "Grup tamu: keluarga, teman, rekan kerja, dan lainnya",
-                  "Tautan undangan pribadi untuk setiap tamu",
-                  "Impor dari CSV atau Excel, ekspor kapan saja",
-                ]}
+                title="Tamu & RSVP dalam satu list"
+                body="Atur grup dan jatah kursi, cek siapa yang udah jawab. Jumlah yang hadir kehitung otomatis."
+                points={["Link undangan personal buat tiap tamu", "Import dari CSV atau Excel, export kapan aja"]}
                 visual={<GuestMock />}
               />
             </div>
@@ -323,25 +292,18 @@ export default async function HomePage() {
               <SectionHeading
                 id="undangan-heading"
                 eyebrow="Undangan digital"
-                title="Undangan yang menyapa tamu dengan namanya."
-                intro={`Pilih dari ${INVITATION_THEMES.length} tema, isi bagian yang kalian perlukan, lalu terbitkan. Setiap tamu membuka tautan pribadi dengan namanya di sampul dan bisa langsung mengonfirmasi kehadiran.`}
+                title="Undangan yang nyapa tamu pakai namanya."
+                intro={`${INVITATION_THEMES.length} tema, dari editorial, coquette, sampai film flash. Tamu buka link pribadinya, langsung bisa RSVP.`}
               />
               <ul className="mt-6 grid gap-2 sm:grid-cols-2">
-                {[
-                  "Profil mempelai & kutipan",
-                  "Acara dengan tombol peta",
-                  "Hitung mundur",
-                  "Cerita cinta & galeri foto",
-                  "RSVP dengan jatah kursi",
-                  "Ucapan & doa tamu",
-                  "Hadiah digital & alamat kado",
-                  "Musik latar",
-                ].map((item) => (
-                  <li key={item} className="flex gap-2 text-ink-700">
-                    <Check />
-                    <span>{item}</span>
-                  </li>
-                ))}
+                {["Profil mempelai & quote", "Acara + tombol peta", "Countdown", "Love story & galeri", "RSVP sesuai jatah kursi", "Ucapan & doa", "Amplop digital", "Musik latar"].map(
+                  (item) => (
+                    <li key={item} className="flex gap-2 text-ink-700">
+                      <Check />
+                      <span>{item}</span>
+                    </li>
+                  ),
+                )}
               </ul>
               {demoHref ? (
                 <Link href={demoHref} className={buttonClassName("secondary", "mt-8 px-6")}>
@@ -356,7 +318,7 @@ export default async function HomePage() {
         {/* More features */}
         <section aria-labelledby="lainnya-heading" className="bg-white py-16 md:py-24">
           <div className="mx-auto max-w-6xl px-4">
-            <SectionHeading id="lainnya-heading" eyebrow="Dan masih ada" title="Detail kecil yang membuat hari H lebih tenang." />
+            <SectionHeading id="lainnya-heading" eyebrow="Plus" title="Detail kecil biar hari H lebih chill." />
             <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {MORE_FEATURES.map(([title, body, tier]) => (
                 <li key={title} className="rounded-3xl border border-cream-200 bg-cream-50 p-5">
@@ -373,7 +335,7 @@ export default async function HomePage() {
 
         {/* Steps */}
         <section aria-labelledby="mulai-heading" className="mx-auto max-w-6xl px-4 py-16 md:py-24">
-          <SectionHeading id="mulai-heading" eyebrow="Cara mulai" title="Empat langkah, lalu kalian tinggal mencentang." />
+          <SectionHeading id="mulai-heading" eyebrow="Cara mulai" title="4 langkah, sisanya tinggal centang." />
           <ol className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {STEPS.map(([title, body], index) => (
               <li key={title} className="rounded-3xl border border-cream-200 bg-white p-5">
@@ -391,14 +353,14 @@ export default async function HomePage() {
             <SectionHeading
               id="harga-heading"
               eyebrow="Harga"
-              title="Mulai gratis. Buka semua fitur saat kalian siap."
-              intro="Tidak ada langganan bulanan. Akses penuh berlaku untuk satu pernikahan."
+              title="Mulai gratis, upgrade pas udah siap."
+              intro="Bukan langganan bulanan. Sekali bayar, buat satu pernikahan."
             />
             <div className="mt-10 grid gap-6 md:grid-cols-2">
               <div className="flex flex-col rounded-3xl border border-cream-200 bg-cream-50 p-6 sm:p-8">
                 <h3 className="font-display text-2xl font-semibold">Gratis</h3>
                 <p className="mt-2 font-display text-4xl font-semibold">Rp0</p>
-                <p className="mt-1 text-sm text-ink-500">Tanpa batas waktu untuk fitur dasar</p>
+                <p className="mt-1 text-sm text-ink-500">Tanpa batas waktu</p>
                 <ul className="mb-8 mt-6 space-y-2.5">
                   {FREE_FEATURES.map((feature) => (
                     <li key={feature} className="flex gap-2 text-ink-700">
@@ -412,7 +374,7 @@ export default async function HomePage() {
                 </Link>
               </div>
               <div className="rounded-3xl border-2 border-clay-600 bg-white p-6 shadow-sm sm:p-8">
-                <h3 className="font-display text-2xl font-semibold">{plan?.name ?? "Akses Penuh"}</h3>
+                <h3 className="font-display text-2xl font-semibold">{planName}</h3>
                 {plan ? (
                   <>
                     <p className="mt-2 font-display text-4xl font-semibold">{formatRupiah(plan.price)}</p>
@@ -421,9 +383,9 @@ export default async function HomePage() {
                     </p>
                   </>
                 ) : (
-                  <p className="mt-2 text-ink-700">Harga terlihat setelah mendaftar.</p>
+                  <p className="mt-2 text-ink-700">Harganya kelihatan setelah daftar.</p>
                 )}
-                <p className="mt-6 text-sm font-semibold text-ink-900">Semua fitur gratis, ditambah:</p>
+                <p className="mt-6 text-sm font-semibold text-ink-900">Semua fitur gratis, plus:</p>
                 <ul className="mt-3 space-y-2.5">
                   {(plan?.features ?? []).map((feature) => (
                     <li key={feature} className="flex gap-2 text-ink-700">
@@ -435,7 +397,7 @@ export default async function HomePage() {
                 <Link href="/register" className={buttonClassName("primary", "mt-8 w-full")}>
                   Daftar, lalu aktifkan
                 </Link>
-                <p className="mt-3 text-center text-sm text-ink-500">Aktifkan kapan saja dari menu Akses &amp; pembayaran.</p>
+                <p className="mt-3 text-center text-sm text-ink-500">Aktifkan kapan aja dari menu Akses &amp; pembayaran.</p>
               </div>
             </div>
           </div>
@@ -443,7 +405,7 @@ export default async function HomePage() {
 
         {/* FAQ */}
         <section id="faq" aria-labelledby="faq-heading" className="scroll-mt-20 mx-auto max-w-3xl px-4 py-16 md:py-24">
-          <SectionHeading id="faq-heading" eyebrow="FAQ" title="Pertanyaan yang sering muncul" />
+          <SectionHeading id="faq-heading" eyebrow="FAQ" title="Yang sering ditanyain" />
           <div className="mt-8 divide-y divide-cream-200 rounded-3xl border border-cream-200 bg-white">
             {faqs.map(([question, answer]) => (
               <details key={question} className="group px-5 py-4">
@@ -463,15 +425,15 @@ export default async function HomePage() {
         <section aria-labelledby="ajakan-heading" className="px-4 pb-20">
           <div className="mx-auto max-w-6xl rounded-[2rem] bg-gradient-to-br from-clay-600 to-clay-700 px-6 py-12 text-center text-white sm:px-12 sm:py-16">
             <h2 id="ajakan-heading" className="font-display text-3xl font-semibold text-balance sm:text-4xl">
-              Hari bahagia kalian layak dipersiapkan dengan tenang.
+              Hari H-nya bahagia, persiapannya juga harus santai.
             </h2>
-            <p className="mx-auto mt-3 max-w-xl text-white/90">Mulai dari checklist hari ini. Pasangan bisa menyusul kapan saja.</p>
+            <p className="mx-auto mt-3 max-w-xl text-white/90">Mulai dari checklist hari ini. Pasangan bisa nyusul kapan aja.</p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <Link href="/register" className="inline-flex min-h-11 items-center justify-center rounded-full bg-white px-6 font-semibold text-clay-700 hover:bg-cream-100">
                 Mulai gratis
               </Link>
               <Link href="/login" className="inline-flex min-h-11 items-center justify-center rounded-full px-6 font-semibold text-white ring-1 ring-white/60 hover:bg-white/10">
-                Saya sudah punya akun
+                Udah punya akun
               </Link>
             </div>
           </div>
@@ -482,7 +444,7 @@ export default async function HomePage() {
         <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-10 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <Brand />
-            <p className="mt-2 max-w-xs text-sm text-ink-500">{SITE.tagline}</p>
+            <p className="mt-2 max-w-xs text-sm text-ink-500">Rencanain nikah berdua, di satu tempat.</p>
           </div>
           <nav aria-label="Tautan kaki" className="grid grid-cols-2 gap-x-10 gap-y-2 text-sm">
             {NAV.map(([href, label]) => (
