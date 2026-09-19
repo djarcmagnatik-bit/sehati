@@ -60,6 +60,35 @@
   top: 1rem;
 }
 
+@layer components {
+  /* Invitation themes: values come from the theme's CSS variables (lib/invitation-themes.ts). */
+  .inv-display {
+    font-family: var(--inv-display-font);
+    font-weight: var(--inv-heading-weight, 600);
+    font-style: var(--inv-heading-style, normal);
+    text-transform: var(--inv-heading-case, none);
+    letter-spacing: var(--inv-heading-tracking, normal);
+  }
+
+  .inv-label {
+    font-family: var(--inv-label-font, inherit);
+  }
+
+  .inv-card {
+    background: var(--inv-surface);
+    border: var(--inv-card-border, 1px solid var(--inv-border));
+    box-shadow: var(--inv-card-shadow, none);
+    border-radius: var(--inv-radius);
+  }
+
+  /* Film grain for themes that ask for it; an inline SVG noise tile, allowed by img-src data:. */
+  .inv-grain {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+    mix-blend-mode: overlay;
+    opacity: 0.35;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

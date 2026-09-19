@@ -8,7 +8,8 @@ import { TextareaField } from "@/components/ui/textarea-field";
 import { cn } from "@/lib/cn";
 import { initialFormState, type FormState } from "@/lib/form-state";
 import { slugify } from "@/lib/invitation";
-import { COVER_LAYOUT_LABEL, COVER_LAYOUTS, type CoverLayout } from "@/lib/invitation-themes";
+import { ThemeMotifMark } from "@/components/invitation/public/theme-motif";
+import { COVER_LAYOUT_LABEL, COVER_LAYOUTS, type CoverLayout, type ThemeMotif } from "@/lib/invitation-themes";
 import { IMAGE_MAX_BYTES, IMAGE_MIME_TYPES } from "@/lib/media";
 import {
   updateGiftAddressAction,
@@ -74,7 +75,42 @@ export type ThemeOption = {
   isPremium: boolean;
   /** Premium and the wedding lacks the premium themes feature. */
   locked: boolean;
+  /** What the mini preview needs to show the theme's character, not only its colors. */
+  preview: {
+    background: string;
+    ink: string;
+    accent: string;
+    ornament: string;
+    displayFont: string;
+    headingWeight: number;
+    headingStyle: "normal" | "italic";
+    motif: ThemeMotif;
+  };
 };
+
+/** A small cover-like sample: the couple's names in the theme's font, weight, colors and motif. */
+function ThemePreview({ preview }: { preview: ThemeOption["preview"] }) {
+  const variables = {
+    "--inv-accent": preview.accent,
+    "--inv-ornament": preview.ornament,
+    "--inv-background": preview.background,
+  } as React.CSSProperties;
+  return (
+    <span
+      aria-hidden="true"
+      className="mt-3 flex h-20 flex-col items-center justify-center gap-1 rounded-xl ring-1 ring-black/10"
+      style={{ ...variables, background: preview.background, color: preview.ink }}
+    >
+      <ThemeMotifMark motif={preview.motif} className="h-4 w-20" />
+      <span
+        className="text-2xl leading-none"
+        style={{ fontFamily: preview.displayFont, fontWeight: preview.headingWeight, fontStyle: preview.headingStyle }}
+      >
+        Anisa &amp; Rizky
+      </span>
+    </span>
+  );
+}
 
 export function ThemePicker({
   weddingId,
@@ -127,6 +163,7 @@ export function ThemePicker({
                       ) : null}
                     </span>
                     <span className="mt-0.5 block text-xs text-ink-500">{theme.description}</span>
+                    <ThemePreview preview={theme.preview} />
                     <span aria-hidden="true" className="mt-2 flex gap-1">
                       {theme.swatches.map((color) => (
                         <span key={color} className="size-5 rounded-full ring-1 ring-black/10" style={{ background: color }} />

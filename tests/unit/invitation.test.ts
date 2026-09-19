@@ -11,7 +11,18 @@ import {
   whatsappShareUrl,
 } from "@/lib/invitation";
 import { SECTION_FIELDS } from "@/lib/invitation-fields";
-import { COVER_LAYOUTS, DEFAULT_THEME_CODE, getTheme, INVITATION_THEMES, isThemeCode, themeStyle } from "@/lib/invitation-themes";
+import {
+  CARD_STYLES,
+  COVER_LAYOUTS,
+  DEFAULT_THEME_CODE,
+  getTheme,
+  INVITATION_THEMES,
+  isThemeCode,
+  PHOTO_SHAPES,
+  THEME_MOTIFS,
+  themeLook,
+  themeStyle,
+} from "@/lib/invitation-themes";
 import { mapEmbedUrl, mapsLink } from "@/lib/maps";
 import { imageRejection, readImageInfo } from "@/lib/media";
 import {
@@ -78,6 +89,72 @@ describe("themes", () => {
   it("uses only valid cover layouts as defaults", () => {
     for (const theme of INVITATION_THEMES) {
       expect(COVER_LAYOUTS).toContain(theme.defaultCoverLayout);
+    }
+  });
+
+  it("keeps the original look for themes without a style", () => {
+    expect(themeLook(getTheme("elegant"))).toEqual({
+      headingWeight: 600,
+      headingStyle: "normal",
+      headingCase: "none",
+      headingTracking: "normal",
+      labelFont: getTheme("elegant").tokens.bodyFont,
+      card: "soft",
+      photo: "rounded",
+      motif: "line",
+      grain: false,
+    });
+    const style = themeStyle(getTheme("elegant"));
+    expect(style["--inv-card-border"]).toBe("1px solid var(--inv-border)");
+    expect(style["--inv-heading-weight"]).toBe("600");
+  });
+
+  it("ships the 2026 themes with valid styles", () => {
+    for (const code of ["editorial", "coquette", "pop", "butter", "film"]) {
+      const look = themeLook(getTheme(code));
+      expect(getTheme(code).code).toBe(code);
+      expect(CARD_STYLES).toContain(look.card);
+      expect(PHOTO_SHAPES).toContain(look.photo);
+      expect(THEME_MOTIFS).toContain(look.motif);
+    }
+    expect(themeLook(getTheme("film")).grain).toBe(true);
+    expect(themeLook(getTheme("coquette")).photo).toBe("arch");
+  });
+
+  it("only uses fonts that are actually loaded", () => {
+    // Root layout (Fraunces, Plus Jakarta Sans) + components/invitation/invitation-fonts.ts.
+    const loaded = new Set(["Fraunces", "Plus Jakarta Sans", "Instrument Serif", "Cormorant Garamond", "Bricolage Grotesque", "DM Serif Display", "Space Mono"]);
+    const family = (stack: string) => stack.split(",")[0]!.trim().replace(/^"|"$/g, "");
+    for (const theme of INVITATION_THEMES) {
+      const look = themeLook(theme);
+      for (const stack of [theme.tokens.displayFont, theme.tokens.bodyFont, look.labelFont]) {
+        expect(loaded, `${theme.code}: ${stack}`).toContain(family(stack));
+      }
+    }
+  });
+
+  it("keeps text readable (WCAG contrast)", () => {
+    const luminance = (hex: string) => {
+      const channel = (index: number) => {
+        const value = parseInt(hex.slice(1 + index * 2, 3 + index * 2), 16) / 255;
+        return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+      };
+      return 0.2126 * channel(0) + 0.7152 * channel(1) + 0.0722 * channel(2);
+    };
+    const contrast = (a: string, b: string) => {
+      const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [number, number];
+      return (light + 0.05) / (dark + 0.05);
+    };
+    for (const theme of INVITATION_THEMES) {
+      const { ink, muted, surface, background } = theme.tokens;
+      expect(contrast(ink, background), `${theme.code} ink/background`).toBeGreaterThanOrEqual(7);
+      expect(contrast(ink, surface), `${theme.code} ink/surface`).toBeGreaterThanOrEqual(7);
+      expect(contrast(muted, surface), `${theme.code} muted/surface`).toBeGreaterThanOrEqual(4.5);
+    }
+    // Buttons put surface-colored text on the accent: the new themes must keep it legible.
+    for (const code of ["editorial", "coquette", "pop", "butter", "film"]) {
+      const { accent, surface } = getTheme(code).tokens;
+      expect(contrast(accent, surface), `${code} accent/surface`).toBeGreaterThanOrEqual(4.5);
     }
   });
 });

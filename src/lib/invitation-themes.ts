@@ -29,16 +29,51 @@ export type ThemeTokens = {
   ornament: string;
 };
 
+/** Decoration drawn under section headings (and above the cover title for the non-line motifs). */
+export const THEME_MOTIFS = ["line", "bow", "squiggle", "sparkle", "film"] as const;
+export type ThemeMotif = (typeof THEME_MOTIFS)[number];
+/** Frame for gallery photos. */
+export const PHOTO_SHAPES = ["rounded", "arch", "polaroid"] as const;
+export type PhotoShape = (typeof PHOTO_SHAPES)[number];
+/** How cards (events, gift accounts) are drawn. */
+export const CARD_STYLES = ["soft", "ink", "pop", "lace"] as const;
+export type CardStyle = (typeof CARD_STYLES)[number];
+
+/**
+ * Character beyond colors. Every field is optional; the defaults reproduce the original look, so
+ * older themes need none of it.
+ */
+export type ThemeStyle = {
+  headingWeight?: number;
+  headingStyle?: "normal" | "italic";
+  headingCase?: "none" | "uppercase";
+  headingTracking?: string;
+  /** Small uppercase labels (cover prefix, "Kepada Yth.", time labels). Defaults to the body font. */
+  labelFont?: string;
+  card?: CardStyle;
+  photo?: PhotoShape;
+  motif?: ThemeMotif;
+  /** Film-grain texture over the cover. */
+  grain?: boolean;
+};
+
 export type InvitationTheme = {
   code: string;
   name: string;
   description: string;
   defaultCoverLayout: CoverLayout;
   tokens: ThemeTokens;
+  style?: ThemeStyle;
 };
 
 const SERIF = '"Fraunces", ui-serif, Georgia, serif';
 const SANS = '"Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif';
+// Invitation-only fonts, loaded by components/invitation/invitation-fonts.ts.
+const INSTRUMENT = '"Instrument Serif", ui-serif, Georgia, serif';
+const CORMORANT = '"Cormorant Garamond", ui-serif, Georgia, serif';
+const BRICOLAGE = '"Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif';
+const DM_SERIF = '"DM Serif Display", ui-serif, Georgia, serif';
+const MONO = '"Space Mono", ui-monospace, SFMono-Regular, monospace';
 
 export const INVITATION_THEMES: readonly InvitationTheme[] = [
   {
@@ -230,7 +265,142 @@ export const INVITATION_THEMES: readonly InvitationTheme[] = [
       ornament: "repeating-linear-gradient(135deg, #8a6321 0 3px, transparent 3px 9px)",
     },
   },
+
+  // ─── 2026 themes (Gen Z directions: typography-led, coquette, color play, scribble, flash film) ───
+  {
+    code: "editorial",
+    name: "Editorial",
+    description: "Seperti sampul majalah: serif besar, hitam-gading, aksen mocha, banyak ruang kosong.",
+    defaultCoverLayout: "bottom",
+    tokens: {
+      background: "#f5f0e8",
+      surface: "#fbf8f2",
+      ink: "#1a1a1a",
+      muted: "#5e5850",
+      accent: "#6b4f3a",
+      accentSoft: "#e9e0d3",
+      border: "#1a1a1a",
+      coverOverlay: "linear-gradient(180deg, rgba(26,26,26,0) 35%, rgba(26,26,26,0.72) 100%)",
+      coverInk: "#fbf8f2",
+      displayFont: INSTRUMENT,
+      bodyFont: SANS,
+      radius: "0",
+      ornament: "linear-gradient(90deg, #1a1a1a, #1a1a1a)",
+    },
+    style: { headingWeight: 400, headingTracking: "-0.01em", card: "ink", photo: "rounded", motif: "line" },
+  },
+  {
+    code: "coquette",
+    name: "Coquette",
+    description: "Pita, renda, dan merah muda pucat. Romantis, manis, sedikit vintage.",
+    defaultCoverLayout: "center",
+    tokens: {
+      background: "#fff6f3",
+      surface: "#fffbf9",
+      ink: "#4a2a33",
+      muted: "#7d5c64",
+      accent: "#a14b63",
+      accentSoft: "#f8dfe3",
+      border: "#efc9d1",
+      coverOverlay: "linear-gradient(180deg, rgba(74,42,51,0.05) 0%, rgba(74,42,51,0.55) 100%)",
+      coverInk: "#fffbf9",
+      displayFont: CORMORANT,
+      bodyFont: SANS,
+      radius: "1.5rem",
+      ornament: "linear-gradient(90deg, transparent, #e3a4b3, transparent)",
+    },
+    style: { headingWeight: 600, headingStyle: "italic", card: "lace", photo: "arch", motif: "bow" },
+  },
+  {
+    code: "pop",
+    name: "Retro Pop",
+    description: "Kobalt dan peach yang berani, kartu bergaris tebal ala stiker. Ceria dan percaya diri.",
+    defaultCoverLayout: "center",
+    tokens: {
+      background: "#fff1e6",
+      surface: "#ffffff",
+      ink: "#111111",
+      muted: "#4d4640",
+      accent: "#2b4eff",
+      accentSoft: "#ffd3b8",
+      border: "#111111",
+      coverOverlay: "linear-gradient(180deg, rgba(17,17,17,0.05) 0%, rgba(17,17,17,0.6) 100%)",
+      coverInk: "#ffffff",
+      displayFont: BRICOLAGE,
+      bodyFont: SANS,
+      radius: "1rem",
+      ornament: "repeating-linear-gradient(90deg, #2b4eff 0 10px, transparent 10px 16px)",
+    },
+    style: { headingWeight: 800, headingTracking: "-0.02em", card: "pop", photo: "rounded", motif: "sparkle" },
+  },
+  {
+    code: "butter",
+    name: "Butter Garden",
+    description: "Kuning mentega, sage, dan blush dengan garis coretan tangan. Ringan seperti pesta taman.",
+    defaultCoverLayout: "center",
+    tokens: {
+      background: "#fbf5dc",
+      surface: "#fffdf4",
+      ink: "#34362a",
+      muted: "#5f6352",
+      accent: "#5d7355",
+      accentSoft: "#f3e6ad",
+      border: "#e3d9ac",
+      coverOverlay: "linear-gradient(180deg, rgba(52,54,42,0.05) 0%, rgba(52,54,42,0.55) 100%)",
+      coverInk: "#fffdf4",
+      displayFont: DM_SERIF,
+      bodyFont: SANS,
+      radius: "2rem",
+      ornament: "linear-gradient(90deg, transparent, #9bad94, transparent)",
+    },
+    style: { headingWeight: 400, card: "soft", photo: "arch", motif: "squiggle" },
+  },
+  {
+    code: "film",
+    name: "Film Flash",
+    description: "Gelap dengan butiran film, foto bergaya polaroid, dan huruf mesin tik. Candid dan sinematik.",
+    defaultCoverLayout: "bottom",
+    tokens: {
+      background: "#141312",
+      surface: "#1d1c1a",
+      ink: "#f2ede4",
+      muted: "#b3aa9c",
+      accent: "#f5b82e",
+      accentSoft: "#2a2723",
+      border: "#3a3631",
+      coverOverlay: "linear-gradient(180deg, rgba(20,19,18,0.15) 0%, rgba(20,19,18,0.85) 100%)",
+      coverInk: "#f2ede4",
+      displayFont: INSTRUMENT,
+      bodyFont: SANS,
+      radius: "0.25rem",
+      ornament: "linear-gradient(90deg, #f5b82e, transparent)",
+    },
+    style: { headingWeight: 400, headingStyle: "italic", labelFont: MONO, card: "soft", photo: "polaroid", motif: "film", grain: true },
+  },
 ];
+
+const CARD_CSS: Record<CardStyle, { border: string; shadow: string }> = {
+  soft: { border: "1px solid var(--inv-border)", shadow: "none" },
+  ink: { border: "1px solid var(--inv-ink)", shadow: "none" },
+  pop: { border: "2px solid var(--inv-ink)", shadow: "4px 4px 0 var(--inv-ink)" },
+  lace: { border: "1.5px dashed var(--inv-accent)", shadow: "0 0 0 4px var(--inv-surface), 0 0 0 5px var(--inv-border)" },
+};
+
+/** The theme's style with every default filled in. */
+export function themeLook(theme: InvitationTheme): Required<Omit<ThemeStyle, "labelFont">> & { labelFont: string } {
+  const style = theme.style ?? {};
+  return {
+    headingWeight: style.headingWeight ?? 600,
+    headingStyle: style.headingStyle ?? "normal",
+    headingCase: style.headingCase ?? "none",
+    headingTracking: style.headingTracking ?? "normal",
+    labelFont: style.labelFont ?? theme.tokens.bodyFont,
+    card: style.card ?? "soft",
+    photo: style.photo ?? "rounded",
+    motif: style.motif ?? "line",
+    grain: style.grain ?? false,
+  };
+}
 
 export const DEFAULT_THEME_CODE = "minimal";
 
@@ -245,7 +415,16 @@ export function isThemeCode(code: string): boolean {
 /** Inline CSS variables for one theme, applied to the invitation root element. */
 export function themeStyle(theme: InvitationTheme): Record<string, string> {
   const { tokens } = theme;
+  const look = themeLook(theme);
+  const card = CARD_CSS[look.card];
   return {
+    "--inv-heading-weight": String(look.headingWeight),
+    "--inv-heading-style": look.headingStyle,
+    "--inv-heading-case": look.headingCase,
+    "--inv-heading-tracking": look.headingTracking,
+    "--inv-label-font": look.labelFont,
+    "--inv-card-border": card.border,
+    "--inv-card-shadow": card.shadow,
     "--inv-background": tokens.background,
     "--inv-surface": tokens.surface,
     "--inv-ink": tokens.ink,

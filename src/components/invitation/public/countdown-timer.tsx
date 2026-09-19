@@ -48,7 +48,7 @@ export function CountdownTimer({ targetMs, initialNowMs }: { targetMs: number; i
           className="min-w-18 rounded-[var(--inv-radius)] px-4 py-3 text-center"
           style={{ background: "var(--inv-accent-soft)", border: "1px solid var(--inv-border)" }}
         >
-          <span className="block font-[family-name:var(--inv-display-font)] text-2xl font-semibold tabular-nums sm:text-3xl">
+          <span className="block inv-display text-2xl tabular-nums sm:text-3xl">
             {String(remaining[key]).padStart(2, "0")}
           </span>
           <span className="text-xs tracking-wide uppercase" style={{ color: "var(--inv-muted)" }}>

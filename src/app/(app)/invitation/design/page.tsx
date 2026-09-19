@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { invitationFontsClassName } from "@/components/invitation/invitation-fonts";
 import { CoverUploadForm, ThemePicker } from "@/components/invitation/invitation-forms";
 import { Card } from "@/components/ui/card";
 import { ConfirmActionButton } from "@/components/ui/confirm-action-button";
+import { themeLook } from "@/lib/invitation-themes";
 import { mediaPath } from "@/lib/media";
 import { removeCoverImageAction } from "@/server/actions/invitation-actions";
 import { requireSession } from "@/server/auth/session-cookie";
@@ -32,10 +34,23 @@ export default async function InvitationDesignPage() {
       swatches: [entry.theme.tokens.background, entry.theme.tokens.surface, entry.theme.tokens.accent, entry.theme.tokens.ink],
       isPremium: entry.isPremium,
       locked: entry.isPremium && !hasPremium && entry.code !== invitation.themeCode,
+      preview: (() => {
+        const look = themeLook(entry.theme);
+        return {
+          background: entry.theme.tokens.background,
+          ink: entry.theme.tokens.ink,
+          accent: entry.theme.tokens.accent,
+          ornament: entry.theme.tokens.ornament,
+          displayFont: entry.theme.tokens.displayFont,
+          headingWeight: look.headingWeight,
+          headingStyle: look.headingStyle,
+          motif: look.motif,
+        };
+      })(),
     }));
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div className={`mx-auto max-w-3xl space-y-4 ${invitationFontsClassName}`}>
       <Link href="/invitation" className="text-sm font-medium text-clay-700 underline-offset-4 hover:underline">
         ← Kembali ke undangan
       </Link>

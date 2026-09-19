@@ -36,7 +36,7 @@ Wedding planning workspace for couples (Indonesia-first). Built phase by phase f
 
 - Phase 7 (Invitation): one digital invitation per wedding with 12 modular sections (enable, reorder,
   edit text), wedding events (date, time, venue, coordinates, dress code) reused by the invitation,
-  love story, gallery with image upload, gift information (display-only), 9 original themes plus a
+  love story, gallery with image upload, gift information (display-only), 14 original themes plus a
   cover layout — presentation is fully separate from content, so switching themes changes nothing —
   and a public page at `/undangan/{slug}` that works without a session and exposes only public data.
   Personalized links live at `/i/{token}`: the guest is greeted by name, the URL carries no name, and
@@ -209,6 +209,7 @@ as-is. Audio has no HTTP range support, so seeking inside a long track may not w
   whether an account exists. `pnpm mail:test [-- --to <address>]` checks the settings. See
   [docs/email.md](docs/email.md).
 
+- **2026 invitation themes:** Editorial, Coquette, Retro Pop, Butter Garden and Film Flash, based on 2026 stationery research (typography-led, coquette bows and lace, bold color play, scribble lines, candid flash film). Themes now carry a style as well as colors: heading weight/italic, label font, card style (soft, ink, pop, lace), photo frame (rounded, arch, polaroid), motif (line, bow, squiggle, sparkle, film strip) and film grain. Theme fonts load only on invitation pages and only the chosen theme's files download. The theme picker shows a live mini preview of each theme. Unit tests enforce loaded fonts and WCAG contrast for every theme.
 - **Landing page:** `/` explains the product for first-time visitors: what it does, working together, the main features, the digital invitation, how to start, free vs paid plan (price from the database), FAQ. An example-invitation button appears when `DEMO_INVITATION_SLUG` names a published invitation.
 
 Nothing else beyond Phase 16 is implemented yet. WhatsApp and web push delivery are not built.

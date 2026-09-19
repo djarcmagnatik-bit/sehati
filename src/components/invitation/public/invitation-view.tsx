@@ -1,13 +1,15 @@
 import type { ReactNode } from "react";
 import { preload } from "react-dom";
+import { invitationFontsClassName } from "@/components/invitation/invitation-fonts";
 import { CountdownTimer } from "@/components/invitation/public/countdown-timer";
 import { CopyValue } from "@/components/invitation/public/copy-value";
 import { MusicPlayer } from "@/components/invitation/public/music-player";
 import { RsvpForm, type RsvpState } from "@/components/invitation/public/rsvp-form";
+import { ThemeMotifMark } from "@/components/invitation/public/theme-motif";
 import { WishesSection, type PublicWishView } from "@/components/invitation/public/wishes";
 import { dbDateToIso, formatIsoDateLong, zonedTimeToUtcMs } from "@/lib/dates";
 import { GIFT_ACCOUNT_LABEL, SECTION_LABEL, type InvitationSectionTypeValue } from "@/lib/invitation";
-import { getTheme, themeStyle } from "@/lib/invitation-themes";
+import { getTheme, themeLook, themeStyle, type PhotoShape, type ThemeMotif } from "@/lib/invitation-themes";
 import { mapEmbedUrl, mapsLink } from "@/lib/maps";
 import { instagramUrl } from "@/lib/vendors";
 import { mediaPath, mediaSrcSet } from "@/lib/media";
@@ -24,6 +26,8 @@ type ViewProps = {
   now: Date;
 };
 
+type ThemeLook = ReturnType<typeof themeLook>;
+
 function text(section: PublicSection, key: string): string {
   const value = section.content[key];
   return typeof value === "string" ? value : "";
@@ -33,20 +37,22 @@ function SectionShell({
   id,
   title,
   intro,
+  motif,
   children,
 }: {
   id: string;
   title?: string;
   intro?: string;
+  motif: ThemeMotif;
   children: ReactNode;
 }) {
   return (
     <section id={id} className="px-5 py-12 sm:py-16">
       <div className="mx-auto w-full max-w-2xl text-center">
         {title ? (
-          <h2 className="font-[family-name:var(--inv-display-font)] text-2xl font-semibold sm:text-3xl">{title}</h2>
+          <h2 className="inv-display text-2xl sm:text-3xl">{title}</h2>
         ) : null}
-        {title ? <div aria-hidden="true" className="mx-auto mt-3 h-px w-32" style={{ background: "var(--inv-ornament)" }} /> : null}
+        {title ? <ThemeMotifMark motif={motif} className="mt-3" /> : null}
         {intro ? (
           <p className="mx-auto mt-4 max-w-xl text-pretty" style={{ color: "var(--inv-muted)" }}>
             {intro}
@@ -58,7 +64,7 @@ function SectionShell({
   );
 }
 
-function Cover({ invitation, guestName }: { invitation: PublicInvitation; guestName: string | null }) {
+function Cover({ invitation, guestName, look }: { invitation: PublicInvitation; guestName: string | null; look: ThemeLook }) {
   const cover = invitation.sections.find((section) => section.type === "COVER");
   const prefix = cover ? text(cover, "prefix") : "";
   const note = cover ? text(cover, "note") : "";
@@ -90,10 +96,12 @@ function Cover({ invitation, guestName }: { invitation: PublicInvitation; guestN
           <div aria-hidden="true" className="absolute inset-0" style={{ background: "var(--inv-cover-overlay)" }} />
         </>
       ) : null}
+      {look.grain ? <div aria-hidden="true" className="inv-grain pointer-events-none absolute inset-0" /> : null}
 
       <div className={`relative mx-auto w-full ${layout === "split" ? "max-w-3xl sm:text-left" : "max-w-xl"}`}>
-        {prefix ? <p className="text-sm tracking-[0.3em] uppercase">{prefix}</p> : null}
-        <h1 className="mt-4 font-[family-name:var(--inv-display-font)] text-4xl font-semibold text-balance sm:text-6xl">
+        {look.motif !== "line" ? <ThemeMotifMark motif={look.motif} className={`mb-4 ${layout === "split" ? "sm:mx-0" : ""}`} /> : null}
+        {prefix ? <p className="inv-label text-sm tracking-[0.3em] uppercase">{prefix}</p> : null}
+        <h1 className="mt-4 inv-display text-4xl text-balance sm:text-6xl">
           {invitation.coupleName}
         </h1>
         <p className="mt-4 text-lg">
@@ -105,10 +113,10 @@ function Cover({ invitation, guestName }: { invitation: PublicInvitation; guestN
             className={`mt-8 inline-block rounded-[var(--inv-radius)] px-6 py-4 ${layout === "split" ? "" : "mx-auto"}`}
             style={{ background: "color-mix(in srgb, var(--inv-surface) 88%, transparent)", color: "var(--inv-ink)" }}
           >
-            <p className="text-xs tracking-widest uppercase" style={{ color: "var(--inv-muted)" }}>
+            <p className="inv-label text-xs tracking-widest uppercase" style={{ color: "var(--inv-muted)" }}>
               Kepada Yth.
             </p>
-            <p className="mt-1 font-[family-name:var(--inv-display-font)] text-xl font-semibold">{guestName}</p>
+            <p className="mt-1 inv-display text-xl">{guestName}</p>
           </div>
         ) : null}
       </div>
@@ -127,7 +135,7 @@ function CoupleSection({ section }: { section: PublicSection }) {
     <div className="grid gap-8 sm:grid-cols-2">
       {sides.map((side) => (
         <div key={side.name}>
-          <h3 className="font-[family-name:var(--inv-display-font)] text-2xl font-semibold">{side.name}</h3>
+          <h3 className="inv-display text-2xl">{side.name}</h3>
           {side.parents ? (
             <p className="mt-2 text-sm text-pretty" style={{ color: "var(--inv-muted)" }}>
               {side.parents}
@@ -157,12 +165,8 @@ function EventList({ invitation }: { invitation: PublicInvitation }) {
         const link = mapsLink(event);
         const time = [event.startTime, event.endTime].filter(Boolean).join(" – ");
         return (
-          <li
-            key={event.id}
-            className="rounded-[var(--inv-radius)] p-5 text-center"
-            style={{ background: "var(--inv-surface)", border: "1px solid var(--inv-border)" }}
-          >
-            <h3 className="font-[family-name:var(--inv-display-font)] text-xl font-semibold">{event.name}</h3>
+          <li key={event.id} className="inv-card p-5 text-center">
+            <h3 className="inv-display text-xl">{event.name}</h3>
             <p className="mt-2 text-sm">
               <time dateTime={dbDateToIso(event.eventDate)}>{formatIsoDateLong(dbDateToIso(event.eventDate))}</time>
             </p>
@@ -178,7 +182,7 @@ function EventList({ invitation }: { invitation: PublicInvitation }) {
               </p>
             ) : null}
             {event.dressCode ? (
-              <p className="mt-3 text-xs tracking-wide uppercase" style={{ color: "var(--inv-muted)" }}>
+              <p className="inv-label mt-3 text-xs tracking-wide uppercase" style={{ color: "var(--inv-muted)" }}>
                 Dress code: {event.dressCode}
               </p>
             ) : null}
@@ -246,11 +250,11 @@ function LoveStory({ invitation }: { invitation: PublicInvitation }) {
       {invitation.loveStory.map((entry) => (
         <li key={entry.id} className="border-l-2 pl-5" style={{ borderColor: "var(--inv-accent)" }}>
           {entry.timeLabel ? (
-            <p className="text-xs tracking-widest uppercase" style={{ color: "var(--inv-accent)" }}>
+            <p className="inv-label text-xs tracking-widest uppercase" style={{ color: "var(--inv-accent)" }}>
               {entry.timeLabel}
             </p>
           ) : null}
-          <h3 className="mt-1 font-[family-name:var(--inv-display-font)] text-xl font-semibold">{entry.title}</h3>
+          <h3 className="mt-1 inv-display text-xl">{entry.title}</h3>
           <p className="mt-2 text-pretty whitespace-pre-line" style={{ color: "var(--inv-muted)" }}>
             {entry.story}
           </p>
@@ -260,12 +264,27 @@ function LoveStory({ invitation }: { invitation: PublicInvitation }) {
   );
 }
 
-function Gallery({ invitation }: { invitation: PublicInvitation }) {
+/** Frames per photo shape: rounded (classic), arch (2026 die-cut look) and polaroid (flash film). */
+const PHOTO_FRAME: Record<PhotoShape, { item: string; image: string; tilt: boolean }> = {
+  rounded: { item: "overflow-hidden rounded-[var(--inv-radius)]", image: "aspect-square", tilt: false },
+  arch: { item: "overflow-hidden rounded-t-full rounded-b-[var(--inv-radius)]", image: "aspect-[3/4]", tilt: false },
+  polaroid: { item: "bg-[#fbfaf7] p-2 pb-3 shadow-lg", image: "aspect-square", tilt: true },
+};
+
+function Gallery({ invitation, shape }: { invitation: PublicInvitation; shape: PhotoShape }) {
   if (invitation.gallery.length === 0) return null;
+  const frame = PHOTO_FRAME[shape];
   return (
     <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-      {invitation.gallery.map((image) => (
-        <li key={image.id} className="overflow-hidden rounded-[var(--inv-radius)]" style={{ background: "var(--inv-accent-soft)" }}>
+      {invitation.gallery.map((image, index) => (
+        <li
+          key={image.id}
+          className={frame.item}
+          style={{
+            background: shape === "polaroid" ? undefined : "var(--inv-accent-soft)",
+            transform: frame.tilt ? `rotate(${index % 2 === 0 ? -2 : 1.5}deg)` : undefined,
+          }}
+        >
           <figure>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -277,10 +296,13 @@ function Gallery({ invitation }: { invitation: PublicInvitation }) {
               height={image.height}
               loading="lazy"
               decoding="async"
-              className="aspect-square w-full object-cover"
+              className={`${frame.image} w-full object-cover`}
             />
             {image.caption ? (
-              <figcaption className="px-2 py-2 text-xs" style={{ color: "var(--inv-muted)" }}>
+              <figcaption
+                className={`inv-label px-2 py-2 text-xs ${shape === "polaroid" ? "text-left" : ""}`}
+                style={{ color: shape === "polaroid" ? "#3a3631" : "var(--inv-muted)" }}
+              >
                 {image.caption}
               </figcaption>
             ) : null}
@@ -298,10 +320,9 @@ function GiftSection({ invitation }: { invitation: PublicInvitation }) {
       {invitation.giftAccounts.map((account) => (
         <div
           key={account.id}
-          className="rounded-[var(--inv-radius)] p-5"
-          style={{ background: "var(--inv-surface)", border: "1px solid var(--inv-border)" }}
+          className="inv-card p-5"
         >
-          <p className="text-xs tracking-widest uppercase" style={{ color: "var(--inv-muted)" }}>
+          <p className="inv-label text-xs tracking-widest uppercase" style={{ color: "var(--inv-muted)" }}>
             {GIFT_ACCOUNT_LABEL[account.type]}
           </p>
           <p className="mt-1 text-lg font-semibold">{account.providerName}</p>
@@ -321,10 +342,9 @@ function GiftSection({ invitation }: { invitation: PublicInvitation }) {
       ))}
       {invitation.giftAddress ? (
         <div
-          className="rounded-[var(--inv-radius)] p-5"
-          style={{ background: "var(--inv-surface)", border: "1px solid var(--inv-border)" }}
+          className="inv-card p-5"
         >
-          <p className="text-xs tracking-widest uppercase" style={{ color: "var(--inv-muted)" }}>
+          <p className="inv-label text-xs tracking-widest uppercase" style={{ color: "var(--inv-muted)" }}>
             Kirim hadiah
           </p>
           <p className="mt-2 text-pretty">{invitation.giftAddress}</p>
@@ -347,12 +367,14 @@ function SectionBody({
   now,
   rsvp,
   wishes,
+  look,
 }: {
   section: PublicSection;
   invitation: PublicInvitation;
   now: Date;
   rsvp: RsvpState | null;
   wishes: PublicWishView[];
+  look: ThemeLook;
 }) {
   const intro = text(section, "intro");
   const type: InvitationSectionTypeValue = section.type;
@@ -363,7 +385,7 @@ function SectionBody({
     case "COUPLE":
       if (!text(section, "brideFullName") && !text(section, "groomFullName")) return null;
       return (
-        <SectionShell id="mempelai" title="Mempelai" intro={intro}>
+        <SectionShell motif={look.motif} id="mempelai" title="Mempelai" intro={intro}>
           <CoupleSection section={section} />
         </SectionShell>
       );
@@ -371,9 +393,9 @@ function SectionBody({
       const quote = text(section, "text");
       if (!quote) return null;
       return (
-        <SectionShell id="kutipan">
+        <SectionShell motif={look.motif} id="kutipan">
           <figure>
-            <blockquote className="font-[family-name:var(--inv-display-font)] text-xl text-pretty italic sm:text-2xl">
+            <blockquote className="inv-display text-xl text-pretty italic sm:text-2xl">
               “{quote}”
             </blockquote>
             {text(section, "source") ? (
@@ -388,13 +410,13 @@ function SectionBody({
     case "EVENTS":
       if (invitation.events.length === 0) return null;
       return (
-        <SectionShell id="acara" title="Acara" intro={intro}>
+        <SectionShell motif={look.motif} id="acara" title="Acara" intro={intro}>
           <EventList invitation={invitation} />
         </SectionShell>
       );
     case "COUNTDOWN":
       return (
-        <SectionShell id="hitung-mundur" title="Menuju hari bahagia">
+        <SectionShell motif={look.motif} id="hitung-mundur" title="Menuju hari bahagia">
           <CountdownTimer
             targetMs={zonedTimeToUtcMs(invitation.weddingDateIso, invitation.timeZone, invitation.events[0]?.startTime ?? "00:00")}
             initialNowMs={now.getTime()}
@@ -404,27 +426,27 @@ function SectionBody({
     case "LOVE_STORY":
       if (invitation.loveStory.length === 0) return null;
       return (
-        <SectionShell id="cerita" title="Cerita kami" intro={intro}>
+        <SectionShell motif={look.motif} id="cerita" title="Cerita kami" intro={intro}>
           <LoveStory invitation={invitation} />
         </SectionShell>
       );
     case "GALLERY":
       if (invitation.gallery.length === 0) return null;
       return (
-        <SectionShell id="galeri" title="Galeri" intro={intro}>
-          <Gallery invitation={invitation} />
+        <SectionShell motif={look.motif} id="galeri" title="Galeri" intro={intro}>
+          <Gallery invitation={invitation} shape={look.photo} />
         </SectionShell>
       );
     case "LOCATION":
       if (invitation.events.length === 0) return null;
       return (
-        <SectionShell id="lokasi" title="Lokasi" intro={intro}>
+        <SectionShell motif={look.motif} id="lokasi" title="Lokasi" intro={intro}>
           <LocationSection invitation={invitation} />
         </SectionShell>
       );
     case "RSVP":
       return (
-        <SectionShell id="rsvp" title={SECTION_LABEL.RSVP} intro={intro}>
+        <SectionShell motif={look.motif} id="rsvp" title={SECTION_LABEL.RSVP} intro={intro}>
           {rsvp ? (
             <RsvpForm guest={rsvp} />
           ) : (
@@ -436,7 +458,7 @@ function SectionBody({
       );
     case "WISHES":
       return (
-        <SectionShell id="ucapan" title={SECTION_LABEL.WISHES} intro={intro}>
+        <SectionShell motif={look.motif} id="ucapan" title={SECTION_LABEL.WISHES} intro={intro}>
           <WishesSection
             slug={invitation.slug}
             token={rsvp?.token ?? null}
@@ -448,7 +470,7 @@ function SectionBody({
     case "GIFT":
       if (invitation.giftAccounts.length === 0 && !invitation.giftAddress) return null;
       return (
-        <SectionShell id="hadiah" title="Hadiah" intro={intro}>
+        <SectionShell motif={look.motif} id="hadiah" title="Hadiah" intro={intro}>
           <GiftSection invitation={invitation} />
         </SectionShell>
       );
@@ -456,14 +478,14 @@ function SectionBody({
       const message = text(section, "message");
       if (!message) return null;
       return (
-        <SectionShell id="penutup">
+        <SectionShell motif={look.motif} id="penutup">
           <p className="text-pretty">{message}</p>
           {text(section, "signature") ? (
             <p className="mt-6 text-sm" style={{ color: "var(--inv-muted)" }}>
               {text(section, "signature")}
             </p>
           ) : null}
-          <p className="mt-2 font-[family-name:var(--inv-display-font)] text-2xl font-semibold">{invitation.coupleName}</p>
+          <p className="mt-2 inv-display text-2xl">{invitation.coupleName}</p>
         </SectionShell>
       );
     }
@@ -473,15 +495,16 @@ function SectionBody({
 /** The whole public invitation. Receives only data the public service is allowed to expose. */
 export function InvitationView({ invitation, guestName = null, guestSeatCount = null, rsvp = null, wishes = [], now }: ViewProps) {
   const theme = getTheme(invitation.themeCode);
+  const look = themeLook(theme);
   const greeting = guestName ?? invitation.defaultGuestLabel;
 
   return (
     <div
       data-theme={theme.code}
       style={{ ...themeStyle(theme), background: "var(--inv-background)", color: "var(--inv-ink)" }}
-      className="min-h-dvh font-[family-name:var(--inv-body-font)]"
+      className={`min-h-dvh font-[family-name:var(--inv-body-font)] ${invitationFontsClassName}`}
     >
-      <Cover invitation={invitation} guestName={greeting} />
+      <Cover invitation={invitation} guestName={greeting} look={look} />
       {guestSeatCount && guestSeatCount > 1 ? (
         <p className="px-5 pt-8 text-center text-sm" style={{ color: "var(--inv-muted)" }}>
           Undangan ini berlaku untuk {guestSeatCount} orang.
@@ -489,7 +512,7 @@ export function InvitationView({ invitation, guestName = null, guestSeatCount = 
       ) : null}
       <main>
         {invitation.sections.map((section) => (
-          <SectionBody key={section.id} section={section} invitation={invitation} now={now} rsvp={rsvp} wishes={wishes} />
+          <SectionBody key={section.id} section={section} invitation={invitation} now={now} rsvp={rsvp} wishes={wishes} look={look} />
         ))}
       </main>
       {invitation.music ? <MusicPlayer src={mediaPath(invitation.music.assetId)} volume={invitation.music.volume} /> : null}
