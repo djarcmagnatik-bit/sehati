@@ -60,7 +60,7 @@ function SectionShell({
             {intro}
           </p>
         ) : null}
-        <div className={title || intro ? "mt-8" : undefined}>{children}</div>
+        <div className={`inv-reveal-step ${title || intro ? "mt-8" : ""}`}>{children}</div>
       </div>
     </section>
   );

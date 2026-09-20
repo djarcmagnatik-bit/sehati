@@ -86,7 +86,7 @@
    * every duration to ~0, and the scroll reveal is skipped entirely in that case.
    */
   .inv-kenburns {
-    animation: inv-kenburns 14s ease-out both;
+    animation: inv-kenburns 16s ease-out both;
   }
 
   .inv-sway {
@@ -103,13 +103,25 @@
 
   .inv-reveal-pending {
     opacity: 0;
-    transform: translateY(18px);
+    transform: translateY(28px);
+  }
+
+  /* Inside a section, the body waits a beat so the heading arrives first. */
+  .inv-reveal-pending .inv-reveal-step {
+    opacity: 0;
+    transform: translateY(16px);
   }
 
   .inv-reveal-in {
     transition:
-      opacity 0.8s ease,
-      transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+      opacity 0.9s ease,
+      transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+
+  .inv-reveal-in .inv-reveal-step {
+    transition:
+      opacity 0.9s ease 0.18s,
+      transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) 0.18s;
   }
 
   /* Film grain for themes that ask for it; an inline SVG noise tile, allowed by img-src data:. */
@@ -122,7 +134,7 @@
 
 @keyframes inv-kenburns {
   from {
-    transform: scale(1.08);
+    transform: scale(1.12);
   }
   to {
     transform: scale(1);
@@ -164,6 +176,8 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+    animation-delay: 0s !important;
     scroll-behavior: auto !important;
   }
 }
