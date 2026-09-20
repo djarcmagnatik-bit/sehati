@@ -542,6 +542,7 @@ describe("public and private data separation", () => {
         "groomName",
         "loveStory",
         "music",
+        "openingCover",
         "sections",
         "slug",
         "themeCode",

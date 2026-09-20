@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import sharp from "sharp";
 import { expect, test } from "./fixtures";
-import { createAndPublishInvitation, registerAndOnboard } from "./helpers";
+import { createAndPublishInvitation, registerAndOnboard, openInvitation } from "./helpers";
 import { getTestDb } from "./test-db";
 
 /** Lighthouse's mobile profile: slow 4G (150 ms RTT, 1.6 Mbps down) and a 4× slower CPU. */
@@ -57,6 +57,7 @@ test("performance: the public invitation paints within 2.5 s on slow 4G with a l
   });
 
   await guestPage.goto(`/undangan/${slug}`, { waitUntil: "load" });
+  await openInvitation(guestPage);
   // LCP is final once the cover has painted; read the last candidate after a short settle.
   await guestPage.waitForFunction(() => Array.from(document.images).every((image) => image.complete));
   const lcp = await guestPage.evaluate(

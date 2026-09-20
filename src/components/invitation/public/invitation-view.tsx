@@ -5,7 +5,9 @@ import { CountdownTimer } from "@/components/invitation/public/countdown-timer";
 import { CopyValue } from "@/components/invitation/public/copy-value";
 import { MusicPlayer } from "@/components/invitation/public/music-player";
 import { RsvpForm, type RsvpState } from "@/components/invitation/public/rsvp-form";
-import { ThemeMotifMark } from "@/components/invitation/public/theme-motif";
+import { OpeningGate } from "@/components/invitation/public/opening-gate";
+import { RevealOnScroll } from "@/components/invitation/public/reveal-on-scroll";
+import { CornerSprigs, ThemeMotifMark } from "@/components/invitation/public/theme-motif";
 import { WishesSection, type PublicWishView } from "@/components/invitation/public/wishes";
 import { dbDateToIso, formatIsoDateLong, zonedTimeToUtcMs } from "@/lib/dates";
 import { GIFT_ACCOUNT_LABEL, SECTION_LABEL, type InvitationSectionTypeValue } from "@/lib/invitation";
@@ -48,7 +50,7 @@ function SectionShell({
 }) {
   return (
     <section id={id} className="px-5 py-12 sm:py-16">
-      <div className="mx-auto w-full max-w-2xl text-center">
+      <div data-inv-reveal className="mx-auto w-full max-w-2xl text-center">
         {title ? (
           <h2 className="inv-display text-2xl sm:text-3xl">{title}</h2>
         ) : null}
@@ -90,13 +92,14 @@ function Cover({ invitation, guestName, look }: { invitation: PublicInvitation; 
             sizes="100vw"
             alt=""
             aria-hidden="true"
-            className="absolute inset-0 size-full object-cover"
+            className="inv-kenburns absolute inset-0 size-full object-cover"
             fetchPriority="high"
           />
           <div aria-hidden="true" className="absolute inset-0" style={{ background: "var(--inv-cover-overlay)" }} />
         </>
       ) : null}
       {look.grain ? <div aria-hidden="true" className="inv-grain pointer-events-none absolute inset-0" /> : null}
+      {look.corners ? <CornerSprigs /> : null}
 
       <div className={`relative mx-auto w-full ${layout === "split" ? "max-w-3xl sm:text-left" : "max-w-xl"}`}>
         {look.motif !== "line" ? <ThemeMotifMark motif={look.motif} className={`mb-4 ${layout === "split" ? "sm:mx-0" : ""}`} /> : null}
@@ -121,6 +124,69 @@ function Cover({ invitation, guestName, look }: { invitation: PublicInvitation; 
         ) : null}
       </div>
     </header>
+  );
+}
+
+/** Behind the opening cover: the cover photo (slow zoom), theme overlay, grain and corner sprigs. */
+function GateBackdrop({ invitation, look }: { invitation: PublicInvitation; look: ThemeLook }) {
+  return (
+    <>
+      {invitation.coverImageId ? (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={mediaPath(invitation.coverImageId, invitation.coverImageWidths.length > 0 ? 960 : undefined)}
+            srcSet={mediaSrcSet(invitation.coverImageId, invitation.coverImageWidths)}
+            sizes="100vw"
+            alt=""
+            aria-hidden="true"
+            className="inv-kenburns absolute inset-0 size-full object-cover"
+          />
+          <div aria-hidden="true" className="absolute inset-0" style={{ background: "var(--inv-cover-overlay)" }} />
+        </>
+      ) : null}
+      {look.grain ? <div aria-hidden="true" className="inv-grain pointer-events-none absolute inset-0" /> : null}
+      {look.corners ? <CornerSprigs /> : null}
+    </>
+  );
+}
+
+/** The opening cover's words, rising in one after another. */
+function GateContent({ invitation, guestName, look }: { invitation: PublicInvitation; guestName: string | null; look: ThemeLook }) {
+  const cover = invitation.sections.find((section) => section.type === "COVER");
+  const prefix = (cover ? text(cover, "prefix") : "") || "The Wedding Of";
+  const ink = invitation.coverImageId ? "var(--inv-cover-ink)" : "var(--inv-ink)";
+  return (
+    <div style={{ color: ink }}>
+      {look.motif !== "line" ? (
+        <div className="inv-rise" style={{ animationDelay: "0.1s" }}>
+          <ThemeMotifMark motif={look.motif} className="mb-4" />
+        </div>
+      ) : null}
+      <p className="inv-rise inv-label text-sm tracking-[0.3em] uppercase" style={{ animationDelay: "0.15s" }}>
+        {prefix}
+      </p>
+      <h2 id="sampul-pembuka-judul" className="inv-rise inv-display mt-4 text-4xl text-balance sm:text-5xl" style={{ animationDelay: "0.3s" }}>
+        {invitation.coupleName}
+      </h2>
+      <p className="inv-rise mt-3" style={{ animationDelay: "0.45s" }}>
+        <time dateTime={invitation.weddingDateIso}>{formatIsoDateLong(invitation.weddingDateIso)}</time>
+      </p>
+      {guestName ? (
+        <div
+          className="inv-rise mx-auto mt-8 inline-block rounded-[var(--inv-radius)] px-6 py-4"
+          style={{ animationDelay: "0.6s", background: "color-mix(in srgb, var(--inv-surface) 88%, transparent)", color: "var(--inv-ink)" }}
+        >
+          <p className="inv-label text-xs tracking-widest uppercase" style={{ color: "var(--inv-muted)" }}>
+            Kepada Yth.
+          </p>
+          <p className="inv-display mt-1 text-xl">{guestName}</p>
+          <p className="mt-2 text-[0.7rem]" style={{ color: "var(--inv-muted)" }}>
+            Mohon maaf bila ada salah penulisan nama atau gelar.
+          </p>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -504,18 +570,32 @@ export function InvitationView({ invitation, guestName = null, guestSeatCount = 
       style={{ ...themeStyle(theme), background: "var(--inv-background)", color: "var(--inv-ink)" }}
       className={`min-h-dvh font-[family-name:var(--inv-body-font)] ${invitationFontsClassName}`}
     >
+      {invitation.openingCover ? (
+        <>
+          {/* Without JavaScript the opening cover could never be dismissed: hide it. */}
+          <noscript>
+            <style>{".inv-gate{display:none!important}"}</style>
+          </noscript>
+          <OpeningGate storageKey={`sehati:dibuka:${invitation.slug}`} backdrop={<GateBackdrop invitation={invitation} look={look} />}>
+            <GateContent invitation={invitation} guestName={greeting} look={look} />
+          </OpeningGate>
+        </>
+      ) : null}
       <Cover invitation={invitation} guestName={greeting} look={look} />
       {guestSeatCount && guestSeatCount > 1 ? (
         <p className="px-5 pt-8 text-center text-sm" style={{ color: "var(--inv-muted)" }}>
           Undangan ini berlaku untuk {guestSeatCount} orang.
         </p>
       ) : null}
-      <main>
+      <main id="isi-undangan" tabIndex={-1} className="outline-none">
         {invitation.sections.map((section) => (
           <SectionBody key={section.id} section={section} invitation={invitation} now={now} rsvp={rsvp} wishes={wishes} look={look} />
         ))}
       </main>
-      {invitation.music ? <MusicPlayer src={mediaPath(invitation.music.assetId)} volume={invitation.music.volume} /> : null}
+      <RevealOnScroll />
+      {invitation.music ? (
+        <MusicPlayer src={mediaPath(invitation.music.assetId)} volume={invitation.music.volume} waitForOpen={invitation.openingCover} />
+      ) : null}
       <footer className="px-5 pt-4 pb-24 text-center text-xs" style={{ color: "var(--inv-muted)" }}>
         <p>
           {invitation.coupleName} · <time dateTime={invitation.weddingDateIso}>{formatIsoDateLong(invitation.weddingDateIso)}</time>

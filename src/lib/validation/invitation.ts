@@ -102,6 +102,8 @@ export const invitationSettingsSchema = z.object({
 export const invitationThemeSchema = z.object({
   themeCode: z.string().trim().refine(isThemeCode, "Tema tidak dikenal"),
   coverLayout: z.enum(COVER_LAYOUTS, "Pilih tata letak sampul"),
+  /** Full-screen "Buka Undangan" cover before the invitation (on unless the couple turns it off). */
+  openingCover: z.boolean().optional(),
 });
 
 export type InvitationSettingsInput = z.output<typeof invitationSettingsSchema>;

@@ -3,7 +3,7 @@
  * the owner, the partner and the guest each use their own browser session.
  */
 import { expect, test } from "./fixtures";
-import { E2E_PASSWORD, uniqueEmail } from "./helpers";
+import { E2E_PASSWORD, uniqueEmail, openInvitation } from "./helpers";
 
 const money = (digits: string) => new RegExp(`Rp\\s${digits.replace(/\./g, "\\.")}$`);
 
@@ -120,6 +120,7 @@ test("PRD §73: the MVP acceptance journey works end to end", async ({ page, bro
   const guestContext = await browser.newContext();
   const guestPage = await guestContext.newPage();
   await guestPage.goto(new URL(personalLink).pathname);
+  await openInvitation(guestPage);
   await expect(guestPage.getByText("Keluarga Bapak Ahmad").first()).toBeVisible();
   await guestPage.getByLabel("Ya, saya hadir").check();
   await guestPage.getByLabel(/^Berapa orang yang hadir/).fill("4");

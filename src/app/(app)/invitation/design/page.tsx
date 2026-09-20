@@ -11,7 +11,7 @@ import { removeCoverImageAction } from "@/server/actions/invitation-actions";
 import { requireSession } from "@/server/auth/session-cookie";
 import { weddingHasFeature } from "@/server/billing/access";
 import { getThemeCatalog } from "@/server/invitation/theme-catalog";
-import { coverLayoutOf, getInvitationForUser } from "@/server/invitation/invitation-service";
+import { coverLayoutOf, getInvitationForUser, openingCoverOf } from "@/server/invitation/invitation-service";
 import { getActiveWeddingForUser } from "@/server/wedding/wedding-service";
 
 export const metadata: Metadata = { title: "Tema & sampul undangan" };
@@ -90,6 +90,7 @@ export default async function InvitationDesignPage() {
           weddingId={membership.wedding.id}
           themeCode={invitation.themeCode}
           coverLayout={coverLayoutOf(invitation.themeOptions, invitation.themeCode)}
+          openingCover={openingCoverOf(invitation.themeOptions)}
           themes={themes}
         />
       </Card>

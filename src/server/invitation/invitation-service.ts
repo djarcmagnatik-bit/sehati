@@ -82,6 +82,12 @@ export function coverLayoutOf(themeOptions: unknown, themeCode: string): CoverLa
     : getTheme(themeCode).defaultCoverLayout;
 }
 
+/** Whether guests first see the full-screen opening cover. Older invitations have no value: on. */
+export function openingCoverOf(themeOptions: unknown): boolean {
+  const raw = themeOptions && typeof themeOptions === "object" ? (themeOptions as Record<string, unknown>).openingCover : undefined;
+  return raw !== false;
+}
+
 function toSectionView(section: { id: string; type: InvitationSectionType; enabled: boolean; sortOrder: number; content: unknown }): InvitationSectionView {
   const type = section.type as InvitationSectionTypeValue;
   return {
@@ -240,7 +246,7 @@ export async function updateInvitationTheme(userId: string, weddingId: string, i
   await getDb().$transaction(async (tx) => {
     await tx.invitation.update({
       where: { id: invitation.id },
-      data: { themeCode: input.themeCode, themeOptions: { coverLayout: input.coverLayout } },
+      data: { themeCode: input.themeCode, themeOptions: { coverLayout: input.coverLayout, openingCover: input.openingCover ?? true } },
     });
     await recordActivity(tx, {
       weddingId: membership.weddingId,

@@ -30,7 +30,7 @@ export type ThemeTokens = {
 };
 
 /** Decoration drawn under section headings (and above the cover title for the non-line motifs). */
-export const THEME_MOTIFS = ["line", "bow", "squiggle", "sparkle", "film"] as const;
+export const THEME_MOTIFS = ["line", "bow", "squiggle", "sparkle", "film", "sprig"] as const;
 export type ThemeMotif = (typeof THEME_MOTIFS)[number];
 /** Frame for gallery photos. */
 export const PHOTO_SHAPES = ["rounded", "arch", "polaroid"] as const;
@@ -55,6 +55,8 @@ export type ThemeStyle = {
   motif?: ThemeMotif;
   /** Film-grain texture over the cover. */
   grain?: boolean;
+  /** Line-drawn botanical sprigs in the cover corners, swaying gently. */
+  corners?: boolean;
 };
 
 export type InvitationTheme = {
@@ -377,6 +379,51 @@ export const INVITATION_THEMES: readonly InvitationTheme[] = [
     },
     style: { headingWeight: 400, headingStyle: "italic", labelFont: MONO, card: "soft", photo: "polaroid", motif: "film", grain: true },
   },
+  // ─── Popular Indonesian digital-invitation looks (boho dried flowers, dusty blue florals) ───
+  {
+    code: "boho",
+    name: "Boho Rustic",
+    description: "Nuansa bunga kering dan pampas: krem hangat, terakota, dan dusty rose.",
+    defaultCoverLayout: "center",
+    tokens: {
+      background: "#f6efe6",
+      surface: "#fdf9f3",
+      ink: "#3e2f25",
+      muted: "#6b5a4d",
+      accent: "#8f5236",
+      accentSoft: "#efe1d1",
+      border: "#e2d1bd",
+      coverOverlay: "linear-gradient(180deg, rgba(62,47,37,0.05) 0%, rgba(62,47,37,0.55) 100%)",
+      coverInk: "#fdf9f3",
+      displayFont: CORMORANT,
+      bodyFont: SANS,
+      radius: "1.25rem",
+      ornament: "linear-gradient(90deg, transparent, #c9a58a, transparent)",
+    },
+    style: { headingWeight: 600, headingStyle: "italic", card: "soft", photo: "arch", motif: "sprig", corners: true },
+  },
+  {
+    code: "dusty-blue",
+    name: "Dusty Blue",
+    description: "Biru pudar, putih, dan perak dengan sulur bunga. Tenang dan anggun.",
+    defaultCoverLayout: "center",
+    tokens: {
+      background: "#eef2f6",
+      surface: "#fbfcfd",
+      ink: "#1f2d3a",
+      muted: "#526374",
+      accent: "#3f607f",
+      accentSoft: "#dde6ef",
+      border: "#cfdae5",
+      coverOverlay: "linear-gradient(180deg, rgba(31,45,58,0.05) 0%, rgba(31,45,58,0.55) 100%)",
+      coverInk: "#fbfcfd",
+      displayFont: DM_SERIF,
+      bodyFont: SANS,
+      radius: "1.5rem",
+      ornament: "linear-gradient(90deg, transparent, #9fb4c8, transparent)",
+    },
+    style: { headingWeight: 400, card: "soft", photo: "rounded", motif: "sprig", corners: true },
+  },
 ];
 
 const CARD_CSS: Record<CardStyle, { border: string; shadow: string }> = {
@@ -399,6 +446,7 @@ export function themeLook(theme: InvitationTheme): Required<Omit<ThemeStyle, "la
     photo: style.photo ?? "rounded",
     motif: style.motif ?? "line",
     grain: style.grain ?? false,
+    corners: style.corners ?? false,
   };
 }
 

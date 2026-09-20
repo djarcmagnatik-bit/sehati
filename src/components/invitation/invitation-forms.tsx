@@ -116,11 +116,13 @@ export function ThemePicker({
   weddingId,
   themeCode,
   coverLayout,
+  openingCover,
   themes,
 }: {
   weddingId: string;
   themeCode: string;
   coverLayout: CoverLayout;
+  openingCover: boolean;
   themes: ThemeOption[];
 }) {
   const [state, formAction] = useActionState(updateInvitationThemeAction, initialFormState);
@@ -191,6 +193,16 @@ export function ThemePicker({
           ))}
         </div>
       </fieldset>
+
+      <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-cream-300 bg-white p-3">
+        <input type="checkbox" name="openingCover" defaultChecked={openingCover} className="mt-1 size-4 accent-clay-600" />
+        <span>
+          <span className="block font-medium">Tampilkan sampul pembuka</span>
+          <span className="mt-0.5 block text-xs text-ink-500">
+            Tamu melihat sampul dengan tombol &ldquo;Buka Undangan&rdquo; lebih dulu. Musik latar mulai saat undangan dibuka.
+          </span>
+        </span>
+      </label>
 
       <SubmitButton pendingLabel="Menyimpan…">Simpan tampilan</SubmitButton>
     </form>

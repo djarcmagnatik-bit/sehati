@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
-import { createAndPublishInvitation, E2E_PASSWORD, registerAndOnboard } from "./helpers";
+import { createAndPublishInvitation, E2E_PASSWORD, registerAndOnboard, openInvitation } from "./helpers";
 
 const XSS_IMG = `<img src=x onerror="window.__xss=1">`;
 const XSS_SCRIPT = `</textarea><script>window.__xss=2</script>`;
@@ -101,6 +101,7 @@ test("security: stored XSS payloads render as text, on private and public pages"
   const guestPage = await guest.newPage();
   const guestProblems = watchForViolations(guestPage);
   await guestPage.goto(`/undangan/${slug}`);
+  await openInvitation(guestPage);
   await expect(guestPage.getByText(XSS_IMG, { exact: false }).first()).toBeVisible();
   await guestPage.getByLabel(/^Nama$/).fill(XSS_IMG);
   await guestPage.getByLabel(/^Ucapan & doa/).fill(XSS_SCRIPT);

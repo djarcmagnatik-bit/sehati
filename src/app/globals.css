@@ -81,11 +81,79 @@
     border-radius: var(--inv-radius);
   }
 
+  /*
+   * Invitation motion: slow and small on purpose. The global prefers-reduced-motion rule below cuts
+   * every duration to ~0, and the scroll reveal is skipped entirely in that case.
+   */
+  .inv-kenburns {
+    animation: inv-kenburns 14s ease-out both;
+  }
+
+  .inv-sway {
+    animation: inv-sway 7s ease-in-out infinite;
+  }
+
+  .inv-rise {
+    animation: inv-rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+
+  .inv-gate-closing {
+    animation: inv-gate-out 0.85s cubic-bezier(0.7, 0, 0.3, 1) forwards;
+  }
+
+  .inv-reveal-pending {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  .inv-reveal-in {
+    transition:
+      opacity 0.8s ease,
+      transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+
   /* Film grain for themes that ask for it; an inline SVG noise tile, allowed by img-src data:. */
   .inv-grain {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
     mix-blend-mode: overlay;
     opacity: 0.35;
+  }
+}
+
+@keyframes inv-kenburns {
+  from {
+    transform: scale(1.08);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes inv-sway {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(-2.5deg);
+  }
+}
+
+@keyframes inv-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes inv-gate-out {
+  to {
+    opacity: 0;
+    transform: translateY(-100%);
   }
 }
 

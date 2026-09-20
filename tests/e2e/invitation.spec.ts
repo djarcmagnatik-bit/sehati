@@ -1,6 +1,6 @@
 import { expect, test } from "./fixtures";
 import { pngFixture } from "../support/image-fixtures";
-import { futureIsoDate, registerAndOnboard } from "./helpers";
+import { futureIsoDate, registerAndOnboard, openInvitation } from "./helpers";
 
 function uniqueSlug(): string {
   return `e2e-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
@@ -101,6 +101,7 @@ test("invitation: build, publish, and open the public page as a guest", async ({
   const anonymous = await browser.newContext();
   const guestPage = await anonymous.newPage();
   await guestPage.goto(`/undangan/${slug}?to=Bapak+Ahmad`);
+  await openInvitation(guestPage);
   await expect(guestPage.getByRole("heading", { level: 1 })).toHaveText("Putri & Fajar");
   await expect(guestPage.getByText("Kepada Yth.")).toBeVisible();
   await expect(guestPage.getByText("Bapak Ahmad")).toBeVisible();
@@ -172,6 +173,7 @@ test("invitation: personalized guest link greets the guest and marks the invitat
   const anonymous = await browser.newContext();
   const guestPage = await anonymous.newPage();
   await guestPage.goto(new URL(link).pathname);
+  await openInvitation(guestPage);
   await expect(guestPage.getByText("Keluarga Bapak Ahmad").first()).toBeVisible();
   await expect(guestPage.getByText("Undangan ini berlaku untuk 5 orang.")).toBeVisible();
   await anonymous.close();

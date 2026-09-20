@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures";
-import { createAndPublishInvitation, registerAndOnboard } from "./helpers";
+import { createAndPublishInvitation, registerAndOnboard, openInvitation } from "./helpers";
 
 function uniqueSlug(): string {
   return `rsvp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
@@ -33,6 +33,7 @@ test("rsvp: guest answers from their personal link and the couple sees it", asyn
   const anonymous = await browser.newContext();
   const guestPage = await anonymous.newPage();
   await guestPage.goto(new URL(personalLink).pathname);
+  await openInvitation(guestPage);
   await expect(guestPage.getByRole("heading", { name: "Konfirmasi kehadiran" })).toBeVisible();
 
   await guestPage.getByLabel("Ya, saya hadir").check();
@@ -100,11 +101,14 @@ test("rsvp: the public invitation takes wishes but no RSVP without a personal li
     await page.goto(`/invitation/sections/${section}`);
     await page.getByLabel(/^Tampilkan bagian ini/).check();
     await page.getByRole("button", { name: "Simpan bagian" }).click();
+    // Navigating before the action lands would leave the section hidden.
+    await expect(page.getByText(/disimpan\./)).toBeVisible();
   }
 
   const anonymous = await browser.newContext();
   const guestPage = await anonymous.newPage();
   await guestPage.goto(`/undangan/${slug}`);
+  await openInvitation(guestPage);
   await expect(guestPage.getByText(/tautan undangan pribadi/)).toBeVisible();
   await expect(guestPage.getByRole("button", { name: /^Kirim konfirmasi/ })).toHaveCount(0);
 

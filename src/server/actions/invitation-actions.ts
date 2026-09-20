@@ -114,7 +114,7 @@ export async function updateInvitationSettingsAction(_prev: FormState, formData:
 export async function updateInvitationThemeAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const session = await requireSession();
   const values = readFields(formData, ["themeCode", "coverLayout"]);
-  const parsed = invitationThemeSchema.safeParse(values);
+  const parsed = invitationThemeSchema.safeParse({ ...values, openingCover: formData.get("openingCover") === "on" });
   if (!parsed.success) return { status: "error", message: INVALID_INPUT, fieldErrors: fieldErrorsFromZod(parsed.error), values };
   try {
     const result = await updateInvitationTheme(session.user.id, readString(formData, "weddingId"), parsed.data);

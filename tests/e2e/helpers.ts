@@ -79,3 +79,10 @@ export async function createAndPublishInvitation(page: Page, slug: string): Prom
   await page.getByRole("button", { name: "Terbitkan undangan" }).click();
   await expect(page.getByTestId("invitation-status")).toHaveText("Terbit");
 }
+
+/** Guests first see the opening cover; tap "Buka Undangan" and wait until it has gone. */
+export async function openInvitation(page: Page) {
+  const button = page.getByRole("button", { name: "Buka Undangan" });
+  await button.click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+}

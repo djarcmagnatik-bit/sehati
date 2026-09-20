@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { INVITATION_OPEN_EVENT } from "./opening-gate";
 
 type PlayerState = "idle" | "playing" | "paused" | "blocked";
 
@@ -8,8 +9,9 @@ type PlayerState = "idle" | "playing" | "paused" | "blocked";
  * Background music for the public invitation. It tries to start on its own, but browsers usually
  * block sound until the visitor interacts — then the button says so plainly instead of failing
  * silently. The first tap anywhere on the page also starts it, since that counts as interaction.
+ * Behind an opening cover it waits for the guest to open the invitation instead of trying at once.
  */
-export function MusicPlayer({ src, volume }: { src: string; volume: number }) {
+export function MusicPlayer({ src, volume, waitForOpen = false }: { src: string; volume: number; waitForOpen?: boolean }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [state, setState] = useState<PlayerState>("idle");
 
@@ -29,7 +31,8 @@ export function MusicPlayer({ src, volume }: { src: string; volume: number }) {
           if (!cancelled) setState("blocked");
         });
     };
-    start();
+    if (!waitForOpen) start();
+    window.addEventListener(INVITATION_OPEN_EVENT, start);
 
     // Autoplay was refused: the first real interaction is allowed to start the music.
     const onFirstInteraction = () => {
@@ -41,8 +44,9 @@ export function MusicPlayer({ src, volume }: { src: string; volume: number }) {
       cancelled = true;
       document.removeEventListener("pointerdown", onFirstInteraction);
       document.removeEventListener("keydown", onFirstInteraction);
+      window.removeEventListener(INVITATION_OPEN_EVENT, start);
     };
-  }, [volume]);
+  }, [volume, waitForOpen]);
 
   function toggle() {
     const audio = audioRef.current;

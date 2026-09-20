@@ -7,7 +7,7 @@ import { parseImageVariants } from "@/lib/media";
 import { parseSectionContent } from "@/lib/validation/invitation";
 import { weddingHasFeature } from "@/server/billing/access";
 import { getDb } from "@/server/db";
-import { coverLayoutOf } from "./invitation-service";
+import { coverLayoutOf, openingCoverOf } from "./invitation-service";
 import type { CoverLayout } from "@/lib/invitation-themes";
 import type { WeddingEventRow } from "./event-service";
 
@@ -21,6 +21,8 @@ export type PublicInvitation = {
   slug: string;
   themeCode: string;
   coverLayout: CoverLayout;
+  /** Show the full-screen "Buka Undangan" cover first. */
+  openingCover: boolean;
   coupleName: string;
   brideName: string;
   groomName: string;
@@ -123,6 +125,7 @@ export const getPublishedInvitation = cache(async (slug: string): Promise<Public
     slug: invitation.slug,
     themeCode: invitation.themeCode,
     coverLayout: coverLayoutOf(invitation.themeOptions, invitation.themeCode),
+    openingCover: openingCoverOf(invitation.themeOptions),
     coupleName: formatCoupleName({
       brideName: wedding.brideName,
       groomName: wedding.groomName,

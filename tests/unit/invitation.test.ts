@@ -103,6 +103,7 @@ describe("themes", () => {
       photo: "rounded",
       motif: "line",
       grain: false,
+      corners: false,
     });
     const style = themeStyle(getTheme("elegant"));
     expect(style["--inv-card-border"]).toBe("1px solid var(--inv-border)");
@@ -110,7 +111,7 @@ describe("themes", () => {
   });
 
   it("ships the 2026 themes with valid styles", () => {
-    for (const code of ["editorial", "coquette", "pop", "butter", "film"]) {
+    for (const code of ["editorial", "coquette", "pop", "butter", "film", "boho", "dusty-blue"]) {
       const look = themeLook(getTheme(code));
       expect(getTheme(code).code).toBe(code);
       expect(CARD_STYLES).toContain(look.card);
@@ -119,6 +120,8 @@ describe("themes", () => {
     }
     expect(themeLook(getTheme("film")).grain).toBe(true);
     expect(themeLook(getTheme("coquette")).photo).toBe("arch");
+    expect(themeLook(getTheme("boho")).corners).toBe(true);
+    expect(themeLook(getTheme("dusty-blue")).motif).toBe("sprig");
   });
 
   it("only uses fonts that are actually loaded", () => {
@@ -151,8 +154,9 @@ describe("themes", () => {
       expect(contrast(ink, surface), `${theme.code} ink/surface`).toBeGreaterThanOrEqual(7);
       expect(contrast(muted, surface), `${theme.code} muted/surface`).toBeGreaterThanOrEqual(4.5);
     }
-    // Buttons put surface-colored text on the accent: the new themes must keep it legible.
-    for (const code of ["editorial", "coquette", "pop", "butter", "film"]) {
+    // Buttons (the opening cover's too) put surface-colored text on the accent. minimal, elegant, floral
+    // and playful predate this check and still fall short.
+    for (const code of ["traditional", "modern", "dark-luxury", "islamic", "javanese", "editorial", "coquette", "pop", "butter", "film", "boho", "dusty-blue"]) {
       const { accent, surface } = getTheme(code).tokens;
       expect(contrast(accent, surface), `${code} accent/surface`).toBeGreaterThanOrEqual(4.5);
     }

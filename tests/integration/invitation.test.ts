@@ -145,6 +145,27 @@ describe("invitation settings and theme", () => {
     expect(after).toMatchObject({ themeCode: "dark-luxury", themeOptions: { coverLayout: "split" } });
     expect(after?.sections.map((section) => section.content)).toEqual(before?.sections.map((section) => section.content));
   });
+
+  it("remembers the opening cover switch and shows it to guests, on by default", async () => {
+    const { owner, weddingId, invitationId, slug } = await readyInvitation();
+    await publishInvitation(owner.userId, weddingId);
+
+    // Saving the design without the switch keeps the cover on.
+    await updateInvitationTheme(owner.userId, weddingId, { themeCode: "boho", coverLayout: "center" });
+    expect((await getInvitationForUser(owner.userId, weddingId))?.themeOptions).toMatchObject({ openingCover: true });
+    expect(await getPublishedInvitation(slug)).toMatchObject({ openingCover: true });
+
+    await updateInvitationTheme(owner.userId, weddingId, { themeCode: "boho", coverLayout: "center", openingCover: false });
+    expect((await getInvitationForUser(owner.userId, weddingId))?.themeOptions).toMatchObject({ openingCover: false });
+    expect(await getPublishedInvitation(slug)).toMatchObject({ openingCover: false });
+
+    await updateInvitationTheme(owner.userId, weddingId, { themeCode: "boho", coverLayout: "center", openingCover: true });
+    expect(await getPublishedInvitation(slug)).toMatchObject({ openingCover: true });
+
+    // Invitations saved before this setting existed have no flag at all: they get the cover too.
+    await getDb().invitation.update({ where: { id: invitationId }, data: { themeOptions: { coverLayout: "center" } } });
+    expect(await getPublishedInvitation(slug)).toMatchObject({ openingCover: true });
+  });
 });
 
 describe("invitation sections", () => {

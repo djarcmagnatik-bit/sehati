@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures";
-import { createAndPublishInvitation, futureIsoDate, registerAndOnboard } from "./helpers";
+import { createAndPublishInvitation, futureIsoDate, registerAndOnboard, openInvitation } from "./helpers";
 
 const money = (digits: string) => new RegExp(`Rp\\s${digits.replace(/\./g, "\\.")}$`);
 
@@ -124,6 +124,7 @@ test("planning extras: background music plays on the public invitation", async (
   const anonymous = await browser.newContext();
   const guestPage = await anonymous.newPage();
   await guestPage.goto(`/undangan/${slug}`);
+  await openInvitation(guestPage);
   // Headless Chrome blocks sound until interaction (and this fixture is not a real song), so the
   // player must stay visible as an explicit control.
   const player = guestPage.getByRole("button", { name: /musik/ });

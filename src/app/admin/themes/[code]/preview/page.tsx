@@ -17,6 +17,7 @@ function sampleInvitation(themeCode: string, now: Date): PublicInvitation {
   return {
     slug: "pratinjau-tema",
     themeCode: theme.code,
+    openingCover: true,
     coverLayout: theme.defaultCoverLayout,
     coupleName: "Sekar & Bima",
     brideName: "Sekar",
