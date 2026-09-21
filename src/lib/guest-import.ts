@@ -2,7 +2,7 @@
  * Guest import pipeline (pure): CSV parsing, header mapping, row validation and duplicate detection.
  * XLSX files are read on the server into the same `RawCell[][]` shape.
  */
-import { MAX_SEATS_PER_INVITATION, normalizeGuestName, normalizePhone } from "@/lib/guests";
+import { estimatedSeats, MAX_SEATS_PER_INVITATION, normalizeGuestName, normalizePhone } from "@/lib/guests";
 
 export const IMPORT_MAX_BYTES = 900 * 1024;
 export const IMPORT_MAX_ROWS = 5000;
@@ -115,7 +115,8 @@ export type ImportRow = {
   phone: string | null;
   phoneNormalized: string | null;
   groupName: string | null;
-  seatCount: number;
+  /** Null when the cell was empty: the seat count is optional. */
+  seatCount: number | null;
   errors: string[];
   duplicate: null | "file" | "existing";
 };
@@ -186,7 +187,7 @@ export function buildImportRows(table: RawCell[][]): BuildImportResult {
       }
     }
 
-    let seatCount = 1;
+    let seatCount: number | null = null;
     if (seatsRaw) {
       if (/^\d{1,3}$/.test(seatsRaw) && Number(seatsRaw) >= 1 && Number(seatsRaw) <= MAX_SEATS_PER_INVITATION) {
         seatCount = Number(seatsRaw);
@@ -242,11 +243,11 @@ export function summarizeImport(rows: readonly ImportRow[], includeDuplicates = 
       duplicates += 1;
       if (includeDuplicates) {
         valid += 1;
-        seats += row.seatCount;
+        seats += estimatedSeats(row.seatCount);
       }
     } else {
       valid += 1;
-      seats += row.seatCount;
+      seats += estimatedSeats(row.seatCount);
     }
   }
   return { total: rows.length, valid, invalid, duplicates, seats };

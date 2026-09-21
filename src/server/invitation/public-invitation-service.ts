@@ -179,7 +179,7 @@ function variantWidths(value: unknown): number[] {
   return parseImageVariants(value).map((variant) => variant.width);
 }
 
-export type GuestGreeting = { invitationName: string; seatCount: number };
+export type GuestGreeting = { invitationName: string; seatCount: number | null };
 
 /**
  * Resolves a personalized link. Only the guest's own display name and seat count are returned —

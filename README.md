@@ -27,7 +27,9 @@ Wedding planning workspace for couples (Indonesia-first). Built phase by phase f
 
 - Phase 6 (Guests): guest groups (from admin-configurable templates, created with each workspace),
   guests where **one invitation can cover several people** — invitations and seats are always counted
-  separately, RSVP (`attending_count <= seat_count`, enforced in validation and by CHECK constraints),
+  separately, an optional seat count per invitation (left empty, the guest may answer for up to 50
+  people and planning totals count the invitation as one), RSVP (`attending_count <= seat_count`,
+  enforced in validation and by CHECK constraints),
   invitation status with bulk updates ("Dibuka" is never set by hand and never downgraded), filters,
   search, sorting and pagination, a two-step CSV/XLSX import (upload → analyzed preview with per-row
   errors and duplicate detection → confirm, row-locked so a batch imports exactly once) with a CSV

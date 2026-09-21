@@ -160,6 +160,7 @@ describe("PRD flow: one invitation can cover several people", () => {
     expect(await getGuestSummary(owner.userId, weddingId)).toEqual({
       invitations: 2,
       seats: 7,
+      unsetSeatInvitations: 0,
       invitedInvitations: 2,
       invitedSeats: 7,
       attendingInvitations: 1,
@@ -185,6 +186,35 @@ describe("PRD flow: one invitation can cover several people", () => {
   });
 });
 
+describe("optional seat count", () => {
+  it("stores an empty seat count as empty and estimates it as one person", async () => {
+    const { owner, weddingId } = await createOwnerWorkspace(userIds);
+    const keluarga = await groupId(owner.userId, weddingId, "Keluarga Mempelai Pria");
+    const open = await newGuest(owner.userId, weddingId, { invitationName: "Keluarga Pak Harun", groupId: keluarga, seatCount: null });
+    await newGuest(owner.userId, weddingId, { invitationName: "Rombongan Kantor", groupId: keluarga, seatCount: 4 });
+
+    expect(await getGuestForUser(owner.userId, open)).toMatchObject({ seatCount: null });
+    expect(await getGuestSummary(owner.userId, weddingId)).toMatchObject({
+      invitations: 2,
+      seats: 5,
+      unsetSeatInvitations: 1,
+      pendingSeats: 5,
+    });
+    const { groups } = await listGuestGroupsWithCounts(owner.userId, weddingId);
+    expect(groups.find((group) => group.name === "Keluarga Mempelai Pria")).toMatchObject({ invitations: 2, seats: 5 });
+
+    // Sorting by seats keeps invitations without a seat count at the end.
+    const bySeats = await listGuests(owner.userId, weddingId, { ...DEFAULT_GUEST_FILTERS, sort: "seats" });
+    expect(bySeats.items.map((item) => item.invitationName)).toEqual(["Rombongan Kantor", "Keluarga Pak Harun"]);
+
+    // A seat count can be set later, and cleared again.
+    await updateGuest(owner.userId, open, guestInput({ invitationName: "Keluarga Pak Harun", groupId: keluarga, seatCount: 3 }));
+    expect(await getGuestSummary(owner.userId, weddingId)).toMatchObject({ seats: 7, unsetSeatInvitations: 0 });
+    await updateGuest(owner.userId, open, guestInput({ invitationName: "Keluarga Pak Harun", groupId: keluarga, seatCount: null }));
+    expect(await getGuestForUser(owner.userId, open)).toMatchObject({ seatCount: null });
+  });
+});
+
 describe("attendance integrity", () => {
   it("rejects an attending count above the seat count at the database level", async () => {
     const { owner, weddingId } = await createOwnerWorkspace(userIds);
@@ -200,6 +230,21 @@ describe("attendance integrity", () => {
     await expect(
       getDb().$executeRaw`UPDATE guests SET rsvp_status = 'DECLINED' WHERE id = ${guestId}::uuid`,
     ).rejects.toThrow(/guests_attending_matches_rsvp/);
+  });
+
+  it("bounds an invitation without a seat count by the maximum at the database level", async () => {
+    const { owner, weddingId } = await createOwnerWorkspace(userIds);
+    const guestId = await newGuest(owner.userId, weddingId, { seatCount: null, rsvpStatus: "ATTENDING", attendingCount: 8 });
+    expect(await getDb().guest.findUniqueOrThrow({ where: { id: guestId } })).toMatchObject({ seatCount: null, attendingCount: 8 });
+    await getDb().$executeRaw`UPDATE guests SET attending_count = 50 WHERE id = ${guestId}::uuid`;
+    await expect(
+      getDb().$executeRaw`UPDATE guests SET attending_count = 51 WHERE id = ${guestId}::uuid`,
+    ).rejects.toThrow(/guests_attending_count_range/);
+    // Empty is allowed; zero is not a seat count.
+    const pending = await newGuest(owner.userId, weddingId, { seatCount: null });
+    await expect(getDb().$executeRaw`UPDATE guests SET seat_count = 0 WHERE id = ${pending}::uuid`).rejects.toThrow(
+      /guests_seat_count_range/,
+    );
   });
 
   it("rejects a seat count above the maximum at the database level", async () => {
@@ -351,6 +396,23 @@ describe("guest import", () => {
     "Ahmad Fauzi,Keluarga Bapak Ahmad,0812-3456-7890,Keluarga Mempelai Pria,5\n" +
     "Siti Rahma,Siti Rahma,0813-1111-2222,Kantor Lama,2\n" +
     ",,0814-0000-0000,Teman,1\n";
+
+  it("imports a row with an empty seat count without a seat count", async () => {
+    const { owner, weddingId } = await createOwnerWorkspace(userIds);
+    const file = "Nama,Nama Undangan,Telepon,Grup,Kursi\nDewi Lestari,Keluarga Dewi,,,\nBudi,Budi,,,3\n";
+    const preview = await previewGuestImport(owner.userId, weddingId, csvFile(file, "tanpa kursi.csv"));
+    if (!preview.ok) throw new Error(`preview failed: ${preview.reason}`);
+    const batch = await getGuestImportBatchForUser(owner.userId, preview.batchId);
+    expect(summarizeImport(batch?.rows ?? [])).toMatchObject({ valid: 2, invalid: 0, seats: 4 });
+
+    expect(await commitGuestImport(owner.userId, preview.batchId, { includeDuplicates: false })).toMatchObject({ ok: true, imported: 2 });
+    const imported = await listGuests(owner.userId, weddingId, DEFAULT_GUEST_FILTERS);
+    expect(imported.items.map((item) => [item.invitationName, item.seatCount])).toEqual([
+      ["Budi", 3],
+      ["Keluarga Dewi", null],
+    ]);
+    expect(await getGuestSummary(owner.userId, weddingId)).toMatchObject({ seats: 4, unsetSeatInvitations: 1 });
+  });
 
   it("previews without writing guests, then imports on confirmation", async () => {
     const { owner, weddingId } = await createOwnerWorkspace(userIds);

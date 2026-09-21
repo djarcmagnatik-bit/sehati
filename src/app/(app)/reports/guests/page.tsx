@@ -114,7 +114,7 @@ export default async function GuestReportPage() {
                     <td className={`${REPORT_TD_CLASS} tabular-nums text-ink-500`}>{index + 1}</td>
                     <th scope="row" className={`${REPORT_TD_CLASS} font-medium`}>{guest.invitationName}</th>
                     <td className={REPORT_TD_CLASS}>{guest.group?.name ?? "—"}</td>
-                    <td className={`${REPORT_TD_CLASS} text-right tabular-nums`}>{guest.seatCount}</td>
+                    <td className={`${REPORT_TD_CLASS} text-right tabular-nums`}>{guest.seatCount ?? "–"}</td>
                     <td className={REPORT_TD_CLASS}>
                       {GUEST_RSVP_LABEL[guest.rsvpStatus]}
                       {guest.rsvpStatus === "ATTENDING" ? ` (${guest.attendingCount})` : ""}

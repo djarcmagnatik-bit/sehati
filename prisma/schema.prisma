@@ -733,11 +733,11 @@ model Guest {
   phoneNormalized    String?               @map("phone_normalized") @db.VarChar(20)
   email              String?               @db.VarChar(254)
   address            String?               @db.VarChar(500)
-  /// CHECK (seat_count BETWEEN 1 AND 50).
-  seatCount          Int                   @default(1) @map("seat_count")
+  /// Optional: NULL when the couple did not set it. CHECK (seat_count IS NULL OR seat_count BETWEEN 1 AND 50).
+  seatCount          Int?                  @map("seat_count")
   invitationStatus   GuestInvitationStatus @default(NOT_SENT) @map("invitation_status")
   rsvpStatus         GuestRsvpStatus       @default(PENDING) @map("rsvp_status")
-  /// CHECK: 0 <= attending_count <= seat_count, 0 unless ATTENDING/MAYBE, >= 1 when ATTENDING.
+  /// CHECK: 0 <= attending_count <= COALESCE(seat_count, 50), 0 unless ATTENDING/MAYBE, >= 1 when ATTENDING.
   attendingCount     Int                   @default(0) @map("attending_count")
   notes              String?               @db.VarChar(1000)
   /// Random, unguessable token for the personalized invitation link (/i/{token}).
@@ -984,7 +984,7 @@ model RsvpSubmission {
   weddingId      String          @map("wedding_id") @db.Uuid
   guestId        String          @map("guest_id") @db.Uuid
   rsvpStatus     GuestRsvpStatus @map("rsvp_status")
-  /// CHECK: 0 <= attending_count, and <= the guest's seat_count at submission time.
+  /// CHECK: 0 <= attending_count <= 50, and <= the guest's seat_count (when set) at submission time.
   attendingCount Int             @map("attending_count")
   /// Names the guest typed for the people coming, free text.
   attendeeNames  String?         @map("attendee_names") @db.VarChar(500)

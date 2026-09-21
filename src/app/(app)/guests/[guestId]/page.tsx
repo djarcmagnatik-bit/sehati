@@ -10,6 +10,7 @@ import { CopyField } from "@/components/ui/copy-field";
 import { formatDateTime } from "@/lib/dates";
 import { getEnv } from "@/lib/env";
 import { absoluteUrl, guestInvitationPath, whatsappShareUrl } from "@/lib/invitation";
+import { seatLabel } from "@/lib/guests";
 import { deleteGuestAction } from "@/server/actions/guest-actions";
 import { requireSession } from "@/server/auth/session-cookie";
 import { getGuestForUser, getGuestGroupOptions } from "@/server/guests/guest-service";
@@ -50,7 +51,7 @@ export default async function GuestDetailPage({
       <Card>
         <h1 className="font-display text-3xl font-semibold">{guest.invitationName}</h1>
         <p className="mt-1 text-sm text-ink-500">
-          {[guest.guestName !== guest.invitationName ? guest.guestName : null, guest.group?.name ?? "Tanpa grup", `${guest.seatCount} kursi`]
+          {[guest.guestName !== guest.invitationName ? guest.guestName : null, guest.group?.name ?? "Tanpa grup", seatLabel(guest.seatCount)]
             .filter(Boolean)
             .join(" · ")}
         </p>
@@ -129,7 +130,7 @@ export default async function GuestDetailPage({
             phone: guest.phone ?? "",
             email: guest.email ?? "",
             address: guest.address ?? "",
-            seatCount: String(guest.seatCount),
+            seatCount: guest.seatCount === null ? "" : String(guest.seatCount),
             invitationStatus: guest.invitationStatus,
             rsvpStatus: guest.rsvpStatus,
             attendingCount: String(guest.attendingCount),
@@ -144,7 +145,7 @@ export default async function GuestDetailPage({
           fields={{ guestId: guest.id }}
           triggerLabel="Hapus tamu"
           confirmLabel="Ya, hapus"
-          message={`Hapus “${guest.invitationName}” (${guest.seatCount} kursi) dari daftar tamu?`}
+          message={`Hapus “${guest.invitationName}” (${seatLabel(guest.seatCount).toLowerCase()}) dari daftar tamu?`}
         />
       </Card>
     </div>

@@ -55,7 +55,7 @@ function GuestFormBody(props: Props & { state: FormState; formAction: (formData:
           phone: "",
           email: "",
           address: "",
-          seatCount: "1",
+          seatCount: "",
           invitationStatus: "NOT_SENT",
           rsvpStatus: "PENDING",
           attendingCount: "0",
@@ -103,8 +103,7 @@ function GuestFormBody(props: Props & { state: FormState; formAction: (formData:
             inputMode="numeric"
             min={1}
             max={MAX_SEATS_PER_INVITATION}
-            required
-            hint="Berapa orang yang diundang lewat undangan ini."
+            hint="Opsional. Berapa orang yang diundang lewat undangan ini. Kosongkan bila tidak dibatasi; tamu tetap bisa mengisi jumlah yang hadir."
             defaultValue={value("seatCount")}
             errors={errors.seatCount}
           />

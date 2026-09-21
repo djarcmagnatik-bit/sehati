@@ -38,13 +38,16 @@ export const guestInputSchema = z
       .transform(emptyToNull)
       .refine((value) => value === null || z.email().safeParse(value).success, "Format email tidak valid"),
     address: optionalText("Alamat", 500),
+    // Optional: left empty, the invitation has no seat count (null).
     seatCount: z
       .string()
       .trim()
-      .regex(/^\d{1,3}$/, "Jumlah kursi harus berupa angka")
-      .transform(Number)
+      .optional()
+      .transform(emptyToNull)
+      .refine((value) => value === null || /^\d{1,3}$/.test(value), "Jumlah kursi harus berupa angka")
+      .transform((value) => (value === null ? null : Number(value)))
       .refine(
-        (value) => value >= 1 && value <= MAX_SEATS_PER_INVITATION,
+        (value) => value === null || (value >= 1 && value <= MAX_SEATS_PER_INVITATION),
         `Jumlah kursi harus 1–${MAX_SEATS_PER_INVITATION}`,
       ),
     invitationStatus: z.enum(EDITABLE_INVITATION_STATUSES, "Pilih status undangan"),

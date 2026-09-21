@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import type { FormState } from "@/lib/form-state";
+import { MAX_SEATS_PER_INVITATION } from "@/lib/guests";
 import { logger } from "@/lib/logger";
 import { fieldErrorsFromZod } from "@/lib/validation/errors";
 import { makeRsvpSchema, wishSchema } from "@/lib/validation/rsvp";
@@ -53,7 +54,12 @@ export async function submitRsvpAction(_prev: FormState, formData: FormData): Pr
     if (!result.ok) {
       return {
         status: "error",
-        message: result.reason === "seats_exceeded" ? `Undangan ini berlaku untuk ${guest.seatCount} orang.` : LINK_ERROR,
+        message:
+          result.reason === "seats_exceeded"
+            ? guest.seatCount === null
+              ? `Jumlah yang hadir maksimal ${MAX_SEATS_PER_INVITATION} orang.`
+              : `Undangan ini berlaku untuk ${guest.seatCount} orang.`
+            : LINK_ERROR,
         values,
       };
     }

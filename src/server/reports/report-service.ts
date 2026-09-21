@@ -69,7 +69,8 @@ export async function getGuestReport(userId: string, weddingId: string) {
     db.$queryRaw<GuestGroupRow[]>`
       SELECT COALESCE(g.name, 'Tanpa grup') AS name,
              COUNT(*)::int AS invitations,
-             COALESCE(SUM(t.seat_count), 0)::int AS seats,
+             -- Estimated: an invitation without a seat count is one person.
+             COALESCE(SUM(COALESCE(t.seat_count, 1)), 0)::int AS seats,
              COALESCE(SUM(t.attending_count) FILTER (WHERE t.rsvp_status = 'ATTENDING'), 0)::int AS "attendingSeats",
              COUNT(*) FILTER (WHERE t.rsvp_status = 'DECLINED')::int AS declined,
              COUNT(*) FILTER (WHERE t.rsvp_status = 'PENDING')::int AS pending

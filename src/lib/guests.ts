@@ -40,16 +40,35 @@ export function normalizeGuestName(name: string): string {
   return name.trim().replace(/\s+/g, " ").toLocaleLowerCase("id");
 }
 
+/** Most people one answer may bring: the invitation's seat count, or the global maximum when it has none. */
+export function seatLimit(seatCount: number | null): number {
+  return seatCount ?? MAX_SEATS_PER_INVITATION;
+}
+
+/** For planning totals, an invitation without a seat count still brings at least one person. */
+export function estimatedSeats(seatCount: number | null): number {
+  return seatCount ?? 1;
+}
+
+/** "3 kursi", or a plain note when the couple left the seat count open. */
+export function seatLabel(seatCount: number | null): string {
+  return seatCount === null ? "Kursi tidak ditentukan" : `${seatCount} kursi`;
+}
+
 /** Only "Hadir" and "Mungkin" carry an attending count; other statuses always count 0. */
 export function normalizeAttendance(rsvpStatus: GuestRsvpStatusValue, attendingCount: number): number {
   return rsvpStatus === "ATTENDING" || rsvpStatus === "MAYBE" ? attendingCount : 0;
 }
 
-/** RSVP rule: attending_count <= seat_count (and at least 1 when attending). */
-export function attendanceError(rsvpStatus: GuestRsvpStatusValue, attendingCount: number, seatCount: number): string | null {
+/**
+ * RSVP rule: attending_count <= seat_count (and at least 1 when attending). An invitation without a
+ * seat count is bounded only by the per-invitation maximum.
+ */
+export function attendanceError(rsvpStatus: GuestRsvpStatusValue, attendingCount: number, seatCount: number | null): string | null {
   const count = normalizeAttendance(rsvpStatus, attendingCount);
   if (!Number.isInteger(count) || count < 0) return "Jumlah hadir tidak valid";
-  if (count > seatCount) return `Jumlah hadir tidak boleh melebihi ${seatCount} kursi`;
+  if (seatCount === null && count > MAX_SEATS_PER_INVITATION) return `Jumlah hadir maksimal ${MAX_SEATS_PER_INVITATION} orang`;
+  if (seatCount !== null && count > seatCount) return `Jumlah hadir tidak boleh melebihi ${seatCount} kursi`;
   if (rsvpStatus === "ATTENDING" && count < 1) return "Isi jumlah yang hadir (minimal 1)";
   return null;
 }

@@ -89,7 +89,7 @@ const storedRowsSchema = z
       phone: z.string().nullable(),
       phoneNormalized: z.string().nullable(),
       groupName: z.string().nullable(),
-      seatCount: z.number().int(),
+      seatCount: z.number().int().nullable(),
       errors: z.array(z.string()),
       duplicate: z.enum(["file", "existing"]).nullable(),
     }),

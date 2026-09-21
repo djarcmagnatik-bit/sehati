@@ -123,3 +123,46 @@ test("rsvp: the public invitation takes wishes but no RSVP without a personal li
   await expect(page.getByText("Rina Lestari", { exact: true })).toBeVisible();
   await expect(page.getByText("dari tautan umum")).toBeVisible();
 });
+
+test("rsvp: the seat count is optional, and a guest without one answers for several people", async ({ page, browser }) => {
+  test.setTimeout(180_000);
+  await registerAndOnboard(page);
+  const slug = uniqueSlug();
+  await createAndPublishInvitation(page, slug);
+  await page.goto("/invitation/sections/rsvp");
+  await page.getByLabel(/^Tampilkan bagian ini/).check();
+  await page.getByRole("button", { name: "Simpan bagian" }).click();
+  await expect(page.getByText(/disimpan\./)).toBeVisible();
+
+  // The field is optional: no asterisk, no browser "required", empty by default.
+  await page.goto("/guests/new");
+  const seats = page.getByLabel(/^Jumlah kursi/);
+  await expect(seats).toHaveValue("");
+  await expect(seats).not.toHaveAttribute("required");
+  await page.getByLabel(/^Nama tamu/).fill("Harun");
+  await page.getByLabel(/^Nama di undangan/).fill("Keluarga Pak Harun");
+  await page.getByRole("button", { name: "Simpan tamu" }).click();
+  await expect(page).toHaveURL(/\/guests\?notice=created$/);
+  await expect(page.getByTestId("guests-seats")).toHaveText("1");
+  await expect(page.getByTestId("guests-unset-seats")).toContainText("1 undangan belum diisi jumlah kursinya");
+
+  await page.getByRole("link", { name: "Keluarga Pak Harun" }).click();
+  await expect(page.getByText(/Kursi tidak ditentukan/).first()).toBeVisible();
+  await expect(page.getByLabel(/^Jumlah kursi/)).toHaveValue("");
+  const personalLink = await page.getByLabel(/^Tautan khusus Keluarga Pak Harun/).inputValue();
+
+  const anonymous = await browser.newContext();
+  const guestPage = await anonymous.newPage();
+  await guestPage.goto(new URL(personalLink).pathname);
+  await openInvitation(guestPage);
+  await expect(guestPage.getByRole("heading", { name: "Konfirmasi kehadiran" })).toBeVisible();
+  await expect(guestPage.getByText(/Undangan ini berlaku untuk/)).toHaveCount(0);
+  await guestPage.getByLabel("Ya, saya hadir").check();
+  await guestPage.getByLabel(/^Berapa orang yang hadir/).fill("3");
+  await guestPage.getByRole("button", { name: /^Kirim konfirmasi/ }).click();
+  await expect(guestPage.getByText(/Konfirmasi kehadiranmu sudah kami terima/)).toBeVisible();
+  await anonymous.close();
+
+  await page.goto("/guests");
+  await expect(page.getByTestId("guests-attending-seats")).toHaveText("3");
+});

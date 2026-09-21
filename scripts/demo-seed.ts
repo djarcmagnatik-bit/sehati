@@ -372,7 +372,7 @@ async function main() {
   // Guests answering through their personal links, and wishes on the invitation.
   const pending = await db.guest.findMany({ where: { weddingId, rsvpStatus: "PENDING" }, take: 3, orderBy: { createdAt: "asc" }, select: { invitationToken: true, seatCount: true } });
   for (const guest of pending) {
-    must("rsvp", await submitRsvp(guest.invitationToken, { rsvpStatus: "ATTENDING", attendingCount: Math.min(2, guest.seatCount), attendeeNames: null, message: "Insya Allah hadir, selamat ya!" }));
+    must("rsvp", await submitRsvp(guest.invitationToken, { rsvpStatus: "ATTENDING", attendingCount: Math.min(2, guest.seatCount ?? 2), attendeeNames: null, message: "Insya Allah hadir, selamat ya!" }));
   }
   const wishes: Array<[string, string]> = [
     ["Dimas & Sinta", "Selamat menempuh hidup baru! Semoga menjadi keluarga sakinah, mawaddah, warahmah."],

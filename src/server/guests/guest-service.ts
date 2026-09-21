@@ -87,11 +87,17 @@ export async function listGuestGroupsWithCounts(userId: string, weddingId: strin
     db.guest.groupBy({
       by: ["groupId"],
       where: { weddingId: membership.weddingId },
-      _count: { _all: true },
+      _count: { _all: true, seatCount: true },
       _sum: { seatCount: true },
     }),
   ]);
-  const byGroup = new Map(counts.map((row) => [row.groupId, { invitations: row._count._all, seats: row._sum.seatCount ?? 0 }]));
+  // Estimated seats: an invitation without a seat count (not counted by _count.seatCount) is one person.
+  const byGroup = new Map(
+    counts.map((row) => [
+      row.groupId,
+      { invitations: row._count._all, seats: (row._sum.seatCount ?? 0) + (row._count._all - row._count.seatCount) },
+    ]),
+  );
   return {
     groups: groups.map((group) => ({ ...group, ...(byGroup.get(group.id) ?? { invitations: 0, seats: 0 }) })),
     ungrouped: byGroup.get(null) ?? { invitations: 0, seats: 0 },
@@ -197,7 +203,10 @@ async function groupInWedding(groupId: string, weddingId: string): Promise<boole
 
 export type GuestSummary = {
   invitations: number;
+  /** Estimated people: an invitation without a seat count counts as one (see `unsetSeatInvitations`). */
   seats: number;
+  /** Invitations whose seat count was left empty. */
+  unsetSeatInvitations: number;
   invitedInvitations: number;
   invitedSeats: number;
   attendingInvitations: number;
@@ -208,21 +217,25 @@ export type GuestSummary = {
   pendingSeats: number;
 };
 
-/** Invitations (rows) and seats (people) are always counted separately. One aggregate query. */
+/**
+ * Invitations (rows) and seats (people) are always counted separately. One aggregate query. Seat
+ * totals are estimates: an invitation without a seat count counts as one person.
+ */
 export async function getGuestSummary(userId: string, weddingId: string): Promise<GuestSummary> {
   const membership = await requireWeddingFeature("guests", userId, weddingId);
   const rows = await getDb().$queryRaw<Array<Record<keyof GuestSummary, number>>>`
     SELECT
       COUNT(*)::int AS "invitations",
-      COALESCE(SUM(seat_count), 0)::int AS "seats",
+      COALESCE(SUM(COALESCE(seat_count, 1)), 0)::int AS "seats",
+      COUNT(*) FILTER (WHERE seat_count IS NULL)::int AS "unsetSeatInvitations",
       COUNT(*) FILTER (WHERE invitation_status <> 'NOT_SENT')::int AS "invitedInvitations",
-      COALESCE(SUM(seat_count) FILTER (WHERE invitation_status <> 'NOT_SENT'), 0)::int AS "invitedSeats",
+      COALESCE(SUM(COALESCE(seat_count, 1)) FILTER (WHERE invitation_status <> 'NOT_SENT'), 0)::int AS "invitedSeats",
       COUNT(*) FILTER (WHERE rsvp_status = 'ATTENDING')::int AS "attendingInvitations",
       COALESCE(SUM(attending_count) FILTER (WHERE rsvp_status = 'ATTENDING'), 0)::int AS "attendingSeats",
       COUNT(*) FILTER (WHERE rsvp_status = 'MAYBE')::int AS "maybeInvitations",
       COUNT(*) FILTER (WHERE rsvp_status = 'DECLINED')::int AS "declinedInvitations",
       COUNT(*) FILTER (WHERE rsvp_status = 'PENDING')::int AS "pendingInvitations",
-      COALESCE(SUM(seat_count) FILTER (WHERE rsvp_status = 'PENDING'), 0)::int AS "pendingSeats"
+      COALESCE(SUM(COALESCE(seat_count, 1)) FILTER (WHERE rsvp_status = 'PENDING'), 0)::int AS "pendingSeats"
     FROM guests
     WHERE wedding_id = ${membership.weddingId}::uuid
   `;
@@ -230,6 +243,7 @@ export async function getGuestSummary(userId: string, weddingId: string): Promis
   return {
     invitations: row?.invitations ?? 0,
     seats: row?.seats ?? 0,
+    unsetSeatInvitations: row?.unsetSeatInvitations ?? 0,
     invitedInvitations: row?.invitedInvitations ?? 0,
     invitedSeats: row?.invitedSeats ?? 0,
     attendingInvitations: row?.attendingInvitations ?? 0,
@@ -245,7 +259,7 @@ const GUEST_ORDER: Record<GuestSort, Prisma.GuestOrderByWithRelationInput[]> = {
   name: [{ invitationName: "asc" }, { id: "asc" }],
   group: [{ group: { sortOrder: "asc" } }, { invitationName: "asc" }, { id: "asc" }],
   recent: [{ createdAt: "desc" }, { id: "asc" }],
-  seats: [{ seatCount: "desc" }, { invitationName: "asc" }, { id: "asc" }],
+  seats: [{ seatCount: { sort: "desc", nulls: "last" } }, { invitationName: "asc" }, { id: "asc" }],
 };
 
 export async function listGuests(userId: string, weddingId: string, filters: GuestFilters) {

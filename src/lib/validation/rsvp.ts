@@ -8,10 +8,11 @@ const optionalText = (label: string, max: number) =>
   z.string().trim().max(max, `${label} maksimal ${max} karakter`).nullish().transform(emptyToNull);
 
 /**
- * The seat count of the guest's own invitation bounds the answer, so the schema is built per guest.
- * The same rule is enforced again by a CHECK constraint on the row.
+ * The seat count of the guest's own invitation bounds the answer, so the schema is built per guest;
+ * without one (null), only the per-invitation maximum applies. The same rule is enforced again by a
+ * CHECK constraint on the row.
  */
-export function makeRsvpSchema(seatCount: number) {
+export function makeRsvpSchema(seatCount: number | null) {
   return z
     .object({
       rsvpStatus: z.enum(RSVP_CHOICES, "Pilih salah satu jawaban"),

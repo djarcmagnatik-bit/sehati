@@ -14,6 +14,7 @@ import {
   GUEST_RSVP_LABEL,
   GUEST_RSVP_STATUSES,
   type GuestRsvpStatusValue,
+  seatLabel,
 } from "@/lib/guests";
 import { bulkUpdateGuestStatusAction, initializeGuestGroupsAction } from "@/server/actions/guest-actions";
 import { requireSession } from "@/server/auth/session-cookie";
@@ -120,6 +121,12 @@ export default async function GuestsPage({
           <Stat label="Mungkin hadir" value={summary.maybeInvitations} testId="guests-maybe" />
           <Stat label="Tidak hadir" value={summary.declinedInvitations} testId="guests-declined" />
         </dl>
+        {summary.unsetSeatInvitations > 0 ? (
+          <p className="mt-4 text-xs text-ink-500" data-testid="guests-unset-seats">
+            {summary.unsetSeatInvitations.toLocaleString("id-ID")} undangan belum diisi jumlah kursinya; di estimasi masing-masing
+            dihitung 1 orang.
+          </p>
+        ) : null}
       </section>
 
       {rsvp.latest.length > 0 ? (
@@ -283,7 +290,16 @@ export default async function GuestsPage({
                     <InvitationStatusBadge status={guest.invitationStatus} />
                   </div>
                 </div>
-                <p className="shrink-0 pt-2 text-sm font-semibold text-ink-900">{guest.seatCount} kursi</p>
+                <p className="shrink-0 pt-2 text-sm font-semibold text-ink-900">
+                  {guest.seatCount === null ? (
+                    <>
+                      <span aria-hidden="true">– kursi</span>
+                      <span className="sr-only">{seatLabel(null)}</span>
+                    </>
+                  ) : (
+                    seatLabel(guest.seatCount)
+                  )}
+                </p>
               </li>
             ))}
           </ul>

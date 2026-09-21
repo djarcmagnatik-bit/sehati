@@ -10,12 +10,12 @@ import {
   summarizeImport,
   type ImportRow,
 } from "@/lib/guest-import";
-import { attendanceError, nextInvitationStatus, normalizeAttendance, normalizePhone } from "@/lib/guests";
+import { attendanceError, estimatedSeats, nextInvitationStatus, normalizeAttendance, normalizePhone, seatLabel, seatLimit } from "@/lib/guests";
 import { bulkInvitationStatusSchema, guestInputSchema } from "@/lib/validation/guests";
 
 const GROUP_ID = "6f3ec2f1-5b1e-4f1a-9b0a-1f2b3c4d5e6f";
 
-function guestForm(overrides: Record<string, string> = {}) {
+function guestForm(overrides: Record<string, string | undefined> = {}) {
   return {
     guestName: "Ahmad Fauzi",
     invitationName: "",
@@ -60,6 +60,22 @@ describe("attendance rules", () => {
     expect(attendanceError("ATTENDING", 5, 5)).toBeNull();
   });
 
+  it("bounds an invitation without a seat count only by the maximum", () => {
+    expect(attendanceError("ATTENDING", 12, null)).toBeNull();
+    expect(attendanceError("ATTENDING", 50, null)).toBeNull();
+    expect(attendanceError("ATTENDING", 51, null)).toMatch(/maksimal 50 orang/);
+    expect(attendanceError("ATTENDING", 0, null)).toMatch(/minimal 1/);
+  });
+
+  it("describes and estimates a missing seat count", () => {
+    expect(seatLimit(null)).toBe(50);
+    expect(seatLimit(3)).toBe(3);
+    expect(estimatedSeats(null)).toBe(1);
+    expect(estimatedSeats(4)).toBe(4);
+    expect(seatLabel(null)).toBe("Kursi tidak ditentukan");
+    expect(seatLabel(2)).toBe("2 kursi");
+  });
+
   it("requires at least one person when attending", () => {
     expect(attendanceError("ATTENDING", 0, 5)).toMatch(/minimal 1/);
     expect(attendanceError("MAYBE", 0, 5)).toBeNull();
@@ -83,6 +99,15 @@ describe("guestInputSchema", () => {
     expect(parsed.invitationName).toBe("Ahmad Fauzi");
     expect(parsed.groupId).toBeNull();
     expect(parsed.seatCount).toBe(1);
+  });
+
+  it("leaves the seat count empty when it is not filled in", () => {
+    expect(guestInputSchema.parse(guestForm({ seatCount: "" })).seatCount).toBeNull();
+    expect(guestInputSchema.parse(guestForm({ seatCount: "   " })).seatCount).toBeNull();
+    expect(guestInputSchema.parse(guestForm({ seatCount: undefined })).seatCount).toBeNull();
+    // Without a seat count, the attending count is still checked against the maximum.
+    expect(guestInputSchema.parse(guestForm({ seatCount: "", rsvpStatus: "ATTENDING", attendingCount: "7" })).attendingCount).toBe(7);
+    expect(guestInputSchema.safeParse(guestForm({ seatCount: "", rsvpStatus: "ATTENDING", attendingCount: "51" })).success).toBe(false);
   });
 
   it("keeps a family invitation name and seat count", () => {
@@ -109,6 +134,7 @@ describe("guestInputSchema", () => {
   it("rejects seat counts outside 1-50 and invalid phones", () => {
     expect(guestInputSchema.safeParse(guestForm({ seatCount: "0" })).success).toBe(false);
     expect(guestInputSchema.safeParse(guestForm({ seatCount: "51" })).success).toBe(false);
+    expect(guestInputSchema.safeParse(guestForm({ seatCount: "dua" })).success).toBe(false);
     expect(guestInputSchema.safeParse(guestForm({ phone: "bukan-nomor" })).success).toBe(false);
   });
 
@@ -162,11 +188,11 @@ describe("buildImportRows", () => {
     expect(result.rows[0]).toMatchObject({ guestName: "Ahmad Fauzi", seatCount: 5, phoneNormalized: "6281234567890" });
   });
 
-  it("defaults the invitation name and seat count", () => {
+  it("defaults the invitation name and leaves an empty seat count empty", () => {
     const result = buildImportRows([header, ["Siti Rahma", "", "", "", ""]]);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.rows[0]).toMatchObject({ invitationName: "Siti Rahma", seatCount: 1, groupName: null, phone: null });
+    expect(result.rows[0]).toMatchObject({ invitationName: "Siti Rahma", seatCount: null, groupName: null, phone: null, errors: [] });
   });
 
   it("reports the source line number and skips blank rows", () => {
@@ -259,6 +285,11 @@ describe("markDuplicates", () => {
     );
     expect(summarizeImport(marked)).toEqual({ total: 3, valid: 1, invalid: 1, duplicates: 1, seats: 5 });
     expect(summarizeImport(marked, true)).toEqual({ total: 3, valid: 2, invalid: 1, duplicates: 1, seats: 8 });
+  });
+
+  it("estimates a row without a seat count as one person", () => {
+    const marked = markDuplicates(rows({ seatCount: 4 }, { invitationName: "Tanpa kursi", seatCount: null }), empty);
+    expect(summarizeImport(marked)).toMatchObject({ valid: 2, seats: 5 });
   });
 });
 

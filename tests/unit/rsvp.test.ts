@@ -61,6 +61,11 @@ describe("makeRsvpSchema", () => {
     expect(makeRsvpSchema(1).safeParse(form({ attendingCount: "2" })).success).toBe(false);
     expect(makeRsvpSchema(1).safeParse(form({ attendingCount: "1" })).success).toBe(true);
   });
+
+  it("allows up to the maximum when the invitation has no seat count", () => {
+    expect(makeRsvpSchema(null).safeParse(form({ attendingCount: "12" })).success).toBe(true);
+    expect(makeRsvpSchema(null).safeParse(form({ attendingCount: "51" })).success).toBe(false);
+  });
 });
 
 describe("wishSchema", () => {

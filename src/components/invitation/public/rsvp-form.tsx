@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useId, useState } from "react";
-import { MAX_SEATS_PER_INVITATION } from "@/lib/guests";
+import { MAX_SEATS_PER_INVITATION, seatLimit } from "@/lib/guests";
 import { initialFormState } from "@/lib/form-state";
 import { describeRsvp, RSVP_CHOICE_HINT, RSVP_CHOICE_LABEL, RSVP_CHOICES, type RsvpChoice } from "@/lib/rsvp";
 import type { GuestRsvpStatusValue } from "@/lib/guests";
@@ -13,7 +13,7 @@ const FIELD_CLASS =
 export type RsvpState = {
   token: string;
   invitationName: string;
-  seatCount: number;
+  seatCount: number | null;
   rsvpStatus: GuestRsvpStatusValue;
   attendingCount: number;
   attendeeNames: string | null;
@@ -30,7 +30,7 @@ export function RsvpForm({ guest }: { guest: RsvpState }) {
   const messageId = useId();
   const answered = guest.rsvpStatus !== "PENDING";
   const countsPeople = choice !== "DECLINED";
-  const defaultCount = guest.attendingCount > 0 ? guest.attendingCount : Math.min(guest.seatCount, 1);
+  const defaultCount = guest.attendingCount > 0 ? guest.attendingCount : 1;
 
   // noValidate: the seat limit is a server rule, so the guest sees our wording, not the browser's.
   return (
@@ -98,14 +98,16 @@ export function RsvpForm({ guest }: { guest: RsvpState }) {
             name="attendingCount"
             inputMode="numeric"
             min={choice === "ATTENDING" ? 1 : 0}
-            max={Math.min(guest.seatCount, MAX_SEATS_PER_INVITATION)}
+            max={Math.min(seatLimit(guest.seatCount), MAX_SEATS_PER_INVITATION)}
             defaultValue={state.values?.attendingCount ?? String(defaultCount)}
             className={FIELD_CLASS}
             style={{ background: "var(--inv-surface)", borderColor: "var(--inv-border)", color: "var(--inv-ink)" }}
           />
-          <p className="text-xs" style={{ color: "var(--inv-muted)" }}>
-            Undangan ini berlaku untuk {guest.seatCount} orang.
-          </p>
+          {guest.seatCount !== null ? (
+            <p className="text-xs" style={{ color: "var(--inv-muted)" }}>
+              Undangan ini berlaku untuk {guest.seatCount} orang.
+            </p>
+          ) : null}
           {state.fieldErrors?.attendingCount?.[0] ? (
             <p className="text-xs font-medium" style={{ color: "var(--inv-accent)" }}>
               {state.fieldErrors.attendingCount[0]}

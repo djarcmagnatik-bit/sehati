@@ -1,7 +1,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import { normalizeAttendance } from "@/lib/guests";
+import { normalizeAttendance, seatLimit } from "@/lib/guests";
 import type { RsvpInput } from "@/lib/validation/rsvp";
 import { recordActivity } from "@/server/activity/activity-service";
 import { memberWeddingWhere, WeddingAccessError } from "@/server/authz/wedding-access";
@@ -21,7 +21,8 @@ export type RsvpGuest = {
   id: string;
   weddingId: string;
   invitationName: string;
-  seatCount: number;
+  /** Null when the couple did not set one: the answer is then bounded by the global maximum. */
+  seatCount: number | null;
   rsvpStatus: "PENDING" | "ATTENDING" | "MAYBE" | "DECLINED";
   attendingCount: number;
   attendeeNames: string | null;
@@ -82,14 +83,14 @@ export async function submitRsvp(
   if (!guest) return { ok: false, reason: "not_found" };
 
   const attendingCount = normalizeAttendance(input.rsvpStatus, input.attendingCount);
-  if (attendingCount > guest.seatCount) return { ok: false, reason: "seats_exceeded" };
+  if (attendingCount > seatLimit(guest.seatCount)) return { ok: false, reason: "seats_exceeded" };
 
   const ipHash = hashIp(options.ipAddress ?? null);
   return getDb().$transaction(async (tx) => {
     // The seat count can change between reading the form and submitting it.
     const current = await tx.guest.findUnique({ where: { id: guest.id }, select: { seatCount: true } });
     if (!current) return { ok: false, reason: "not_found" } as const;
-    if (attendingCount > current.seatCount) return { ok: false, reason: "seats_exceeded" } as const;
+    if (attendingCount > seatLimit(current.seatCount)) return { ok: false, reason: "seats_exceeded" } as const;
 
     await tx.guest.update({
       where: { id: guest.id },

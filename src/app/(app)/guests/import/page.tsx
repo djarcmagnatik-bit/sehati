@@ -14,7 +14,7 @@ const COLUMNS = [
   { name: "Nama Undangan", required: false, description: "Contoh: Keluarga Bapak Ahmad. Kosong = sama dengan Nama." },
   { name: "Telepon", required: false, description: "Dipakai untuk mendeteksi duplikat." },
   { name: "Grup", required: false, description: "Grup yang belum ada akan dibuat otomatis." },
-  { name: "Kursi", required: false, description: `Angka 1–${MAX_SEATS_PER_INVITATION}. Kosong = 1.` },
+  { name: "Kursi", required: false, description: `Angka 1–${MAX_SEATS_PER_INVITATION}. Boleh kosong: jumlah kursinya tidak ditentukan.` },
 ];
 
 export default async function GuestImportPage() {

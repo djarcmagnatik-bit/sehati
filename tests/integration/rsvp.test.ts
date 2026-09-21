@@ -134,6 +134,18 @@ describe("RSVP submission", () => {
     expect(await listRsvpSubmissions(owner.userId, guestId)).toHaveLength(0);
   });
 
+  it("lets a guest without a seat count answer for several people, up to the maximum", async () => {
+    const { guestId, token } = await publishedWithGuest({ seatCount: null });
+    expect(await getRsvpGuestByToken(token)).toMatchObject({ seatCount: null });
+    expect(await submitRsvp(token, rsvpInput({ attendingCount: 51 }))).toEqual({ ok: false, reason: "seats_exceeded" });
+    expect(await submitRsvp(token, rsvpInput({ attendingCount: 7 }))).toMatchObject({ ok: true, attendingCount: 7 });
+    expect(await getDb().guest.findUniqueOrThrow({ where: { id: guestId } })).toMatchObject({
+      seatCount: null,
+      rsvpStatus: "ATTENDING",
+      attendingCount: 7,
+    });
+  });
+
   it("refuses an unknown token and a draft invitation", async () => {
     const { owner, weddingId, token } = await publishedWithGuest();
     expect(await submitRsvp("tidak-valid", rsvpInput())).toEqual({ ok: false, reason: "not_found" });

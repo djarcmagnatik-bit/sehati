@@ -123,7 +123,7 @@ export default async function GuestImportPreviewPage({ params }: { params: Promi
                 <td className="p-3">{row.invitationName || "—"}</td>
                 <td className="p-3">{row.phone ?? "—"}</td>
                 <td className="p-3">{row.groupName ?? "—"}</td>
-                <td className="p-3">{row.seatCount}</td>
+                <td className="p-3">{row.seatCount ?? "–"}</td>
                 <td className="p-3">
                   <RowStatus row={row} />
                 </td>
