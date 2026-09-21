@@ -87,7 +87,7 @@ grep -E '^[A-Z_]+=$' .env | cut -d= -f1   # empty variables; only MIDTRANS_SERVE
 
 ```bash
 cd /opt/sehati
-sudo docker compose pull                                # option A only
+sudo docker compose --profile tools pull                # option A only; includes the tools image
 sudo docker compose up -d db
 sudo docker compose run --rm tools pnpm db:deploy       # all migrations
 sudo docker compose run --rm tools pnpm db:seed         # reference data (idempotent)
@@ -165,7 +165,9 @@ sudo docker compose run --rm tools pnpm demo:seed -- --email <demo address> --cl
 
 ```bash
 cd /opt/sehati
-sudo docker compose pull                               # or: build again (option B)
+# --profile tools: the tools image sits in its own profile, so a plain `pull` skips it and
+# db:deploy would run the previous image's migrations (reporting "No pending migrations").
+sudo docker compose --profile tools pull               # or: build again (option B)
 sudo docker compose run --rm tools pnpm db:deploy      # new migrations, if any
 sudo docker compose up -d app cron
 # Remove only the previous Sehati images. Not `docker image prune`: it deletes every untagged
