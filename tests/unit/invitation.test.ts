@@ -154,11 +154,9 @@ describe("themes", () => {
       expect(contrast(ink, surface), `${theme.code} ink/surface`).toBeGreaterThanOrEqual(7);
       expect(contrast(muted, surface), `${theme.code} muted/surface`).toBeGreaterThanOrEqual(4.5);
     }
-    // Buttons (the opening cover's too) put surface-colored text on the accent. minimal, elegant, floral
-    // and playful predate this check and still fall short.
-    for (const code of ["traditional", "modern", "dark-luxury", "islamic", "javanese", "editorial", "coquette", "pop", "butter", "film", "boho", "dusty-blue"]) {
-      const { accent, surface } = getTheme(code).tokens;
-      expect(contrast(accent, surface), `${code} accent/surface`).toBeGreaterThanOrEqual(4.5);
+    // Buttons (RSVP, wishes, music, the opening cover) put surface-colored text on the accent.
+    for (const { code, tokens } of INVITATION_THEMES) {
+      expect(contrast(tokens.accent, tokens.surface), `${code} accent/surface`).toBeGreaterThanOrEqual(4.5);
     }
   });
 });
