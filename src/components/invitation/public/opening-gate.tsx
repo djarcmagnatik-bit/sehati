@@ -7,7 +7,7 @@ export const INVITATION_OPEN_EVENT = "sehati:invitation-open";
 
 const noSubscription = () => () => undefined;
 
-function readOpened(storageKey: string): boolean {
+export function readOpened(storageKey: string): boolean {
   try {
     return sessionStorage.getItem(storageKey) === "1";
   } catch {
@@ -43,27 +43,25 @@ export function OpeningGate({
     () => readOpened(storageKey),
     () => false,
   );
-  const showing = !alreadyOpened && state !== "open";
+  // Stays up while it slides away, even though this tab now counts as opened.
+  const showing = state === "closing" || (!alreadyOpened && state !== "open");
 
   useEffect(() => {
     if (!showing || state !== "closed") return;
     const root = document.documentElement;
     const previous = root.style.overflow;
     root.style.overflow = "hidden";
+    // Holds the invitation's entrance animations (.inv-after-open) until the guest opens it.
+    root.dataset.invGate = "closed";
     buttonRef.current?.focus({ preventScroll: true });
     return () => {
       root.style.overflow = previous;
+      delete root.dataset.invGate;
     };
   }, [showing, state]);
 
   function open() {
-    try {
-      sessionStorage.setItem(storageKey, "1");
-    } catch {
-      // Not remembering is fine.
-    }
     window.dispatchEvent(new Event(INVITATION_OPEN_EVENT));
-    document.documentElement.style.overflow = "";
     window.scrollTo({ top: 0 });
     setState("closing");
     // Safety net if animationend never fires (e.g. the element is hidden).
@@ -71,6 +69,12 @@ export function OpeningGate({
   }
 
   function finish() {
+    // Remembered only now: writing it on tap would make the next render drop the cover mid-slide.
+    try {
+      sessionStorage.setItem(storageKey, "1");
+    } catch {
+      // Not remembering is fine.
+    }
     setState("open");
     document.getElementById("isi-undangan")?.focus({ preventScroll: true });
   }

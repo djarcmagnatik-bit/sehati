@@ -92,13 +92,23 @@ test("opening cover: motion is kept off when the guest asks for less of it", asy
       getComputedStyle(element).animationDuration,
     ),
   );
-  for (const duration of durations) expect(duration).toBe("0.00001s");
+  expect(durations.length).toBeGreaterThan(0);
+  for (const duration of durations) expect(parseFloat(duration)).toBeLessThan(0.001);
   await calm.close();
 
   const moving = await browser.newContext();
   const movingPage = await moving.newPage();
   await movingPage.goto(`/undangan/${slug}`);
-  await openInvitation(movingPage);
+  const heroTitle = movingPage.locator("header h1");
+  const heroAnimation = () => heroTitle.evaluate((element) => getComputedStyle(element).animationName);
+  await expect(movingPage.getByRole("button", { name: "Buka Undangan" })).toBeFocused();
+  // Held back behind the cover, so the entrance plays for the guest instead of unseen.
+  expect(await heroAnimation()).toBe("none");
+  await movingPage.getByRole("button", { name: "Buka Undangan" }).click();
+  // The cover slides away rather than vanishing, and the couple's names rise in behind it.
+  await expect(movingPage.locator(".inv-gate.inv-gate-closing")).toBeAttached();
+  expect(await heroAnimation()).toBe("inv-rise");
+  await expect(movingPage.getByRole("dialog")).toHaveCount(0);
   // Sections further down start hidden and fade in as the guest scrolls.
   const pending = movingPage.locator(".inv-reveal-pending");
   await expect(pending.first()).toBeAttached();

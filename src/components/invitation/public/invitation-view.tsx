@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { preload } from "react-dom";
 import { invitationFontsClassName } from "@/components/invitation/invitation-fonts";
 import { CountdownTimer } from "@/components/invitation/public/countdown-timer";
@@ -66,6 +66,11 @@ function SectionShell({
   );
 }
 
+/** Staggers the cover lines so they arrive one after another while the opening cover slides up. */
+function heroDelay(step: number): CSSProperties {
+  return { animationDelay: `${0.25 + step * 0.12}s` };
+}
+
 function Cover({ invitation, guestName, look }: { invitation: PublicInvitation; guestName: string | null; look: ThemeLook }) {
   const cover = invitation.sections.find((section) => section.type === "COVER");
   const prefix = cover ? text(cover, "prefix") : "";
@@ -92,7 +97,7 @@ function Cover({ invitation, guestName, look }: { invitation: PublicInvitation; 
             sizes="100vw"
             alt=""
             aria-hidden="true"
-            className="inv-kenburns absolute inset-0 size-full object-cover"
+            className="inv-kenburns inv-after-open-zoom absolute inset-0 size-full object-cover"
             fetchPriority="high"
           />
           <div aria-hidden="true" className="absolute inset-0" style={{ background: "var(--inv-cover-overlay)" }} />
@@ -102,19 +107,32 @@ function Cover({ invitation, guestName, look }: { invitation: PublicInvitation; 
       {look.corners ? <CornerSprigs /> : null}
 
       <div className={`relative mx-auto w-full ${layout === "split" ? "max-w-3xl sm:text-left" : "max-w-xl"}`}>
-        {look.motif !== "line" ? <ThemeMotifMark motif={look.motif} className={`mb-4 ${layout === "split" ? "sm:mx-0" : ""}`} /> : null}
-        {prefix ? <p className="inv-label text-sm tracking-[0.3em] uppercase">{prefix}</p> : null}
-        <h1 className="mt-4 inv-display text-4xl text-balance sm:text-6xl">
+        {look.motif !== "line" ? (
+          <div className="inv-rise inv-after-open" style={heroDelay(0)}>
+            <ThemeMotifMark motif={look.motif} className={`mb-4 ${layout === "split" ? "sm:mx-0" : ""}`} />
+          </div>
+        ) : null}
+        {prefix ? (
+          <p className="inv-rise inv-after-open inv-label text-sm tracking-[0.3em] uppercase" style={heroDelay(1)}>
+            {prefix}
+          </p>
+        ) : null}
+        <h1 className="inv-rise inv-after-open mt-4 inv-display text-4xl text-balance sm:text-6xl" style={heroDelay(2)}>
           {invitation.coupleName}
         </h1>
-        <p className="mt-4 text-lg">
+        <p className="inv-rise inv-after-open mt-4 text-lg" style={heroDelay(3)}>
           <time dateTime={invitation.weddingDateIso}>{formatIsoDateLong(invitation.weddingDateIso)}</time>
         </p>
-        {note ? <p className="mt-3 text-sm opacity-90">{note}</p> : null}
+        {note ? (
+          <p className="inv-rise inv-after-open mt-3 text-sm" style={heroDelay(4)}>
+            {/* The fade-in ends at full opacity, so the softer tone lives on an inner element. */}
+            <span className="opacity-90">{note}</span>
+          </p>
+        ) : null}
         {guestName ? (
           <div
-            className={`mt-8 inline-block rounded-[var(--inv-radius)] px-6 py-4 ${layout === "split" ? "" : "mx-auto"}`}
-            style={{ background: "color-mix(in srgb, var(--inv-surface) 88%, transparent)", color: "var(--inv-ink)" }}
+            className={`inv-rise inv-after-open mt-8 inline-block rounded-[var(--inv-radius)] px-6 py-4 ${layout === "split" ? "" : "mx-auto"}`}
+            style={{ ...heroDelay(5), background: "color-mix(in srgb, var(--inv-surface) 88%, transparent)", color: "var(--inv-ink)" }}
           >
             <p className="inv-label text-xs tracking-widest uppercase" style={{ color: "var(--inv-muted)" }}>
               Kepada Yth.
@@ -563,6 +581,7 @@ export function InvitationView({ invitation, guestName = null, guestSeatCount = 
   const theme = getTheme(invitation.themeCode);
   const look = themeLook(theme);
   const greeting = guestName ?? invitation.defaultGuestLabel;
+  const openingKey = invitation.openingCover ? `sehati:dibuka:${invitation.slug}` : undefined;
 
   return (
     <div
@@ -570,13 +589,13 @@ export function InvitationView({ invitation, guestName = null, guestSeatCount = 
       style={{ ...themeStyle(theme), background: "var(--inv-background)", color: "var(--inv-ink)" }}
       className={`min-h-dvh font-[family-name:var(--inv-body-font)] ${invitationFontsClassName}`}
     >
-      {invitation.openingCover ? (
+      {openingKey ? (
         <>
           {/* Without JavaScript the opening cover could never be dismissed: hide it. */}
           <noscript>
             <style>{".inv-gate{display:none!important}"}</style>
           </noscript>
-          <OpeningGate storageKey={`sehati:dibuka:${invitation.slug}`} backdrop={<GateBackdrop invitation={invitation} look={look} />}>
+          <OpeningGate storageKey={openingKey} backdrop={<GateBackdrop invitation={invitation} look={look} />}>
             <GateContent invitation={invitation} guestName={greeting} look={look} />
           </OpeningGate>
         </>
@@ -594,7 +613,7 @@ export function InvitationView({ invitation, guestName = null, guestSeatCount = 
       </main>
       <RevealOnScroll />
       {invitation.music ? (
-        <MusicPlayer src={mediaPath(invitation.music.assetId)} volume={invitation.music.volume} waitForOpen={invitation.openingCover} />
+        <MusicPlayer src={mediaPath(invitation.music.assetId)} volume={invitation.music.volume} openingKey={openingKey} />
       ) : null}
       <footer className="px-5 pt-4 pb-24 text-center text-xs" style={{ color: "var(--inv-muted)" }}>
         <p>

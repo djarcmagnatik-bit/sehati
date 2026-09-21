@@ -97,6 +97,17 @@
     animation: inv-rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
   }
 
+  /* Held while the opening cover is up (OpeningGate sets data-inv-gate), so they play as it lifts. */
+  html[data-inv-gate="closed"] .inv-after-open {
+    animation: none;
+    opacity: 0;
+  }
+
+  /* The cover photo stays painted (it is the page's largest paint); only its slow zoom waits. */
+  html[data-inv-gate="closed"] .inv-after-open-zoom {
+    animation: none;
+  }
+
   .inv-gate-closing {
     animation: inv-gate-out 0.85s cubic-bezier(0.7, 0, 0.3, 1) forwards;
   }

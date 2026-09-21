@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { INVITATION_OPEN_EVENT } from "./opening-gate";
+import { INVITATION_OPEN_EVENT, readOpened } from "./opening-gate";
 
 type PlayerState = "idle" | "playing" | "paused" | "blocked";
 
@@ -9,9 +9,12 @@ type PlayerState = "idle" | "playing" | "paused" | "blocked";
  * Background music for the public invitation. It tries to start on its own, but browsers usually
  * block sound until the visitor interacts — then the button says so plainly instead of failing
  * silently. The first tap anywhere on the page also starts it, since that counts as interaction.
- * Behind an opening cover it waits for the guest to open the invitation instead of trying at once.
+ *
+ * Behind an opening cover (`openingKey`, the cover's storage key) nothing plays until the guest taps
+ * "Buka Undangan": taps elsewhere on the cover do not count. A tab that already opened the cover
+ * behaves as if there were none.
  */
-export function MusicPlayer({ src, volume, waitForOpen = false }: { src: string; volume: number; waitForOpen?: boolean }) {
+export function MusicPlayer({ src, volume, openingKey }: { src: string; volume: number; openingKey?: string }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [state, setState] = useState<PlayerState>("idle");
 
@@ -31,22 +34,26 @@ export function MusicPlayer({ src, volume, waitForOpen = false }: { src: string;
           if (!cancelled) setState("blocked");
         });
     };
-    if (!waitForOpen) start();
-    window.addEventListener(INVITATION_OPEN_EVENT, start);
-
     // Autoplay was refused: the first real interaction is allowed to start the music.
     const onFirstInteraction = () => {
       if (audio.paused && !cancelled) start();
     };
-    document.addEventListener("pointerdown", onFirstInteraction, { once: true });
-    document.addEventListener("keydown", onFirstInteraction, { once: true });
+    const begin = () => {
+      start();
+      document.addEventListener("pointerdown", onFirstInteraction, { once: true });
+      document.addEventListener("keydown", onFirstInteraction, { once: true });
+    };
+
+    const waiting = openingKey !== undefined && !readOpened(openingKey);
+    if (waiting) window.addEventListener(INVITATION_OPEN_EVENT, begin, { once: true });
+    else begin();
     return () => {
       cancelled = true;
       document.removeEventListener("pointerdown", onFirstInteraction);
       document.removeEventListener("keydown", onFirstInteraction);
-      window.removeEventListener(INVITATION_OPEN_EVENT, start);
+      window.removeEventListener(INVITATION_OPEN_EVENT, begin);
     };
-  }, [volume, waitForOpen]);
+  }, [volume, openingKey]);
 
   function toggle() {
     const audio = audioRef.current;

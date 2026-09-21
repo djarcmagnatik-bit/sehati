@@ -122,9 +122,26 @@ test("planning extras: background music plays on the public invitation", async (
   await expect(page.getByText("Musik latar diunggah dan dinyalakan.")).toBeVisible();
 
   const anonymous = await browser.newContext();
+  // Count every attempt to start sound, whether or not the browser then allows it.
+  await anonymous.addInitScript(() => {
+    const original = HTMLMediaElement.prototype.play;
+    const counter = window as unknown as { __playCalls: number };
+    counter.__playCalls = 0;
+    HTMLMediaElement.prototype.play = function play(this: HTMLMediaElement) {
+      counter.__playCalls += 1;
+      return original.call(this);
+    };
+  });
   const guestPage = await anonymous.newPage();
+  const playCalls = () => guestPage.evaluate(() => (window as unknown as { __playCalls: number }).__playCalls);
   await guestPage.goto(`/undangan/${slug}`);
+  // Behind the opening cover, only "Buka Undangan" may start the music: tapping elsewhere does not.
+  await expect(guestPage.getByRole("button", { name: "Buka Undangan" })).toBeFocused();
+  await guestPage.getByRole("dialog").getByRole("heading").click();
+  await guestPage.keyboard.press("Shift");
+  expect(await playCalls()).toBe(0);
   await openInvitation(guestPage);
+  expect(await playCalls()).toBeGreaterThan(0);
   // Headless Chrome blocks sound until interaction (and this fixture is not a real song), so the
   // player must stay visible as an explicit control.
   const player = guestPage.getByRole("button", { name: /musik/ });
