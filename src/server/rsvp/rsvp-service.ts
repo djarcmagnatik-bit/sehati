@@ -1,8 +1,9 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import { normalizeAttendance, seatLimit } from "@/lib/guests";
+import { attendanceWithoutQuestion, normalizeAttendance, seatLimit } from "@/lib/guests";
 import type { RsvpInput } from "@/lib/validation/rsvp";
+import { parseSectionContent } from "@/lib/validation/invitation";
 import { recordActivity } from "@/server/activity/activity-service";
 import { memberWeddingWhere, WeddingAccessError } from "@/server/authz/wedding-access";
 import { requireWeddingFeature, weddingHasFeature } from "@/server/billing/access";
@@ -23,6 +24,8 @@ export type RsvpGuest = {
   invitationName: string;
   /** Null when the couple did not set one: the answer is then bounded by the global maximum. */
   seatCount: number | null;
+  /** False when the couple hid "Berapa orang yang hadir?": the count then comes from the seats. */
+  askAttendingCount: boolean;
   rsvpStatus: "PENDING" | "ATTENDING" | "MAYBE" | "DECLINED";
   attendingCount: number;
   attendeeNames: string | null;
@@ -46,18 +49,25 @@ export async function getRsvpGuestByToken(token: string): Promise<RsvpGuest | nu
         take: 1,
         select: { attendeeNames: true, message: true },
       },
-      wedding: { select: { invitation: { select: { status: true } } } },
+      wedding: {
+        select: {
+          invitation: { select: { status: true, sections: { where: { type: "RSVP" }, select: { content: true } } } },
+        },
+      },
     },
   });
   if (!guest || guest.wedding.invitation?.status !== "PUBLISHED") return null;
   if (!(await weddingHasFeature(guest.weddingId, "invitation"))) return null;
 
   const last = guest.rsvpSubmissions[0];
+  const rsvpSection = guest.wedding.invitation.sections[0];
+  const rsvpContent = rsvpSection ? parseSectionContent("RSVP", rsvpSection.content) : null;
   return {
     id: guest.id,
     weddingId: guest.weddingId,
     invitationName: guest.invitationName,
     seatCount: guest.seatCount,
+    askAttendingCount: rsvpContent?.hideAttendingCount !== "on",
     rsvpStatus: guest.rsvpStatus,
     attendingCount: guest.attendingCount,
     attendeeNames: last?.attendeeNames ?? null,
@@ -82,14 +92,18 @@ export async function submitRsvp(
   const guest = await getRsvpGuestByToken(token);
   if (!guest) return { ok: false, reason: "not_found" };
 
-  const attendingCount = normalizeAttendance(input.rsvpStatus, input.attendingCount);
-  if (attendingCount > seatLimit(guest.seatCount)) return { ok: false, reason: "seats_exceeded" };
+  const requested = normalizeAttendance(input.rsvpStatus, input.attendingCount);
+  if (guest.askAttendingCount && requested > seatLimit(guest.seatCount)) return { ok: false, reason: "seats_exceeded" };
 
   const ipHash = hashIp(options.ipAddress ?? null);
   return getDb().$transaction(async (tx) => {
     // The seat count can change between reading the form and submitting it.
     const current = await tx.guest.findUnique({ where: { id: guest.id }, select: { seatCount: true } });
     if (!current) return { ok: false, reason: "not_found" } as const;
+    // Not asked: whatever the form sent is ignored and the invitation's seats are counted.
+    const attendingCount = guest.askAttendingCount
+      ? requested
+      : normalizeAttendance(input.rsvpStatus, attendanceWithoutQuestion(current.seatCount));
     if (attendingCount > seatLimit(current.seatCount)) return { ok: false, reason: "seats_exceeded" } as const;
 
     await tx.guest.update({

@@ -40,7 +40,7 @@ export const SECTION_DESCRIPTION: Record<InvitationSectionTypeValue, string> = {
   LOVE_STORY: "Perjalanan kalian berdua dalam beberapa momen.",
   GALLERY: "Foto prewedding atau momen pilihan.",
   LOCATION: "Alamat lengkap dan tautan peta acara.",
-  RSVP: "Tamu mengonfirmasi hadir atau tidak, dan berapa orang yang datang.",
+  RSVP: "Tamu mengonfirmasi hadir atau tidak, dan berapa orang yang datang (pertanyaan jumlah bisa disembunyikan).",
   WISHES: "Tamu mengirim ucapan dan doa; kalian bisa menyembunyikan yang tidak pantas.",
   GIFT: "Informasi rekening dan alamat kirim hadiah.",
   CLOSING: "Ucapan terima kasih di akhir undangan.",

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import type { FormState } from "@/lib/form-state";
-import { MAX_SEATS_PER_INVITATION } from "@/lib/guests";
+import { attendanceWithoutQuestion, MAX_SEATS_PER_INVITATION } from "@/lib/guests";
 import { logger } from "@/lib/logger";
 import { fieldErrorsFromZod } from "@/lib/validation/errors";
 import { makeRsvpSchema, wishSchema } from "@/lib/validation/rsvp";
@@ -45,7 +45,10 @@ export async function submitRsvpAction(_prev: FormState, formData: FormData): Pr
     ]);
     if (!byGuest.allowed || !byIp.allowed) return { status: "error", message: TOO_MANY, values };
 
-    const parsed = makeRsvpSchema(guest.seatCount).safeParse(values);
+    // Not asked on the form: validate with the count the server will record (see submitRsvp).
+    const parsed = makeRsvpSchema(guest.seatCount).safeParse(
+      guest.askAttendingCount ? values : { ...values, attendingCount: String(attendanceWithoutQuestion(guest.seatCount)) },
+    );
     if (!parsed.success) {
       return { status: "error", message: "Periksa kembali jawabanmu.", fieldErrors: fieldErrorsFromZod(parsed.error), values };
     }

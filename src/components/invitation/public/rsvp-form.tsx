@@ -14,6 +14,8 @@ export type RsvpState = {
   token: string;
   invitationName: string;
   seatCount: number | null;
+  /** False when the couple hid "Berapa orang yang hadir?". */
+  askAttendingCount: boolean;
   rsvpStatus: GuestRsvpStatusValue;
   attendingCount: number;
   attendeeNames: string | null;
@@ -29,7 +31,9 @@ export function RsvpForm({ guest }: { guest: RsvpState }) {
   const namesId = useId();
   const messageId = useId();
   const answered = guest.rsvpStatus !== "PENDING";
-  const countsPeople = choice !== "DECLINED";
+  const coming = choice !== "DECLINED";
+  // The couple may hide the count; the server then counts the invitation's seats.
+  const asksCount = coming && guest.askAttendingCount;
   const defaultCount = guest.attendingCount > 0 ? guest.attendingCount : 1;
 
   // noValidate: the seat limit is a server rule, so the guest sees our wording, not the browser's.
@@ -87,7 +91,7 @@ export function RsvpForm({ guest }: { guest: RsvpState }) {
         </div>
       </fieldset>
 
-      {countsPeople ? (
+      {asksCount ? (
         <div className="space-y-1.5">
           <label htmlFor={countId} className="block text-sm font-medium">
             Berapa orang yang hadir?
@@ -118,7 +122,7 @@ export function RsvpForm({ guest }: { guest: RsvpState }) {
         <input type="hidden" name="attendingCount" value="0" />
       )}
 
-      {countsPeople ? (
+      {coming ? (
         <div className="space-y-1.5">
           <label htmlFor={namesId} className="block text-sm font-medium">
             Nama yang hadir <span style={{ color: "var(--inv-muted)" }}>(opsional)</span>

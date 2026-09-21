@@ -50,6 +50,14 @@ export function estimatedSeats(seatCount: number | null): number {
   return seatCount ?? 1;
 }
 
+/**
+ * People counted for a "Hadir"/"Mungkin" answer when the couple chose not to ask: the invitation's
+ * seats, or one person when it has no seat count.
+ */
+export function attendanceWithoutQuestion(seatCount: number | null): number {
+  return estimatedSeats(seatCount);
+}
+
 /** "3 kursi", or a plain note when the couple left the seat count open. */
 export function seatLabel(seatCount: number | null): string {
   return seatCount === null ? "Kursi tidak ditentukan" : `${seatCount} kursi`;

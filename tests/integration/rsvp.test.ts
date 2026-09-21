@@ -219,6 +219,52 @@ describe("RSVP submission", () => {
   });
 });
 
+describe("hidden attending count", () => {
+  /** The couple ticks "Sembunyikan pertanyaan “Berapa orang yang hadir?”" on the RSVP section. */
+  async function hideCount(ownerId: string, weddingId: string, value: string | null = "on") {
+    const invitation = await getInvitationForUser(ownerId, weddingId);
+    const rsvp = invitation!.sections.find((section) => section.type === "RSVP")!;
+    await updateSectionContent(ownerId, rsvp.id, { intro: "Mohon konfirmasi.", hideAttendingCount: value }, true);
+  }
+
+  it("asks by default, and stops asking once the couple hides the question", async () => {
+    const { owner, weddingId, token } = await publishedWithGuest();
+    expect(await getRsvpGuestByToken(token)).toMatchObject({ askAttendingCount: true });
+    await hideCount(owner.userId, weddingId);
+    expect(await getRsvpGuestByToken(token)).toMatchObject({ askAttendingCount: false });
+    // Anything but a ticked box is stored as not ticked.
+    await hideCount(owner.userId, weddingId, "ya");
+    expect(await getRsvpGuestByToken(token)).toMatchObject({ askAttendingCount: true });
+  });
+
+  it("counts the invitation's seats for an answer, whatever the form sent", async () => {
+    const { owner, weddingId, guestId, token } = await publishedWithGuest({ seatCount: 4 });
+    await hideCount(owner.userId, weddingId);
+
+    // A forged count is ignored rather than refused: the question was never asked.
+    expect(await submitRsvp(token, rsvpInput({ attendingCount: 49 }))).toMatchObject({ ok: true, attendingCount: 4 });
+    expect(await getDb().guest.findUniqueOrThrow({ where: { id: guestId } })).toMatchObject({ rsvpStatus: "ATTENDING", attendingCount: 4 });
+    expect(await getGuestSummary(owner.userId, weddingId)).toMatchObject({ attendingSeats: 4 });
+
+    expect(await submitRsvp(token, rsvpInput({ rsvpStatus: "DECLINED", attendingCount: 0 }))).toMatchObject({ ok: true, attendingCount: 0 });
+    expect(await submitRsvp(token, rsvpInput({ rsvpStatus: "MAYBE", attendingCount: 1 }))).toMatchObject({ ok: true, attendingCount: 4 });
+  });
+
+  it("counts one person when the invitation has no seat count", async () => {
+    const { owner, weddingId, guestId, token } = await publishedWithGuest({ seatCount: null });
+    await hideCount(owner.userId, weddingId);
+    expect(await submitRsvp(token, rsvpInput({ attendingCount: 3 }))).toMatchObject({ ok: true, attendingCount: 1 });
+    expect(await getDb().guest.findUniqueOrThrow({ where: { id: guestId } })).toMatchObject({ attendingCount: 1 });
+  });
+
+  it("uses the seat count at the moment of answering", async () => {
+    const { owner, weddingId, guestId, token } = await publishedWithGuest({ seatCount: 2 });
+    await hideCount(owner.userId, weddingId);
+    await getDb().guest.update({ where: { id: guestId }, data: { seatCount: 6 } });
+    expect(await submitRsvp(token, rsvpInput({ attendingCount: 1 }))).toMatchObject({ ok: true, attendingCount: 6 });
+  });
+});
+
 describe("guestbook", () => {
   it("accepts a wish from the public link and shows it publicly", async () => {
     const { owner, weddingId, slug } = await publishedWithGuest();

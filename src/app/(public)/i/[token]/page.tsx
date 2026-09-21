@@ -33,6 +33,7 @@ export default async function GuestInvitationPage({ params }: PageProps) {
               token,
               invitationName: rsvpGuest.invitationName,
               seatCount: rsvpGuest.seatCount,
+              askAttendingCount: rsvpGuest.askAttendingCount,
               rsvpStatus: rsvpGuest.rsvpStatus,
               attendingCount: rsvpGuest.attendingCount,
               attendeeNames: rsvpGuest.attendeeNames,

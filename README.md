@@ -54,7 +54,10 @@ Wedding planning workspace for couples (Indonesia-first). Built phase by phase f
   keeps the latest. Answers land immediately in the guest summary, the "Konfirmasi terbaru" card and
   the activity log. The guestbook takes wishes from the public page or a personal link, rate limited
   per IP, with moderation (hide keeps it for the couple, delete is permanent); a hidden wish
-  disappears from the public page, and a wish outlives the guest who sent it.
+  disappears from the public page, and a wish outlives the guest who sent it. The couple may hide
+  "Berapa orang yang hadir?" (a checkbox on the RSVP section): the guest then only says whether they
+  come, and the server records the invitation's seat count (1 when it has none), ignoring any count
+  the form sends.
 
 - Phase 9 (Planning extras):
   - **Calendar** (`/calendar`, month / week / agenda) aggregates task deadlines, payment due dates

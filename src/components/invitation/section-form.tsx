@@ -40,7 +40,15 @@ export function SectionForm({
       {note ? <p className="-mt-3 text-xs text-ink-500">{note}</p> : null}
 
       {fields.map((field) =>
-        field.type === "textarea" ? (
+        field.type === "checkbox" ? (
+          <div key={field.name}>
+            <label className="flex min-h-11 items-center gap-2 text-sm font-medium">
+              <input type="checkbox" name={field.name} defaultChecked={value(field.name) === "on"} className="size-4 accent-clay-600" />
+              {field.label}
+            </label>
+            {field.hint ? <p className="text-xs text-ink-500">{field.hint}</p> : null}
+          </div>
+        ) : field.type === "textarea" ? (
           <TextareaField
             key={field.name}
             label={field.label}

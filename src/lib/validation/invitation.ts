@@ -41,6 +41,12 @@ const instagramHandle = (label: string) =>
 /** Text shown above the entries a section renders from other tables. */
 const introOnly = z.object({ intro: optionalText("Pengantar", 300) });
 
+/** A ticked checkbox is stored as "on"; anything else as null. */
+const checkboxFlag = z
+  .string()
+  .nullish()
+  .transform((value) => (value === "on" ? "on" : null));
+
 export const SECTION_CONTENT_SCHEMAS = {
   COVER: z.object({ prefix: optionalText("Teks pembuka", 60), note: optionalText("Catatan", 200) }),
   COUPLE: z.object({
@@ -58,7 +64,11 @@ export const SECTION_CONTENT_SCHEMAS = {
   LOVE_STORY: introOnly,
   GALLERY: introOnly,
   LOCATION: introOnly,
-  RSVP: introOnly,
+  RSVP: z.object({
+    intro: optionalText("Pengantar", 300),
+    // "on": the guest is not asked how many people come; the server counts the invitation's seats.
+    hideAttendingCount: checkboxFlag,
+  }),
   WISHES: introOnly,
   GIFT: introOnly,
   CLOSING: z.object({ message: optionalText("Pesan penutup", 600), signature: optionalText("Tanda tangan", 120) }),

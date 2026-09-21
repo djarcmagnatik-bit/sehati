@@ -4,7 +4,7 @@ import type { InvitationSectionTypeValue } from "@/lib/invitation";
 export type SectionField = {
   name: string;
   label: string;
-  type: "text" | "textarea";
+  type: "text" | "textarea" | "checkbox";
   maxLength: number;
   rows?: number;
   placeholder?: string;
@@ -43,7 +43,16 @@ export const SECTION_FIELDS: Record<InvitationSectionTypeValue, SectionField[]> 
   LOVE_STORY: [INTRO],
   GALLERY: [INTRO],
   LOCATION: [INTRO],
-  RSVP: [INTRO],
+  RSVP: [
+    INTRO,
+    {
+      name: "hideAttendingCount",
+      label: "Sembunyikan pertanyaan “Berapa orang yang hadir?”",
+      type: "checkbox",
+      maxLength: 2,
+      hint: "Tamu cukup memilih hadir atau tidak. Jawaban “Hadir” dihitung sesuai jumlah kursi undangan tamu itu; bila jumlah kursinya kosong, dihitung 1 orang.",
+    },
+  ],
   WISHES: [INTRO],
   GIFT: [INTRO],
   CLOSING: [
