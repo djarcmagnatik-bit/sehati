@@ -33,6 +33,7 @@ export function CheckoutButton({
           name="promoCode"
           maxLength={40}
           autoComplete="off"
+          hint="Kode promo gratis langsung mengaktifkan paket, tanpa pembayaran."
           className="max-w-xs"
           defaultValue={state.values?.promoCode ?? ""}
           errors={state.fieldErrors?.promoCode}

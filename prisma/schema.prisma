@@ -1221,7 +1221,7 @@ model PaymentTransaction {
   addonId           String?       @map("addon_id") @db.Uuid
   /// Item name copied at checkout, so later catalogue edits never change a receipt.
   itemName          String        @map("item_name") @db.VarChar(120)
-  /// Whole rupiah. CHECK (amount > 0).
+  /// Whole rupiah. CHECK (amount > 0), or 0 only for a paid 'free' checkout (100% promo).
   amount            BigInt
   /// Catalogue price before any promo; amount = original_amount - discount_amount.
   originalAmount    BigInt?       @map("original_amount")
@@ -1383,7 +1383,7 @@ model PromoCode {
   code          String            @unique @db.VarChar(40)
   description   String?           @db.VarChar(200)
   discountType  PromoDiscountType @map("discount_type")
-  /// PERCENT: 1-99. FIXED: whole rupiah. CHECK enforces both.
+  /// PERCENT: 1-100 (100 = free). FIXED: whole rupiah. CHECK enforces both.
   discountValue BigInt            @map("discount_value")
   /// Null = every plan. Add-ons are never discounted.
   planId        String?           @map("plan_id") @db.Uuid

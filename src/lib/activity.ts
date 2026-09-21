@@ -85,6 +85,7 @@ export const ACTIVITY_ACTIONS = [
   "invitation.music_updated",
   "billing.payment_paid",
   "billing.payment_refunded",
+  "billing.promo_redeemed",
   "data.exported",
 ] as const;
 
@@ -305,6 +306,10 @@ export function describeActivity(entry: { action: string; actorName: string; met
       return `Pembayaran ${quoted(name, "paket")}${money ? ` sebesar ${money}` : ""} berhasil diterima`;
     case "billing.payment_refunded":
       return `Pembayaran ${quoted(name, "paket")}${money ? ` sebesar ${money}` : ""} dikembalikan; aksesnya dicabut`;
+    case "billing.promo_redeemed": {
+      const code = readText(meta, "code");
+      return `${actor} mengaktifkan ${quoted(name, "paket")} gratis dengan kode promo${code ? ` ${code}` : ""}`;
+    }
     case "invitation.music_updated":
       return `${actor} mengatur musik latar undangan`;
     case "data.exported": {

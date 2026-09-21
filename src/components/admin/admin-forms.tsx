@@ -227,9 +227,9 @@ export function PromoCodeForm(
           errors={errors.discountType}
         />
         {type === "PERCENT" ? (
-          <TextField label="Diskon (%)" name="discountValue" inputMode="numeric" required hint="1–99" defaultValue={value("discountValue")} errors={errors.discountValue} />
+          <TextField label="Diskon (%)" name="discountValue" inputMode="numeric" required hint="1–100. 100 = gratis: paket langsung aktif tanpa pembayaran." defaultValue={value("discountValue")} errors={errors.discountValue} />
         ) : (
-          <MoneyField label="Diskon (Rp)" name="discountValue" required defaultValue={value("discountValue")} errors={errors.discountValue} />
+          <MoneyField label="Diskon (Rp)" name="discountValue" required hint="Sama dengan atau di atas harga paket = gratis." defaultValue={value("discountValue")} errors={errors.discountValue} />
         )}
         <TextField label="Mulai berlaku" name="startsOn" type="date" defaultValue={value("startsOn")} errors={errors.startsOn} />
         <TextField label="Berlaku sampai (termasuk hari itu)" name="endsOn" type="date" defaultValue={value("endsOn")} errors={errors.endsOn} />

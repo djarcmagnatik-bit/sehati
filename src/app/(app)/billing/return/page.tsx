@@ -6,6 +6,7 @@ import { buttonClassName } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PAYMENT_STATUS_LABEL } from "@/lib/billing";
 import { formatRupiah } from "@/lib/money";
+import { FREE_PROVIDER } from "@/lib/promo";
 import { requireSession } from "@/server/auth/session-cookie";
 import { logger } from "@/lib/logger";
 import { getTransactionForUser, syncPaymentForUser } from "@/server/billing/billing-service";
@@ -34,6 +35,7 @@ export default async function BillingReturnPage({
   }
   const transaction = order ? await getTransactionForUser(session.user.id, order) : null;
   if (!transaction) notFound();
+  const free = transaction.provider === FREE_PROVIDER;
 
   return (
     <div className="mx-auto max-w-xl space-y-4">
@@ -52,13 +54,15 @@ export default async function BillingReturnPage({
           <div className="flex justify-between gap-3">
             <dt className="text-ink-500">Status</dt>
             <dd className="font-semibold" data-testid="payment-status">
-              {PAYMENT_STATUS_LABEL[transaction.status]}
+              {free && transaction.status === "PAID" ? "Gratis (kode promo)" : PAYMENT_STATUS_LABEL[transaction.status]}
             </dd>
           </div>
         </dl>
 
         <div className="mt-5">
-          {transaction.status === "PAID" ? (
+          {transaction.status === "PAID" && free ? (
+            <Alert tone="success">Kode promo diterapkan — tanpa pembayaran. Semua fitur dalam paket sudah aktif untuk kalian berdua.</Alert>
+          ) : transaction.status === "PAID" ? (
             <Alert tone="success">Pembayaran diterima. Semua fitur dalam paket sudah aktif untuk kalian berdua.</Alert>
           ) : transaction.status === "PENDING" ? (
             <Alert tone="info">

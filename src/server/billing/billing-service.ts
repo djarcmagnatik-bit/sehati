@@ -13,7 +13,7 @@ import {
   type PaymentStatusValue,
 } from "@/lib/billing";
 import { getEnv } from "@/lib/env";
-import { computeDiscount, normalizePromoCode, promoWindowProblem, type PromoDiscountTypeValue } from "@/lib/promo";
+import { computeDiscount, FREE_PROVIDER, normalizePromoCode, promoWindowProblem, type PromoDiscountTypeValue } from "@/lib/promo";
 import { logger } from "@/lib/logger";
 import { recordActivity } from "@/server/activity/activity-service";
 import { memberWeddingWhere, requireWeddingMember } from "@/server/authz/wedding-access";
@@ -120,7 +120,8 @@ export type CheckoutItem = { kind: "PLAN" | "ADDON"; code: string };
 export type PromoProblem = "promo_invalid" | "promo_expired" | "promo_exhausted" | "promo_not_applicable" | "promo_too_large";
 
 export type StartCheckoutResult =
-  | { ok: true; orderId: string; checkoutUrl: string; reused: boolean }
+  /** `free`: a promo took the whole price, the plan is already active and checkoutUrl is our own status page. */
+  | { ok: true; orderId: string; checkoutUrl: string; reused: boolean; free: boolean }
   | { ok: false; reason: "unknown_item" | "already_active" | "provider_unavailable" | PromoProblem };
 
 type LockedPromo = {
@@ -178,6 +179,10 @@ async function reservePromo(
 /**
  * Creates a pending transaction and a provider checkout. Nothing is granted here: access only
  * changes when a verified webhook reports the payment as paid.
+ *
+ * The one exception is a promo that takes the whole price: there is nothing to pay, so no provider
+ * is involved (it works while payments are switched off). The order is recorded as paid Rp0 with
+ * provider "free" and the plan is granted in the same database transaction as the promo use.
  */
 export async function startCheckout(
   userId: string,
@@ -193,15 +198,15 @@ export async function startCheckout(
   if (promoCode && item.kind !== "PLAN") return { ok: false, reason: "promo_not_applicable" };
   const db = getDb();
 
-  const catalogue: { id: string; name: string; price: bigint; features: string[] } | null =
+  const catalogue: { id: string; name: string; price: bigint; features: string[]; durationDays: number | null } | null =
     item.kind === "PLAN"
       ? await db.plan.findFirst({
           where: { code: item.code, isActive: true, price: { gt: 0 } },
-          select: { id: true, name: true, price: true, features: true },
+          select: { id: true, name: true, price: true, features: true, durationDays: true },
         })
       : await db.addon
           .findFirst({ where: { code: item.code, isActive: true, price: { gt: 0 } }, select: { id: true, name: true, price: true } })
-          .then((addon) => (addon ? { ...addon, features: [] } : null));
+          .then((addon) => (addon ? { ...addon, features: [], durationDays: null } : null));
   if (!catalogue) return { ok: false, reason: "unknown_item" };
 
   if (item.kind === "PLAN") {
@@ -210,18 +215,19 @@ export async function startCheckout(
     if (planFeatures.length > 0 && planFeatures.every((feature) => owned.has(feature))) return { ok: false, reason: "already_active" };
   }
 
-  let provider;
+  // Only a checkout with something to pay needs the provider; a free promo must work without one.
+  let provider: PaymentProvider | null = null;
   try {
     provider = getActivePaymentProvider();
   } catch (error) {
     logger.error("billing.provider_unavailable", { error });
-    return { ok: false, reason: "provider_unavailable" };
+    if (!promoCode) return { ok: false, reason: "provider_unavailable" };
   }
 
   // Double-clicks and "back" buttons reuse the open checkout instead of creating a second order.
   // A checkout with a promo is always new, so the promo is validated again under its lock.
   const itemFilter = item.kind === "PLAN" ? { planId: catalogue.id } : { addonId: catalogue.id };
-  if (!promoCode) {
+  if (!promoCode && provider) {
     const open = await db.paymentTransaction.findFirst({
       where: {
         weddingId: membership.weddingId,
@@ -236,7 +242,7 @@ export async function startCheckout(
       orderBy: { createdAt: "desc" },
       select: { orderId: true, checkoutUrl: true },
     });
-    if (open?.checkoutUrl) return { ok: true, orderId: open.orderId, checkoutUrl: open.checkoutUrl, reused: true };
+    if (open?.checkoutUrl) return { ok: true, orderId: open.orderId, checkoutUrl: open.checkoutUrl, reused: true, free: false };
   }
 
   const user = await db.user.findUniqueOrThrow({ where: { id: userId }, select: { name: true, email: true } });
@@ -248,6 +254,51 @@ export async function startCheckout(
       ? await reservePromo(tx, { code: promoCode, planId: catalogue.id, price: catalogue.price, userId, now })
       : null;
     if (promo && !promo.ok) return promo;
+
+    if (promo?.ok && promo.final === 0n) {
+      const free = await tx.paymentTransaction.create({
+        data: {
+          orderId,
+          weddingId: membership.weddingId,
+          userId,
+          kind: item.kind,
+          ...itemFilter,
+          itemName: catalogue.name,
+          amount: 0n,
+          originalAmount: catalogue.price,
+          discountAmount: promo.discount,
+          promoCodeId: promo.promoId,
+          provider: FREE_PROVIDER,
+          status: "PAID",
+          paidAt: now,
+          expiresAt,
+        },
+        select: { id: true },
+      });
+      await tx.promoRedemption.create({
+        data: { promoCodeId: promo.promoId, transactionId: free.id, userId, weddingId: membership.weddingId, discountAmount: promo.discount },
+      });
+      // Promos only apply to plans (checked above).
+      await grantPlanToWedding(tx, {
+        weddingId: membership.weddingId,
+        planId: catalogue.id,
+        durationDays: catalogue.durationDays,
+        source: "PURCHASE",
+        transactionId: free.id,
+        now,
+      });
+      await recordActivity(tx, {
+        weddingId: membership.weddingId,
+        userId,
+        actorName: membership.displayName,
+        action: "billing.promo_redeemed",
+        entityType: "payment_transaction",
+        entityId: free.id,
+        metadata: { name: catalogue.name, code: promoCode },
+      });
+      return { ok: true as const, free: true as const };
+    }
+    if (!provider) return { ok: false as const, reason: "provider_unavailable" as const };
 
     const amount = promo?.ok ? promo.final : catalogue.price;
     const transaction = await tx.paymentTransaction.create({
@@ -272,13 +323,14 @@ export async function startCheckout(
         data: { promoCodeId: promo.promoId, transactionId: transaction.id, userId, weddingId: membership.weddingId, discountAmount: promo.discount },
       });
     }
-    return { ok: true as const, transactionId: transaction.id, amount };
+    return { ok: true as const, free: false as const, transactionId: transaction.id, amount, provider };
   });
   if (!created.ok) return created;
+  if (created.free) return { ok: true, orderId, checkoutUrl: `/billing/return?order=${orderId}`, reused: false, free: true };
   const transaction = { id: created.transactionId };
 
   try {
-    const session = await provider.createCheckout({
+    const session = await created.provider.createCheckout({
       orderId,
       amount: created.amount,
       itemName: catalogue.name,
@@ -290,7 +342,7 @@ export async function startCheckout(
       where: { id: transaction.id },
       data: { checkoutUrl: session.checkoutUrl, providerReference: session.reference },
     });
-    return { ok: true, orderId, checkoutUrl: session.checkoutUrl, reused: false };
+    return { ok: true, orderId, checkoutUrl: session.checkoutUrl, reused: false, free: false };
   } catch (error) {
     // The order never reached the provider, so it can be closed here without a webhook.
     await db.paymentTransaction.update({ where: { id: transaction.id }, data: { status: "FAILED", failedAt: now } });

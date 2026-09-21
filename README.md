@@ -113,10 +113,13 @@ as-is. Audio has no HTTP range support, so seeking inside a long track may not w
   - **Transactions**: read-only list and detail with the webhook history (payloads are not shown);
     status still only changes through verified webhooks.
   - **Plans, add-ons and promo codes**: prices and features are editable (codes are fixed; existing
-    orders keep their price). Promo codes: percent (1–99) or fixed rupiah, optional plan restriction,
+    orders keep their price). Promo codes: percent (1–100) or fixed rupiah, optional plan restriction,
     Jakarta-day validity window, total and per-user limits. They are checked at checkout under a row
-    lock; a use counts while its order is paid or still open, and the price never drops below
-    Rp1.000. Add-ons are never discounted.
+    lock; a use counts while its order is paid or still open, and a paid price never drops below
+    Rp1.000. A code that takes the whole price (100%, or a fixed amount at least the price) makes the
+    plan free: no payment provider is involved, so it works while payments are off. The order is
+    recorded as paid Rp0 with provider `free` (the only Rp0 order a CHECK allows) and the plan is
+    granted in the same transaction. Add-ons are never discounted.
   - **Task templates**: create and edit the checklist templates (category, priority, deadline
     offset, event types, marriage processes). Existing checklists are never changed.
   - **Invitation themes**: themes stay in code; admins set name, order, availability and premium

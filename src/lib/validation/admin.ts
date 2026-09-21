@@ -99,8 +99,9 @@ export const promoCodeSchema = z
   .transform((data, ctx) => {
     let value: bigint | null = null;
     if (data.discountType === "PERCENT") {
-      if (/^\d{1,2}$/.test(data.discountValue) && Number(data.discountValue) >= 1) value = BigInt(data.discountValue);
-      else ctx.addIssue({ code: "custom", path: ["discountValue"], message: "Persen diskon harus 1–99" });
+      // 100 makes the plan free: the checkout then skips the payment provider.
+      if (/^\d{1,3}$/.test(data.discountValue) && Number(data.discountValue) >= 1 && Number(data.discountValue) <= 100) value = BigInt(data.discountValue);
+      else ctx.addIssue({ code: "custom", path: ["discountValue"], message: "Persen diskon harus 1–100" });
     } else {
       const parsed = optionalMoney("Nilai diskon").safeParse(data.discountValue);
       if (parsed.success && parsed.data !== null && parsed.data > 0n) value = parsed.data;

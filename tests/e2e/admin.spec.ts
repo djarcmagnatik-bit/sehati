@@ -103,3 +103,36 @@ test("admin: hidden from couples, then moderates users, grants access, runs a pr
   await page.getByRole("button", { name: "Masuk" }).click();
   await expect(page.getByText("Email atau password salah.")).toBeVisible();
 });
+
+test("admin: a 100% promo code gives Full Access at once, without a payment", async ({ page }) => {
+  test.setTimeout(180_000);
+  const { email } = await registerAndOnboard(page, { access: "free" });
+  await getTestDb().user.update({ where: { email: email.toLowerCase() }, data: { role: "ADMIN" } });
+
+  const promoCode = `GRATIS${Date.now().toString(36).toUpperCase()}`;
+  await page.goto("/admin/promo-codes/new");
+  await page.getByRole("textbox", { name: /^Kode/ }).fill(promoCode);
+  await page.getByLabel(/^Diskon \(%\)/).fill("100");
+  await page.getByRole("button", { name: "Buat kode promo" }).click();
+  await expect(page).toHaveURL(/\/admin\/promo-codes\?notice=created$/);
+
+  // Locked before.
+  await page.goto("/guests");
+  await expect(page).toHaveURL(/\/billing\?feature=/);
+
+  await page.goto("/billing");
+  await page.getByLabel("Kode promo (opsional)").first().fill(promoCode.toLowerCase());
+  await page.getByRole("button", { name: "Beli Akses Penuh" }).click();
+  // Straight to our own status page: no payment page in between.
+  await expect(page).toHaveURL(/\/billing\/return\?order=SHT-/);
+  await expect(page.getByTestId("payment-status")).toHaveText("Gratis (kode promo)");
+  await expect(page.getByText("Kode promo diterapkan — tanpa pembayaran.")).toBeVisible();
+
+  await page.goto("/guests");
+  await expect(page).toHaveURL(/\/guests$/);
+  await page.goto("/activity");
+  await expect(page.getByText(new RegExp(`gratis dengan kode promo ${promoCode}`))).toBeVisible();
+
+  await page.goto("/admin/promo-codes");
+  await expect(page.getByRole("table", { name: "Daftar kode promo" }).getByRole("row", { name: new RegExp(promoCode) })).toContainText("100%");
+});

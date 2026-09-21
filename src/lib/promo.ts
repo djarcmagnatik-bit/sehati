@@ -8,8 +8,14 @@ export const PROMO_DISCOUNT_TYPE_LABEL: Record<PromoDiscountTypeValue, string> =
   FIXED: "Nominal tetap",
 };
 
-/** Payment providers cannot charge nothing, so a promo may not bring the price below this. */
+/**
+ * Payment providers cannot charge tiny amounts, so a paid price may not fall below this. A promo
+ * that takes the whole price is different: that checkout skips the provider (see FREE_PROVIDER).
+ */
 export const MIN_CHARGE_RUPIAH = 1_000n;
+
+/** Provider code of a checkout a promo made free: recorded as paid Rp0, no payment provider involved. */
+export const FREE_PROVIDER = "free";
 
 export const PROMO_CODE_PATTERN = /^[A-Z0-9][A-Z0-9_-]{2,39}$/;
 
@@ -21,11 +27,16 @@ export function normalizePromoCode(input: string): string | null {
 
 export type DiscountResult = { discount: bigint; final: bigint } | { error: "too_large" };
 
-/** Percent discounts round down, in the buyer's disfavour by at most one rupiah. */
+/**
+ * Percent discounts round down, in the buyer's disfavour by at most one rupiah. 100%, or a fixed
+ * amount at least the price, makes it free (final 0); anything leaving less than the minimum charge
+ * but more than nothing cannot be paid and is refused.
+ */
 export function computeDiscount(price: bigint, type: PromoDiscountTypeValue, value: bigint): DiscountResult {
-  const discount = type === "PERCENT" ? (price * value) / 100n : value;
+  const raw = type === "PERCENT" ? (price * value) / 100n : value;
+  const discount = raw > price ? price : raw;
   const final = price - discount;
-  if (discount <= 0n || final < MIN_CHARGE_RUPIAH) return { error: "too_large" };
+  if (discount <= 0n || (final > 0n && final < MIN_CHARGE_RUPIAH)) return { error: "too_large" };
   return { discount, final };
 }
 

@@ -28,6 +28,15 @@ describe("promo codes", () => {
     expect(computeDiscount(5n, "PERCENT", 10n)).toEqual({ error: "too_large" });
   });
 
+  it("makes a plan free at 100%, or with a fixed discount of at least the price", () => {
+    expect(computeDiscount(149_000n, "PERCENT", 100n)).toEqual({ discount: 149_000n, final: 0n });
+    expect(computeDiscount(149_000n, "FIXED", 149_000n)).toEqual({ discount: 149_000n, final: 0n });
+    // A fixed discount above the price is capped at the price: never a negative total.
+    expect(computeDiscount(149_000n, "FIXED", 500_000n)).toEqual({ discount: 149_000n, final: 0n });
+    // Between free and the minimum charge there is nothing a provider could collect.
+    expect(computeDiscount(149_000n, "FIXED", 148_500n)).toEqual({ error: "too_large" });
+  });
+
   it("checks the validity window with an exclusive end", () => {
     const now = new Date("2026-10-10T00:00:00Z");
     const base = { isActive: true, startsAt: null, expiresAt: null };
@@ -77,7 +86,9 @@ describe("admin validation", () => {
     const issues = (input: Record<string, string>) =>
       promoCodeSchema.safeParse({ ...promoBase, ...input }).error?.issues.map((issue) => issue.path.join("."));
     expect(issues({ discountValue: "0" })).toContain("discountValue");
-    expect(issues({ discountValue: "100" })).toContain("discountValue");
+    expect(issues({ discountValue: "101" })).toContain("discountValue");
+    expect(issues({ discountValue: "1000" })).toContain("discountValue");
+    expect(promoCodeSchema.parse({ ...promoBase, discountValue: "100" }).discountValue).toBe(100n);
     expect(issues({ discountType: "FIXED", discountValue: "abc" })).toContain("discountValue");
     expect(issues({ startsOn: "2026-10-10", endsOn: "2026-10-09" })).toContain("endsOn");
     expect(issues({ startsOn: "2026-02-30" })).toContain("startsOn");
