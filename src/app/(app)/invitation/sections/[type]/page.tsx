@@ -7,7 +7,7 @@ import {
   INVITATION_SECTION_TYPES,
   SECTION_DESCRIPTION,
   SECTION_LABEL,
-  SECTIONS_NOT_YET_INTERACTIVE,
+  SECTION_NOTE,
   type InvitationSectionTypeValue,
 } from "@/lib/invitation";
 import { SECTION_FIELDS } from "@/lib/invitation-fields";
@@ -64,11 +64,7 @@ export default async function InvitationSectionPage({ params }: { params: Promis
           type={type}
           enabled={section.enabled}
           content={section.content}
-          disableToggleReason={
-            SECTIONS_NOT_YET_INTERACTIVE.includes(type)
-              ? "Formulir tamu belum aktif; untuk sekarang bagian ini hanya menampilkan teks pengantar."
-              : undefined
-          }
+          note={SECTION_NOTE[type]}
         />
       </Card>
     </div>

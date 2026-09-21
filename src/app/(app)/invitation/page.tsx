@@ -14,7 +14,7 @@ import {
   invitationPath,
   SECTION_DESCRIPTION,
   SECTION_LABEL,
-  SECTIONS_NOT_YET_INTERACTIVE,
+  SECTION_NOTE,
   type InvitationSectionTypeValue,
 } from "@/lib/invitation";
 import { getTheme } from "@/lib/invitation-themes";
@@ -147,7 +147,7 @@ export default async function InvitationPage({
         <ul className="divide-y divide-cream-200">
           {invitation.sections.map((section, index) => {
             const type: InvitationSectionTypeValue = section.type;
-            const notInteractive = SECTIONS_NOT_YET_INTERACTIVE.includes(type);
+            const note = SECTION_NOTE[type];
             return (
               <li key={section.id} className="flex flex-wrap items-center gap-3 py-3">
                 <div className="min-w-0 flex-1">
@@ -158,9 +158,7 @@ export default async function InvitationPage({
                     {SECTION_LABEL[type]}
                   </Link>
                   <p className="mt-0.5 text-xs text-ink-500">{SECTION_DESCRIPTION[type]}</p>
-                  {notInteractive ? (
-                    <p className="mt-0.5 text-xs text-clay-700">Formulirnya belum aktif — menyusul pada tahap RSVP.</p>
-                  ) : null}
+                  {note ? <p className="mt-0.5 text-xs text-clay-700">{note}</p> : null}
                 </div>
                 <span
                   data-testid={`section-state-${type.toLowerCase()}`}

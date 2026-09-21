@@ -4,7 +4,6 @@ import { Prisma, type InvitationSectionType } from "@/generated/prisma/client";
 import {
   INVITATION_SECTION_TYPES,
   SECTION_LABEL,
-  SECTIONS_NOT_YET_INTERACTIVE,
   suggestSlug,
   type InvitationSectionTypeValue,
 } from "@/lib/invitation";
@@ -30,13 +29,11 @@ function isUniqueViolation(error: unknown): boolean {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }
 
-/** Sections the couple has to fill in before they are worth showing start disabled. */
-const DISABLED_BY_DEFAULT: readonly InvitationSectionTypeValue[] = [
-  "LOVE_STORY",
-  "GALLERY",
-  "GIFT",
-  ...SECTIONS_NOT_YET_INTERACTIVE,
-];
+/**
+ * Sections the couple has to fill in before they are worth showing start disabled, and so do RSVP
+ * and wishes: the couple decides whether guests may answer and write on the page.
+ */
+const DISABLED_BY_DEFAULT: readonly InvitationSectionTypeValue[] = ["LOVE_STORY", "GALLERY", "GIFT", "RSVP", "WISHES"];
 
 const DEFAULT_CONTENT: Partial<Record<InvitationSectionTypeValue, Record<string, string>>> = {
   COVER: { prefix: "The Wedding Of" },

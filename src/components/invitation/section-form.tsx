@@ -15,13 +15,13 @@ export function SectionForm({
   type,
   enabled,
   content,
-  disableToggleReason,
+  note,
 }: {
   sectionId: string;
   type: InvitationSectionTypeValue;
   enabled: boolean;
   content: Record<string, string | null>;
-  disableToggleReason?: string;
+  note?: string;
 }) {
   const [state, formAction] = useActionState(updateSectionAction, initialFormState);
   const fields = SECTION_FIELDS[type];
@@ -37,7 +37,7 @@ export function SectionForm({
         <input type="checkbox" name="enabled" defaultChecked={enabled} className="size-4 accent-clay-600" />
         Tampilkan bagian ini di undangan
       </label>
-      {disableToggleReason ? <p className="-mt-3 text-xs text-ink-500">{disableToggleReason}</p> : null}
+      {note ? <p className="-mt-3 text-xs text-ink-500">{note}</p> : null}
 
       {fields.map((field) =>
         field.type === "textarea" ? (

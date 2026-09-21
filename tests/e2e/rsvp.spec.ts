@@ -129,7 +129,12 @@ test("rsvp: the seat count is optional, and a guest without one answers for seve
   await registerAndOnboard(page);
   const slug = uniqueSlug();
   await createAndPublishInvitation(page, slug);
+  // The editor explains where the form appears, and no longer calls it unfinished.
+  await page.goto("/invitation");
+  await expect(page.getByText(/belum aktif/)).toHaveCount(0);
+  await expect(page.getByText(/hanya muncul di tautan pribadi/)).toBeVisible();
   await page.goto("/invitation/sections/rsvp");
+  await expect(page.getByText(/hanya muncul di tautan pribadi/)).toBeVisible();
   await page.getByLabel(/^Tampilkan bagian ini/).check();
   await page.getByRole("button", { name: "Simpan bagian" }).click();
   await expect(page.getByText(/disimpan\./)).toBeVisible();

@@ -40,14 +40,16 @@ export const SECTION_DESCRIPTION: Record<InvitationSectionTypeValue, string> = {
   LOVE_STORY: "Perjalanan kalian berdua dalam beberapa momen.",
   GALLERY: "Foto prewedding atau momen pilihan.",
   LOCATION: "Alamat lengkap dan tautan peta acara.",
-  RSVP: "Formulir konfirmasi kehadiran tamu (aktif pada tahap RSVP).",
-  WISHES: "Ucapan dan doa dari tamu (aktif pada tahap RSVP).",
+  RSVP: "Tamu mengonfirmasi hadir atau tidak, dan berapa orang yang datang.",
+  WISHES: "Tamu mengirim ucapan dan doa; kalian bisa menyembunyikan yang tidak pantas.",
   GIFT: "Informasi rekening dan alamat kirim hadiah.",
   CLOSING: "Ucapan terima kasih di akhir undangan.",
 };
 
-/** RSVP and wishes need the public submission flow, which is not built yet. */
-export const SECTIONS_NOT_YET_INTERACTIVE: readonly InvitationSectionTypeValue[] = ["RSVP", "WISHES"];
+/** Guidance for the couple where a section behaves differently from what its preview suggests. */
+export const SECTION_NOTE: Partial<Record<InvitationSectionTypeValue, string>> = {
+  RSVP: "Formulirnya hanya muncul di tautan pribadi tiap tamu (menu Tamu → buka tamu → salin tautan). Di tautan umum, tamu diminta memakai tautan pribadinya.",
+};
 
 /** Sections whose body comes from other tables; they have no text content of their own to edit. */
 export const SECTIONS_WITHOUT_BODY: readonly InvitationSectionTypeValue[] = ["COUNTDOWN"];
