@@ -169,6 +169,9 @@ cd /opt/sehati
 # db:deploy would run the previous image's migrations (reporting "No pending migrations").
 sudo docker compose --profile tools pull               # or: build again (option B)
 sudo docker compose run --rm tools pnpm db:deploy      # new migrations, if any
+# Only when the shipped checklist templates changed (the seed adds missing ones but never updates):
+sudo docker compose run --rm tools pnpm templates:sync -- --dry-run
+sudo docker compose run --rm tools pnpm templates:sync
 sudo docker compose up -d app cron
 # Remove only the previous Sehati images. Not `docker image prune`: it deletes every untagged
 # image on the host, including older images of other apps kept for rollback.

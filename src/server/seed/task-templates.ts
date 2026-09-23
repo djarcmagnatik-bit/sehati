@@ -78,7 +78,11 @@ export const TASK_TEMPLATES: TaskTemplateSeed[] = [
   t("PLAN_CONFIRM_DATE", "Konfirmasi tanggal dengan keluarga & pihak terkait", "PLANNING", -340, "HIGH", ALL, ANY),
   t("PLAN_WO_RESEARCH", "Riset wedding organizer (jika diperlukan)", "PLANNING", -330, "MEDIUM", WEDDING, ANY),
   t("PLAN_WO_BOOK", "Booking wedding organizer", "PLANNING", -300, "MEDIUM", WEDDING, ANY),
+  t("PLAN_FAMILY_COMMITTEE", "Bentuk panitia keluarga & bagi tugas", "PLANNING", -90, "MEDIUM", WEDDING, ANY,
+    "Tentukan penanggung jawab tiap bagian: acara, penerima tamu, konsumsi, dokumentasi, dan keuangan."),
   t("PLAN_RUNDOWN_DRAFT", "Susun draf rundown acara", "PLANNING", -60, "HIGH", ALL, ANY),
+  t("PLAN_WEATHER_BACKUP", "Siapkan rencana cadangan bila hujan", "PLANNING", -30, "LOW", RECEPTION, ANY,
+    "Tenda tambahan, area indoor, atau jalur tamu yang terlindung."),
   t("PLAN_VENDOR_CONFIRM", "Konfirmasi ulang semua vendor", "PLANNING", -7, "URGENT", ALL, ANY,
     "Pastikan jam kedatangan, lokasi, dan PIC setiap vendor sudah sesuai."),
   t("PLAN_SHARE_CONTACTS", "Bagikan kontak vendor & PIC ke keluarga", "PLANNING", -7, "MEDIUM", ALL, ANY),
@@ -91,26 +95,38 @@ export const TASK_TEMPLATES: TaskTemplateSeed[] = [
   t("FIN_ALLOCATE", "Alokasikan budget per kategori", "FINANCE", -350, "HIGH", ALL, ANY),
   t("FIN_SAVINGS_PLAN", "Buat rencana menabung bersama", "FINANCE", -350, "MEDIUM", ALL, ANY),
   t("FIN_PAYMENT_SCHEDULE", "Catat jadwal DP & pelunasan semua vendor", "FINANCE", -150, "HIGH", ALL, ANY),
+  t("FIN_GIFT_ACCOUNT", "Siapkan rekening / QRIS untuk kado digital", "FINANCE", -45, "LOW", ALL, ANY,
+    "Dipakai di bagian Hadiah pada undangan digital. Cek lagi nama dan nomor rekeningnya."),
   t("FIN_VENDOR_ENVELOPES", "Siapkan amplop untuk vendor & kru", "FINANCE", -5, "LOW", ALL, ANY),
 
   // Administrasi — KUA
   t("ADM_KUA_DOCUMENTS", "Kumpulkan dokumen nikah", "ADMINISTRATION", -120, "URGENT", WEDDING, KUA,
-    "Umumnya: fotokopi KTP, KK, akta kelahiran, ijazah terakhir, dan pas foto. Cek ketentuan KUA setempat."),
-  t("ADM_RT_RW_LETTER", "Urus surat pengantar RT/RW", "ADMINISTRATION", -100, "HIGH", WEDDING, KUA),
-  t("ADM_VILLAGE_LETTER", "Urus surat pengantar nikah dari kelurahan/desa", "ADMINISTRATION", -90, "HIGH", WEDDING, KUA),
-  t("ADM_HEALTH_CHECK", "Periksa kesehatan calon pengantin di puskesmas", "ADMINISTRATION", -90, "HIGH", WEDDING, KUA,
-    "Beberapa daerah mensyaratkan surat keterangan sehat/imunisasi. Tanyakan ke KUA setempat."),
+    "Umumnya: fotokopi KTP, KK, akta kelahiran, ijazah terakhir, dan pas foto 4x6 latar biru. Pendaftaran bisa lewat Simkah (simkah4.kemenag.go.id). Ketentuan detail berbeda antar KUA, jadi konfirmasi ke KUA tempat akad."),
+  t("ADM_EXTRA_DOCS", "Lengkapi dokumen tambahan sesuai kondisi", "ADMINISTRATION", -110, "MEDIUM", WEDDING, OFFICIAL,
+    "Akta cerai atau surat kematian pasangan terdahulu bila pernah menikah, izin atasan bagi TNI/Polri, dan izin orang tua bila calon pengantin di bawah 21 tahun. Usia minimal menikah 19 tahun (UU 16/2019); di bawah itu perlu dispensasi pengadilan."),
+  t("ADM_VILLAGE_LETTER", "Urus surat pengantar nikah (N1–N5) di kelurahan/desa", "ADMINISTRATION", -90, "HIGH", WEDDING, KUA,
+    "Blanko pengantar nikah diterbitkan kelurahan/desa; N5 adalah izin orang tua untuk calon pengantin di bawah 21 tahun. Sejak Permendagri 108/2019 surat pengantar RT/RW tidak lagi disyaratkan, meski sebagian daerah masih memintanya."),
+  t("ADM_HEALTH_CHECK", "Periksa kesehatan pranikah & daftar Elsimil", "ADMINISTRATION", -90, "HIGH", WEDDING, KUA,
+    "Pemeriksaan di puskesmas/faskes dan pendaftaran Elsimil (BKKBN) untuk sertifikat siap nikah. Sebagian daerah juga meminta bukti imunisasi TT bagi calon pengantin perempuan. Idealnya sekitar 3 bulan sebelum akad."),
   t("ADM_NUMPANG_NIKAH", "Urus surat rekomendasi nikah (jika akad di luar kecamatan domisili)", "ADMINISTRATION", -75, "MEDIUM", WEDDING, KUA),
   t("ADM_KUA_REGISTER", "Daftar nikah ke KUA", "ADMINISTRATION", -60, "URGENT", WEDDING, KUA,
-    "Pendaftaran paling lambat 10 hari kerja sebelum akad. Lebih awal lebih aman."),
+    "Paling lambat 10 hari kerja sebelum akad. Kurang dari itu harus meminta surat dispensasi dari kecamatan, jadi daftar lebih awal lebih aman."),
   t("ADM_PREMARITAL_GUIDANCE", "Ikuti bimbingan perkawinan (Bimwin)", "ADMINISTRATION", -45, "MEDIUM", WEDDING, KUA),
   t("ADM_KUA_OFFSITE_FEE", "Bayar biaya nikah di luar kantor KUA (jika akad di luar KUA)", "ADMINISTRATION", -30, "MEDIUM", WEDDING, KUA,
-    "Pembayaran resmi melalui bank persepsi. Simpan bukti setorannya."),
+    "Akad di kantor KUA pada jam kerja tidak dipungut biaya; di luar itu Rp600.000, disetor ke bank persepsi sesuai kode billing dari Simkah. Simpan bukti setorannya."),
+
+  // Administrasi — izin acara
+  t("ADM_NEIGHBOUR_PERMIT", "Izin RT/RW & tetangga untuk acara di rumah", "ADMINISTRATION", -21, "MEDIUM", RECEPTION, ANY,
+    "Terutama bila memakai badan jalan untuk tenda atau parkir."),
+  t("ADM_CROWD_PERMIT", "Urus surat izin keramaian ke Polsek/Polres", "ADMINISTRATION", -14, "HIGH", RECEPTION, ANY,
+    "Tidak dipungut biaya. Lampirkan permohonan, KTP & KK penanggung jawab, susunan acara, dan izin penggunaan tempat. Ajukan minimal 3 hari kerja sebelum acara; lebih awal lebih aman."),
 
   // Administrasi — keagamaan & sipil
   t("ADM_RELIGIOUS_DOCUMENTS", "Lengkapi persyaratan dokumen dari rumah ibadah", "ADMINISTRATION", -120, "HIGH", WEDDING, RELIGIOUS),
-  t("ADM_CIVIL_DOCUMENTS", "Siapkan dokumen pencatatan perkawinan di Dukcapil", "ADMINISTRATION", -90, "URGENT", WEDDING, RELIGIOUS_OR_CIVIL),
-  t("ADM_CIVIL_REGISTER", "Daftarkan pencatatan perkawinan ke Dukcapil", "ADMINISTRATION", -60, "URGENT", WEDDING, RELIGIOUS_OR_CIVIL),
+  t("ADM_CIVIL_DOCUMENTS", "Siapkan dokumen pencatatan perkawinan di Dukcapil", "ADMINISTRATION", -90, "URGENT", WEDDING, RELIGIOUS_OR_CIVIL,
+    "Umumnya: KTP & KK kedua mempelai, akta kelahiran, pas foto berdampingan, dan data dua orang saksi. Cek daftar resminya di Dukcapil domisili."),
+  t("ADM_CIVIL_PROCEDURE", "Cek jadwal & prosedur pencatatan perkawinan di Dukcapil", "ADMINISTRATION", -30, "HIGH", WEDDING, RELIGIOUS_OR_CIVIL,
+    "Akta perkawinan diterbitkan setelah upacara agama, berdasarkan surat keterangan dari pemuka agama. Sebagian Dukcapil melayani pendaftaran berkas lebih dulu, bahkan mencatat di lokasi acara — tanyakan sejak awal."),
 
   // Akad & upacara
   t("CER_LOCATION", "Tentukan lokasi akad / upacara", "CEREMONY", -300, "HIGH", CEREMONY, ANY),
@@ -123,6 +139,9 @@ export const TASK_TEMPLATES: TaskTemplateSeed[] = [
   t("CER_RELIGIOUS_ANNOUNCEMENT", "Umumkan rencana pernikahan di rumah ibadah (jika disyaratkan)", "CEREMONY", -60, "LOW", CEREMONY, RELIGIOUS),
   t("CER_RELIGIOUS_REHEARSAL", "Gladi upacara keagamaan", "CEREMONY", -3, "MEDIUM", CEREMONY, RELIGIOUS),
   t("CER_CIVIL_WITNESSES", "Tentukan dua orang saksi pencatatan perkawinan", "CEREMONY", -45, "HIGH", WEDDING, RELIGIOUS_OR_CIVIL),
+  t("CER_TASYAKURAN", "Jadwalkan pengajian / tasyakuran sebelum akad", "CEREMONY", -21, "LOW", CEREMONY, KUA),
+  t("CER_NGUNDUH_MANTU", "Rencanakan ngunduh mantu (jika diadakan)", "CEREMONY", -60, "MEDIUM", RECEPTION, ANY,
+    "Resepsi kedua di pihak keluarga mempelai pria. Sepakati tanggal, tempat, dan siapa yang menanggung biayanya."),
   t("CER_ADAT_CONSULT", "Konsultasi dengan sesepuh / pemuka adat", "CEREMONY", -180, "HIGH", TRADITIONAL, ANY),
   t("CER_ADAT_EQUIPMENT", "Siapkan perlengkapan upacara adat", "CEREMONY", -60, "HIGH", TRADITIONAL, ANY),
   t("CER_ADAT_PRE_RITUALS", "Persiapkan prosesi adat sebelum hari H", "CEREMONY", -14, "MEDIUM", TRADITIONAL, ANY,
@@ -134,6 +153,8 @@ export const TASK_TEMPLATES: TaskTemplateSeed[] = [
   t("VENUE_RESEARCH", "Survei & bandingkan venue resepsi", "VENUE", -330, "HIGH", RECEPTION, ANY),
   t("VENUE_BOOK", "Booking venue resepsi & bayar DP", "VENUE", -300, "URGENT", RECEPTION, ANY),
   t("VENUE_ENGAGEMENT", "Tentukan tempat acara lamaran", "VENUE", -60, "MEDIUM", ENGAGEMENT, ANY),
+  t("VENUE_HOME_SETUP", "Atur tenda, kursi, listrik & parkir untuk acara di rumah", "VENUE", -30, "MEDIUM", RECEPTION, ANY,
+    "Termasuk daya listrik tambahan atau genset, jalur keluar-masuk tamu, dan area parkir."),
   t("VENUE_TECH_MEETING", "Technical meeting dengan pihak venue", "VENUE", -30, "HIGH", RECEPTION, ANY),
   t("VENUE_FINAL_PAYMENT", "Pelunasan venue", "VENUE", -21, "HIGH", RECEPTION, ANY),
 
@@ -142,7 +163,9 @@ export const TASK_TEMPLATES: TaskTemplateSeed[] = [
   t("CATERING_TASTING", "Food tasting catering", "CATERING", -240, "MEDIUM", RECEPTION, ANY),
   t("CATERING_BOOK", "Booking catering & bayar DP", "CATERING", -210, "HIGH", RECEPTION, ANY),
   t("CATERING_FINAL_MENU", "Finalisasi menu & jumlah porsi", "CATERING", -30, "HIGH", RECEPTION, ANY),
+  t("CATERING_CAKE", "Pesan kue pengantin / tumpeng", "CATERING", -45, "LOW", RECEPTION, ANY),
   t("CATERING_FINAL_PAYMENT", "Pelunasan catering", "CATERING", -14, "HIGH", RECEPTION, ANY),
+  t("CATERING_CREW_MEALS", "Pastikan konsumsi kru & vendor hari H", "CATERING", -7, "MEDIUM", RECEPTION, ANY),
   t("CATERING_SMALL_EVENT", "Siapkan konsumsi untuk tamu acara", "CATERING", -30, "MEDIUM", [...AKAD_ONLY, ...ENGAGEMENT], ANY),
 
   // Dekorasi
@@ -179,6 +202,7 @@ export const TASK_TEMPLATES: TaskTemplateSeed[] = [
   t("MUA_FAMILY", "Atur rias untuk keluarga inti", "MAKEUP", -45, "LOW", WEDDING, ANY),
 
   // Undangan
+  t("INV_SAVE_THE_DATE", "Kabari save the date ke keluarga & sahabat dekat", "INVITATION", -120, "LOW", ALL, ANY),
   t("INV_DESIGN", "Tentukan desain undangan (digital / cetak)", "INVITATION", -150, "MEDIUM", ALL, ANY),
   t("INV_PRINT_ORDER", "Pesan undangan cetak (jika ada)", "INVITATION", -90, "LOW", WEDDING, ANY),
   t("INV_DIGITAL", "Buat undangan digital", "INVITATION", -75, "MEDIUM", ALL, ANY),
@@ -192,6 +216,7 @@ export const TASK_TEMPLATES: TaskTemplateSeed[] = [
   t("GUEST_RECEPTIONISTS", "Tunjuk penerima tamu & among tamu", "GUESTS", -30, "MEDIUM", RECEPTION, ANY),
   t("GUEST_RSVP_FOLLOW_UP", "Follow up tamu yang belum RSVP", "GUESTS", -21, "MEDIUM", ALL, ANY),
   t("GUEST_VIP_SEATING", "Atur tempat duduk keluarga & tamu VIP", "GUESTS", -14, "MEDIUM", RECEPTION, ANY),
+  t("GUEST_BOOK_SUPPLIES", "Siapkan buku tamu, kotak angpao & petugasnya", "GUESTS", -14, "MEDIUM", RECEPTION, ANY),
   t("GUEST_SOUVENIR_READY", "Pastikan souvenir sudah siap", "GUESTS", -14, "LOW", RECEPTION, ANY),
 
   // Seserahan
@@ -218,8 +243,12 @@ export const TASK_TEMPLATES: TaskTemplateSeed[] = [
   // Setelah menikah
   t("POST_RETURN_RENTALS", "Kembalikan barang sewaan", "POST_WEDDING", 3, "MEDIUM", ALL, ANY),
   t("POST_THANK_YOU", "Kirim ucapan terima kasih kepada tamu & keluarga", "POST_WEDDING", 7, "LOW", ALL, ANY),
-  t("POST_MARRIAGE_BOOK", "Ambil buku nikah / kutipan akta perkawinan", "POST_WEDDING", 14, "HIGH", WEDDING, OFFICIAL),
+  t("POST_CIVIL_RECORD", "Catatkan perkawinan ke Dukcapil", "POST_WEDDING", 7, "URGENT", WEDDING, RELIGIOUS_OR_CIVIL,
+    "Paling lambat 60 hari setelah upacara; dalam tenggat itu gratis, lewat tenggat bisa kena denda administratif. Bawa surat keterangan telah menikah dari pemuka agama."),
+  t("POST_MARRIAGE_BOOK", "Terima buku nikah / kutipan akta perkawinan", "POST_WEDDING", 7, "HIGH", WEDDING, OFFICIAL,
+    "Buku nikah dari KUA biasanya diserahkan langsung setelah akad. Akta perkawinan dari Dukcapil terbit setelah pencatatan; periksa ejaan nama dan tanggal begitu menerimanya."),
   t("POST_EXPENSE_RECAP", "Rekap pengeluaran & sisa budget", "POST_WEDDING", 14, "LOW", ALL, ANY),
-  t("POST_UPDATE_ID", "Perbarui KK & status perkawinan di KTP", "POST_WEDDING", 30, "MEDIUM", WEDDING, OFFICIAL),
+  t("POST_UPDATE_ID", "Perbarui KK & status perkawinan di KTP", "POST_WEDDING", 30, "MEDIUM", WEDDING, OFFICIAL,
+    "Setelah itu perbarui juga data di BPJS, bank, NPWP, dan tempat kerja bila perlu."),
   t("POST_VENDOR_REVIEW", "Terima hasil foto/video & beri ulasan vendor", "POST_WEDDING", 45, "LOW", WEDDING, ANY),
 ];

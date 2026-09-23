@@ -424,11 +424,19 @@ describe("summary and listing", () => {
     const all = { ...DEFAULT_CHECKLIST_FILTERS, view: "all" as const };
     const page1 = await listTasks(owner.userId, weddingId, all, today);
     const page2 = await listTasks(owner.userId, weddingId, { ...all, page: 2 }, today);
-    expect(page1.total).toBe(generated + 1);
+    const total = generated + 1;
+    expect(page1.total).toBe(total);
+    // One page holds 50 tasks; the default checklist is long enough to need more than one.
     expect(page1.items).toHaveLength(50);
-    expect(page2.items).toHaveLength(generated + 1 - 50);
-    const ids = [...page1.items, ...page2.items].map((t) => t.id);
-    expect(new Set(ids).size).toBe(generated + 1);
+    expect(page2.items).toHaveLength(Math.min(50, total - 50));
+    // Every task appears on exactly one page, however many pages the checklist needs.
+    const ids: string[] = [];
+    for (let page = 1; (page - 1) * 50 < total; page += 1) {
+      const chunk = await listTasks(owner.userId, weddingId, { ...all, page }, today);
+      ids.push(...chunk.items.map((t) => t.id));
+    }
+    expect(ids).toHaveLength(total);
+    expect(new Set(ids).size).toBe(total);
 
     const upcoming = await getUpcomingTasks(owner.userId, weddingId, 5);
     expect(upcoming).toHaveLength(5);

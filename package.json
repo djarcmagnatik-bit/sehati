@@ -35,7 +35,8 @@
     "load:seed": "tsx --conditions=react-server scripts/load-test/seed.ts",
     "load:run": "tsx scripts/load-test/run.ts",
     "db:test:seed": "tsx scripts/with-test-db.ts tsx prisma/seed.ts",
-    "verify:migrations": "tsx scripts/verify-migrations.ts"
+    "verify:migrations": "tsx scripts/verify-migrations.ts",
+    "templates:sync": "tsx scripts/templates-sync.ts"
   },
   "dependencies": {
     "@node-rs/argon2": "2.2.1",

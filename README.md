@@ -5,7 +5,9 @@ Wedding planning workspace for couples (Indonesia-first). Built phase by phase f
 **Status:**
 
 - Phase 1 (Foundation): authentication, sessions, wedding workspace, membership, onboarding, base layout.
-- Phase 2 (Checklist): admin-configurable task categories & templates (108 defaults), template-driven
+- Phase 2 (Checklist): admin-configurable task categories & templates (121 defaults, reviewed against
+  Indonesian practice: KUA/Simkah paperwork with its 10-working-day rule, Dukcapil recording within 60
+  days after the ceremony, crowd permit, adat stages, ngunduh mantu), template-driven
   deadline generation, task CRUD with filters/search/sort/pagination, progress on the dashboard, and
   wedding-date change with opt-in deadline recalculation (manual deadlines are never overwritten).
 
@@ -101,6 +103,10 @@ as-is. Audio has no HTTP range support, so seeking inside a long track may not w
     use the same API to catch delayed or lost webhooks. See [docs/payments-midtrans.md](docs/payments-midtrans.md)
     (a full payment against the live Midtrans sandbox is still NOT VERIFIED).
   - Support tool: `pnpm access:grant -- --email <email>` grants Full Access as an admin grant.
+  - Support tool: `pnpm templates:sync [-- --dry-run]` brings the checklist templates in a seeded
+    database in line with the shipped defaults (the seed itself only ever adds missing ones).
+    Templates an admin created (`ADMIN_` codes) are left alone, dropped ones are deactivated, and
+    checklists that already exist are never rewritten.
 
 - Phase 11 (Admin, `/admin`):
   - **Admins only**: the role is read from the database on every page, action and service call, so a
