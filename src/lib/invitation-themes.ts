@@ -30,8 +30,11 @@ export type ThemeTokens = {
 };
 
 /** Decoration drawn under section headings (and above the cover title for the non-line motifs). */
-export const THEME_MOTIFS = ["line", "bow", "squiggle", "sparkle", "film", "sprig"] as const;
+export const THEME_MOTIFS = ["line", "bow", "squiggle", "sparkle", "film", "sprig", "siger"] as const;
 export type ThemeMotif = (typeof THEME_MOTIFS)[number];
+/** Art in the cover corners: botanical sprigs, or strings of jasmine hanging from the top edge. */
+export const CORNER_ARTS = ["none", "sprig", "melati"] as const;
+export type CornerArt = (typeof CORNER_ARTS)[number];
 /** Frame for gallery photos. */
 export const PHOTO_SHAPES = ["rounded", "arch", "polaroid"] as const;
 export type PhotoShape = (typeof PHOTO_SHAPES)[number];
@@ -55,8 +58,10 @@ export type ThemeStyle = {
   motif?: ThemeMotif;
   /** Film-grain texture over the cover. */
   grain?: boolean;
-  /** Line-drawn botanical sprigs in the cover corners, swaying gently. */
-  corners?: boolean;
+  /** Decoration in the cover corners, swaying gently. */
+  corners?: CornerArt;
+  /** Color of the motif and corner art (e.g. gold); defaults to the accent. Decorative only, never text. */
+  motifColor?: string;
 };
 
 export type InvitationTheme = {
@@ -400,7 +405,7 @@ export const INVITATION_THEMES: readonly InvitationTheme[] = [
       radius: "1.25rem",
       ornament: "linear-gradient(90deg, transparent, #c9a58a, transparent)",
     },
-    style: { headingWeight: 600, headingStyle: "italic", card: "soft", photo: "arch", motif: "sprig", corners: true },
+    style: { headingWeight: 600, headingStyle: "italic", card: "soft", photo: "arch", motif: "sprig", corners: "sprig" },
   },
   {
     code: "dusty-blue",
@@ -422,7 +427,31 @@ export const INVITATION_THEMES: readonly InvitationTheme[] = [
       radius: "1.5rem",
       ornament: "linear-gradient(90deg, transparent, #9fb4c8, transparent)",
     },
-    style: { headingWeight: 400, card: "soft", photo: "rounded", motif: "sprig", corners: true },
+    style: { headingWeight: 400, card: "soft", photo: "rounded", motif: "sprig", corners: "sprig" },
+  },
+  // ─── Regional ────────────────────────────────────────────────────────────────
+  {
+    code: "sunda",
+    name: "Sunda Siger",
+    description: "Siger emas, ronce melati, dan hijau zamrud: anggun seperti pengantin Sunda.",
+    defaultCoverLayout: "center",
+    tokens: {
+      background: "#f4efe3",
+      surface: "#fdfaf2",
+      ink: "#1b2a23",
+      muted: "#4f5f55",
+      accent: "#1f5a48",
+      accentSoft: "#e2ebe3",
+      border: "#e0d5bb",
+      coverOverlay: "linear-gradient(180deg, rgba(18,38,30,0.10) 0%, rgba(18,38,30,0.72) 100%)",
+      coverInk: "#fdfaf2",
+      displayFont: CORMORANT,
+      bodyFont: SANS,
+      radius: "0.75rem",
+      ornament: "linear-gradient(90deg, transparent, #b8923f, transparent)",
+    },
+    // Siger: the Sundanese bridal crown. Melati: the jasmine strings (ronce) that hang from it.
+    style: { headingWeight: 600, card: "soft", photo: "arch", motif: "siger", corners: "melati", motifColor: "#a17c33" },
   },
 ];
 
@@ -446,7 +475,8 @@ export function themeLook(theme: InvitationTheme): Required<Omit<ThemeStyle, "la
     photo: style.photo ?? "rounded",
     motif: style.motif ?? "line",
     grain: style.grain ?? false,
-    corners: style.corners ?? false,
+    corners: style.corners ?? "none",
+    motifColor: style.motifColor ?? theme.tokens.accent,
   };
 }
 
@@ -486,5 +516,6 @@ export function themeStyle(theme: InvitationTheme): Record<string, string> {
     "--inv-body-font": tokens.bodyFont,
     "--inv-radius": tokens.radius,
     "--inv-ornament": tokens.ornament,
+    "--inv-motif": look.motifColor,
   };
 }

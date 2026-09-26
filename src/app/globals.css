@@ -74,6 +74,11 @@
     font-family: var(--inv-label-font, inherit);
   }
 
+  /* Focus rings inside an invitation use the theme's accent, not the app's clay. */
+  [data-theme] :focus-visible {
+    outline-color: var(--inv-accent);
+  }
+
   .inv-card {
     background: var(--inv-surface);
     border: var(--inv-card-border, 1px solid var(--inv-border));

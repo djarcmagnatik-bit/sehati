@@ -7,7 +7,7 @@ import { MusicPlayer } from "@/components/invitation/public/music-player";
 import { RsvpForm, type RsvpState } from "@/components/invitation/public/rsvp-form";
 import { OpeningGate } from "@/components/invitation/public/opening-gate";
 import { RevealOnScroll } from "@/components/invitation/public/reveal-on-scroll";
-import { CornerSprigs, ThemeMotifMark } from "@/components/invitation/public/theme-motif";
+import { CornerArtLayer, ThemeMotifMark } from "@/components/invitation/public/theme-motif";
 import { WishesSection, type PublicWishView } from "@/components/invitation/public/wishes";
 import { dbDateToIso, formatIsoDateLong, zonedTimeToUtcMs } from "@/lib/dates";
 import { GIFT_ACCOUNT_LABEL, SECTION_LABEL, type InvitationSectionTypeValue } from "@/lib/invitation";
@@ -104,12 +104,12 @@ function Cover({ invitation, guestName, look }: { invitation: PublicInvitation; 
         </>
       ) : null}
       {look.grain ? <div aria-hidden="true" className="inv-grain pointer-events-none absolute inset-0" /> : null}
-      {look.corners ? <CornerSprigs /> : null}
+      <CornerArtLayer art={look.corners} />
 
       <div className={`relative mx-auto w-full ${layout === "split" ? "max-w-3xl sm:text-left" : "max-w-xl"}`}>
         {look.motif !== "line" ? (
           <div className="inv-rise inv-after-open" style={heroDelay(0)}>
-            <ThemeMotifMark motif={look.motif} className={`mb-4 ${layout === "split" ? "sm:mx-0" : ""}`} />
+            <ThemeMotifMark motif={look.motif} hero className={`mb-4 ${layout === "split" ? "sm:mx-0" : ""}`} />
           </div>
         ) : null}
         {prefix ? (
@@ -164,7 +164,7 @@ function GateBackdrop({ invitation, look }: { invitation: PublicInvitation; look
         </>
       ) : null}
       {look.grain ? <div aria-hidden="true" className="inv-grain pointer-events-none absolute inset-0" /> : null}
-      {look.corners ? <CornerSprigs /> : null}
+      <CornerArtLayer art={look.corners} />
     </>
   );
 }
@@ -178,7 +178,7 @@ function GateContent({ invitation, guestName, look }: { invitation: PublicInvita
     <div style={{ color: ink }}>
       {look.motif !== "line" ? (
         <div className="inv-rise" style={{ animationDelay: "0.1s" }}>
-          <ThemeMotifMark motif={look.motif} className="mb-4" />
+          <ThemeMotifMark motif={look.motif} hero className="mb-4" />
         </div>
       ) : null}
       <p className="inv-rise inv-label text-sm tracking-[0.3em] uppercase" style={{ animationDelay: "0.15s" }}>

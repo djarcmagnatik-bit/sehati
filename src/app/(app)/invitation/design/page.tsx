@@ -40,6 +40,7 @@ export default async function InvitationDesignPage() {
           background: entry.theme.tokens.background,
           ink: entry.theme.tokens.ink,
           accent: entry.theme.tokens.accent,
+          motifColor: look.motifColor,
           ornament: entry.theme.tokens.ornament,
           displayFont: entry.theme.tokens.displayFont,
           headingWeight: look.headingWeight,

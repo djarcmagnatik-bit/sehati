@@ -80,6 +80,7 @@ export type ThemeOption = {
     background: string;
     ink: string;
     accent: string;
+    motifColor: string;
     ornament: string;
     displayFont: string;
     headingWeight: number;
@@ -92,6 +93,7 @@ export type ThemeOption = {
 function ThemePreview({ preview }: { preview: ThemeOption["preview"] }) {
   const variables = {
     "--inv-accent": preview.accent,
+    "--inv-motif": preview.motifColor,
     "--inv-ornament": preview.ornament,
     "--inv-background": preview.background,
   } as React.CSSProperties;
