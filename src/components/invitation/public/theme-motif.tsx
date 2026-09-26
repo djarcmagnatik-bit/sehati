@@ -72,6 +72,113 @@ function SigerMark({ className, hero }: { className: string; hero: boolean }) {
   );
 }
 
+/**
+ * Sundanese icons for the section marks of the siger motif, one per section, in gold line art that
+ * draws itself when the section appears (`inv-draw`, paths with pathLength=1).
+ *
+ * - sirih: two betel leaves, the joining of two families (ngeuyeuk seureuh)
+ * - payung: the ceremonial umbrella carried over the couple
+ * - angklung: the bamboo instrument of West Java
+ * - melati: jasmine, the bride's flower
+ * - kacapi: the Sundanese zither
+ */
+type SundaIcon = "siger" | "sirih" | "payung" | "angklung" | "melati" | "kacapi";
+
+const SUNDA_SECTION_ICON: Record<string, SundaIcon> = {
+  mempelai: "sirih",
+  acara: "payung",
+  "hitung-mundur": "angklung",
+  cerita: "melati",
+  galeri: "kacapi",
+  rsvp: "melati",
+  ucapan: "sirih",
+};
+
+/** One betel leaf standing on (0, 0): a heart-shaped blade with a pointed tip and a centre vein. */
+const SIRIH_LEAF = "M0 0C-3.4 1.8-8.6 0.2-8.6-4.6C-8.6-9.6-4-12.4 0-18.6C4-12.4 8.6-9.6 8.6-4.6C8.6 0.2 3.4 1.8 0 0Z";
+
+function SundaIconGlyph({ icon }: { icon: Exclude<SundaIcon, "siger"> }) {
+  const line = { pathLength: 1, fill: "none", stroke: "currentColor", strokeWidth: 1.25, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  switch (icon) {
+    case "sirih":
+      return (
+        <g>
+          {[-38, 38].map((angle) => (
+            <g key={angle} transform={`translate(14 22.5) rotate(${angle}) scale(0.9)`}>
+              <path d={SIRIH_LEAF} {...line} />
+              <path d="M0 1.5V-15M0-5.5L-4-8.5M0-5.5L4-8.5M0-10L-2.6-12.2M0-10L2.6-12.2" {...line} strokeWidth={0.8} />
+            </g>
+          ))}
+          <path d="M14 22.5V27.5" {...line} />
+        </g>
+      );
+    case "payung":
+      return (
+        <g>
+          <path d="M3 13Q14 1 25 13" {...line} />
+          <path d="M3 13q2.75 2.4 5.5 0q2.75 2.4 5.5 0q2.75 2.4 5.5 0q2.75 2.4 5.5 0" {...line} />
+          <path d="M14 3.5L8.5 13M14 3.5L19.5 13M14 3.5V13" {...line} strokeWidth={0.8} />
+          <path d="M3 13v2.6M8.5 13v2.6M19.5 13v2.6M25 13v2.6" {...line} strokeWidth={0.9} />
+          <path d="M14 13V26.5q0 1.5-1.6 1.5" {...line} />
+          <circle cx="14" cy="2.2" r="1.2" fill="currentColor" className="inv-draw-fill" />
+        </g>
+      );
+    case "angklung":
+      return (
+        <g>
+          {/* Frame: side posts with round tips, top and middle rails, a heavier base. */}
+          <path d="M5.5 26.5V3.5M22.5 26.5V3.5M4 7H24M4 13.5H24" {...line} />
+          <path d="M2.5 26.5H25.5" {...line} strokeWidth={1.8} />
+          {/* Two bamboo tubes, each with the cut tongue that makes an angklung sound. */}
+          <path d="M8.5 24V13L10.5 7.5L12.5 13V24Z" {...line} />
+          <path d="M15.5 24V16.5L17.5 11L19.5 16.5V24Z" {...line} />
+          <path d="M8.5 18.5H12.5M15.5 20.5H19.5" {...line} strokeWidth={0.8} />
+          <g fill="currentColor" className="inv-draw-fill">
+            <circle cx="5.5" cy="2.6" r="1.1" />
+            <circle cx="22.5" cy="2.6" r="1.1" />
+          </g>
+        </g>
+      );
+    case "melati":
+      return (
+        <g>
+          {[0, 72, 144, 216, 288].map((angle) => (
+            <ellipse key={angle} cx="14" cy="8" rx="3.3" ry="5.4" transform={`rotate(${angle} 14 14.5)`} {...line} />
+          ))}
+          <circle cx="14" cy="14.5" r="1.8" fill="currentColor" className="inv-draw-fill" />
+        </g>
+      );
+    case "kacapi":
+      return (
+        <g>
+          {/* Tilted like a kacapi resting on the floor: a boat-shaped body with scrolled heads. */}
+          <g transform="rotate(-16 14 15)">
+            <path d="M3.5 15.5C3.5 11.5 6 9.5 9 9.5H19C22 9.5 24.5 11.5 24.5 15.5C24.5 19 22.5 21 19.5 21H8.5C5.5 21 3.5 19 3.5 15.5Z" {...line} />
+            <path d="M3.5 15.5C1 15 0.5 11.5 3 10.2M24.5 15.5C27 15 27.5 11.5 25 10.2" {...line} />
+            <path d="M7 12.3H21M7 14.3H21M7 16.3H21M7 18.3H21" {...line} strokeWidth={0.6} />
+            <path d="M9.5 11V19.8M18.5 11V19.8" {...line} strokeWidth={0.9} />
+          </g>
+        </g>
+      );
+  }
+}
+
+/** A section mark for the siger motif: the section's Sundanese icon between two gold lines. */
+function SundaSectionMark({ icon, className }: { icon: Exclude<SundaIcon, "siger">; className: string }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 120 30" className={`inv-draw mx-auto h-8 w-32 ${className}`} style={{ color: MOTIF_COLOR }}>
+      <path d="M8 16H38M82 16H112" pathLength={1} fill="none" stroke="currentColor" strokeWidth="0.9" strokeLinecap="round" opacity="0.5" />
+      <g fill="currentColor" className="inv-draw-fill" opacity="0.7">
+        <circle cx="40" cy="16" r="1.2" />
+        <circle cx="80" cy="16" r="1.2" />
+      </g>
+      <g transform="translate(46 1)">
+        <SundaIconGlyph icon={icon} />
+      </g>
+    </svg>
+  );
+}
+
 /** Jasmine strings hanging from the top edge: where each hangs (on a 110-wide box) and how long it is. */
 const MELATI_STRANDS: Array<{ x: number; length: number }> = [
   { x: 12, length: 148 },
@@ -185,12 +292,28 @@ export function CornerSprigs() {
  * The theme's small decoration: under section headings, and above the cover title for the non-line
  * motifs (`hero`). Inline SVG in the accent color, so it scales crisply and costs no request. Decorative only.
  */
-export function ThemeMotifMark({ motif, className = "", hero = false }: { motif: ThemeMotif; className?: string; hero?: boolean }) {
+export function ThemeMotifMark({
+  motif,
+  className = "",
+  hero = false,
+  section,
+}: {
+  motif: ThemeMotif;
+  className?: string;
+  hero?: boolean;
+  /** The section's id (e.g. "acara"): the siger motif shows that section's own Sundanese icon. */
+  section?: string;
+}) {
   if (motif === "line") {
     return <div aria-hidden="true" className={`mx-auto h-px w-32 ${className}`} style={{ background: "var(--inv-ornament)" }} />;
   }
-  // Above the couple's names the siger is drawn crown-sized; under headings it stays a small mark.
-  if (motif === "siger") return <SigerMark className={className} hero={hero} />;
+  if (motif === "siger") {
+    // Above the couple's names the siger is drawn crown-sized. Under a heading, the section gets its
+    // own Sundanese icon when it has one, and a small siger otherwise.
+    const icon = !hero && section ? SUNDA_SECTION_ICON[section] : undefined;
+    if (icon && icon !== "siger") return <SundaSectionMark icon={icon} className={className} />;
+    return <SigerMark className={className} hero={hero} />;
+  }
   return (
     <svg aria-hidden="true" viewBox="0 0 120 24" className={`mx-auto h-6 w-28 ${className}`} style={{ color: MOTIF_COLOR }}>
       {motif === "bow" ? (

@@ -38,6 +38,9 @@ export type CornerArt = (typeof CORNER_ARTS)[number];
 /** Frame for gallery photos. */
 export const PHOTO_SHAPES = ["rounded", "arch", "polaroid"] as const;
 export type PhotoShape = (typeof PHOTO_SHAPES)[number];
+/** Gallery layout: an even grid, or flowing columns of photos with different heights. */
+export const GALLERY_LAYOUTS = ["grid", "flow"] as const;
+export type GalleryLayout = (typeof GALLERY_LAYOUTS)[number];
 /** How cards (events, gift accounts) are drawn. */
 export const CARD_STYLES = ["soft", "ink", "pop", "lace"] as const;
 export type CardStyle = (typeof CARD_STYLES)[number];
@@ -62,6 +65,7 @@ export type ThemeStyle = {
   corners?: CornerArt;
   /** Color of the motif and corner art (e.g. gold); defaults to the accent. Decorative only, never text. */
   motifColor?: string;
+  gallery?: GalleryLayout;
 };
 
 export type InvitationTheme = {
@@ -451,7 +455,15 @@ export const INVITATION_THEMES: readonly InvitationTheme[] = [
       ornament: "linear-gradient(90deg, transparent, #b8923f, transparent)",
     },
     // Siger: the Sundanese bridal crown. Melati: the jasmine strings (ronce) that hang from it.
-    style: { headingWeight: 600, card: "soft", photo: "arch", motif: "siger", corners: "melati", motifColor: "#a17c33" },
+    style: {
+      headingWeight: 600,
+      card: "soft",
+      photo: "arch",
+      motif: "siger",
+      corners: "melati",
+      motifColor: "#a17c33",
+      gallery: "flow",
+    },
   },
 ];
 
@@ -477,6 +489,7 @@ export function themeLook(theme: InvitationTheme): Required<Omit<ThemeStyle, "la
     grain: style.grain ?? false,
     corners: style.corners ?? "none",
     motifColor: style.motifColor ?? theme.tokens.accent,
+    gallery: style.gallery ?? "grid",
   };
 }
 

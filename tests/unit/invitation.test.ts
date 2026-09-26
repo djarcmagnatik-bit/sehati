@@ -21,6 +21,7 @@ import {
   PHOTO_SHAPES,
   THEME_MOTIFS,
   CORNER_ARTS,
+  GALLERY_LAYOUTS,
   themeLook,
   themeStyle,
 } from "@/lib/invitation-themes";
@@ -106,6 +107,7 @@ describe("themes", () => {
       grain: false,
       corners: "none",
       motifColor: getTheme("elegant").tokens.accent,
+      gallery: "grid",
     });
     const style = themeStyle(getTheme("elegant"));
     expect(style["--inv-card-border"]).toBe("1px solid var(--inv-border)");
@@ -120,12 +122,19 @@ describe("themes", () => {
       expect(PHOTO_SHAPES).toContain(look.photo);
       expect(THEME_MOTIFS).toContain(look.motif);
       expect(CORNER_ARTS).toContain(look.corners);
+      expect(GALLERY_LAYOUTS).toContain(look.gallery);
     }
     expect(themeLook(getTheme("film")).grain).toBe(true);
     expect(themeLook(getTheme("coquette")).photo).toBe("arch");
     expect(themeLook(getTheme("boho")).corners).toBe("sprig");
     // Sunda: the siger crown, jasmine strings, and gold ornaments on an emerald accent.
-    expect(themeLook(getTheme("sunda"))).toMatchObject({ motif: "siger", corners: "melati", photo: "arch", motifColor: "#a17c33" });
+    expect(themeLook(getTheme("sunda"))).toMatchObject({
+      motif: "siger",
+      corners: "melati",
+      photo: "arch",
+      motifColor: "#a17c33",
+      gallery: "flow",
+    });
     expect(themeStyle(getTheme("sunda"))["--inv-motif"]).toBe("#a17c33");
     expect(themeStyle(getTheme("minimal"))["--inv-motif"]).toBe(getTheme("minimal").tokens.accent);
     expect(themeLook(getTheme("dusty-blue")).motif).toBe("sprig");

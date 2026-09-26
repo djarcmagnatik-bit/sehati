@@ -11,7 +11,7 @@ import { CornerArtLayer, ThemeMotifMark } from "@/components/invitation/public/t
 import { WishesSection, type PublicWishView } from "@/components/invitation/public/wishes";
 import { dbDateToIso, formatIsoDateLong, zonedTimeToUtcMs } from "@/lib/dates";
 import { GIFT_ACCOUNT_LABEL, SECTION_LABEL, type InvitationSectionTypeValue } from "@/lib/invitation";
-import { getTheme, themeLook, themeStyle, type PhotoShape, type ThemeMotif } from "@/lib/invitation-themes";
+import { getTheme, themeLook, themeStyle, type GalleryLayout, type PhotoShape, type ThemeMotif } from "@/lib/invitation-themes";
 import { mapEmbedUrl, mapsLink } from "@/lib/maps";
 import { instagramUrl } from "@/lib/vendors";
 import { mediaPath, mediaSrcSet } from "@/lib/media";
@@ -54,7 +54,7 @@ function SectionShell({
         {title ? (
           <h2 className="inv-display text-2xl sm:text-3xl">{title}</h2>
         ) : null}
-        {title ? <ThemeMotifMark motif={motif} className="mt-3" /> : null}
+        {title ? <ThemeMotifMark motif={motif} section={id} className="mt-3" /> : null}
         {intro ? (
           <p className="mx-auto mt-4 max-w-xl text-pretty" style={{ color: "var(--inv-muted)" }}>
             {intro}
@@ -355,21 +355,27 @@ const PHOTO_FRAME: Record<PhotoShape, { item: string; image: string; tilt: boole
   polaroid: { item: "bg-[#fbfaf7] p-2 pb-3 shadow-lg", image: "aspect-square", tilt: true },
 };
 
-function Gallery({ invitation, shape }: { invitation: PublicInvitation; shape: PhotoShape }) {
+/** Flowing layout: heights vary in a gentle rhythm, so the columns never line up into a grid. */
+const FLOW_ASPECTS = ["aspect-[3/4]", "aspect-[4/5]", "aspect-square", "aspect-[4/5]", "aspect-[2/3]"];
+
+function Gallery({ invitation, shape, layout }: { invitation: PublicInvitation; shape: PhotoShape; layout: GalleryLayout }) {
   if (invitation.gallery.length === 0) return null;
   const frame = PHOTO_FRAME[shape];
+  const flow = layout === "flow";
   return (
-    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+    // inv-stagger: when the section scrolls into view, the photos arrive one after another.
+    <ul className={`inv-stagger ${flow ? "columns-2 gap-3 sm:columns-3" : "grid grid-cols-2 gap-3 sm:grid-cols-3"}`}>
       {invitation.gallery.map((image, index) => (
         <li
           key={image.id}
-          className={frame.item}
+          className={`${frame.item} ${flow ? "group mb-3 break-inside-avoid" : ""}`}
           style={{
             background: shape === "polaroid" ? undefined : "var(--inv-accent-soft)",
             transform: frame.tilt ? `rotate(${index % 2 === 0 ? -2 : 1.5}deg)` : undefined,
+            ["--i" as string]: Math.min(index, 8),
           }}
         >
-          <figure>
+          <figure className={flow ? "relative" : undefined}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={mediaPath(image.assetId, image.widths.length > 0 ? 480 : undefined)}
@@ -380,8 +386,20 @@ function Gallery({ invitation, shape }: { invitation: PublicInvitation; shape: P
               height={image.height}
               loading="lazy"
               decoding="async"
-              className={`${frame.image} w-full object-cover`}
+              className={
+                flow
+                  ? `${FLOW_ASPECTS[index % FLOW_ASPECTS.length]} w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]`
+                  : `${frame.image} w-full object-cover`
+              }
             />
+            {flow ? (
+              // A thin line in the motif color just inside the frame, following its shape.
+              <span
+                aria-hidden="true"
+                className={`pointer-events-none absolute inset-1.5 border ${shape === "arch" ? "rounded-t-full rounded-b-[calc(var(--inv-radius)-4px)]" : "rounded-[calc(var(--inv-radius)-4px)]"}`}
+                style={{ borderColor: "color-mix(in srgb, var(--inv-motif) 70%, transparent)" }}
+              />
+            ) : null}
             {image.caption ? (
               <figcaption
                 className={`inv-label px-2 py-2 text-xs ${shape === "polaroid" ? "text-left" : ""}`}
@@ -518,7 +536,7 @@ function SectionBody({
       if (invitation.gallery.length === 0) return null;
       return (
         <SectionShell motif={look.motif} id="galeri" title="Galeri" intro={intro}>
-          <Gallery invitation={invitation} shape={look.photo} />
+          <Gallery invitation={invitation} shape={look.photo} layout={look.gallery} />
         </SectionShell>
       );
     case "LOCATION":

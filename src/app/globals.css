@@ -140,6 +140,40 @@
       transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) 0.18s;
   }
 
+  /* Gallery photos arrive one after another (--i is the photo's index, capped). */
+  .inv-reveal-pending .inv-stagger > * {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  .inv-reveal-in .inv-stagger > * {
+    transition:
+      opacity 0.8s ease,
+      transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+    transition-delay: calc(0.25s + var(--i, 0) * 0.09s);
+  }
+
+  /*
+   * Line icons draw themselves once. Paths carry pathLength="1", so one dash covers any path. They
+   * wait while their section is still hidden or the opening cover is up, then play as it appears.
+   */
+  .inv-draw [pathLength] {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: inv-draw 1.6s cubic-bezier(0.4, 0, 0.2, 1) 0.35s both;
+  }
+
+  .inv-draw .inv-draw-fill {
+    animation: inv-fade-in 0.8s ease 1.3s both;
+  }
+
+  .inv-reveal-pending .inv-draw [pathLength],
+  .inv-reveal-pending .inv-draw .inv-draw-fill,
+  html[data-inv-gate="closed"] .inv-draw [pathLength],
+  html[data-inv-gate="closed"] .inv-draw .inv-draw-fill {
+    animation-play-state: paused;
+  }
+
   /* Film grain for themes that ask for it; an inline SVG noise tile, allowed by img-src data:. */
   .inv-grain {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
@@ -175,6 +209,18 @@
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+@keyframes inv-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes inv-fade-in {
+  from {
+    opacity: 0;
   }
 }
 
